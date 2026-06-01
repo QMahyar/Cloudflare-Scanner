@@ -1,6 +1,8 @@
 # Cloudflare Scanner
 
-** اسکنر اندپوینت و آی‌پی واپ کلاودفلر** — یک ابزار دسکتاپ ویندوز که محدوده آی‌پی‌های کلاودفلر را اسکن می‌کند تا اندپوینت‌های working واپ را پیدا کند. از [xray-core](https://github.com/XTLS/Xray-core) برای WireGuard با نویز UDP استفاده می‌کند — زمانی مفید است که ISP شما ترافیک استاندارد واپ را مسدود کرده باشد.
+**اسکنر اندپوینت و آی‌پی واپ کلاودفلر** — یک ابزار دسکتاپ ویندوز که محدوده آی‌پی‌های کلاودفلر را اسکن می‌کند تا اندپوینت‌های working واپ را پیدا کند. از [xray-core](https://github.com/XTLS/Xray-core) برای WireGuard با نویز UDP استفاده می‌کند — زمانی مفید است که ISP شما ترافیک استاندارد واپ را مسدود کرده باشد.
+
+> [English version](README.md)
 
 ## ویژگی‌ها
 
@@ -27,11 +29,15 @@
 
 ## کامپایل از سورس
 
+نیاز به **Go 1.26+** دارد (کامپایلر C لازم نیست):
+
 ```powershell
+git clone https://github.com/QMahyar/Cloudflare-Scanner.git
+cd Cloudflare-Scanner
 go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
 ```
 
-نیاز به Go 1.26+ دارد. کامپایلر C لازم نیست.
+برای راهنمای کامل کامپایل، ساختار پروژه و مستندات معماری به [BUILD.fa.md](BUILD.fa.md) مراجعه کنید.
 
 ## استفاده
 

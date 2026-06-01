@@ -1,5 +1,7 @@
 # Building & Technical Guide
 
+> [نسخه فارسی](BUILD.fa.md)
+
 ## Prerequisites
 
 - **Go 1.26+** (download from [go.dev](https://go.dev/dl/))
