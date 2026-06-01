@@ -3,6 +3,15 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g. 1.1.0)'
+        required: true
+      description:
+        description: 'Release notes (markdown)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -22,17 +31,30 @@ jobs:
       - name: Build
         run: go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
 
-      - name: Create Release
+      # ── Manual dispatch ──
+      - name: Create Release (manual)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v${{ inputs.version }}"
+          $title = "Cloudflare Scanner $tag"
+          $body = "${{ inputs.description }}"
+          if ($body -eq "") { $body = "Release $tag" }
+          $bodyFile = "$env:RUNNER_TEMP\release-body.md"
+          $body | Out-File -FilePath $bodyFile -Encoding utf8
+          gh release create $tag --target ${{ github.sha }} --title "$title" --notes-file $bodyFile
+          gh release upload $tag Cloudflare-Scanner.exe --clobber
+
+      # ── Tag push ──
+      - name: Create Release (tag)
+        if: github.event_name != 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           name: Cloudflare Scanner ${{ github.ref_name }}
           body: |
             ## Cloudflare Scanner ${{ github.ref_name }}
 
-            ### Changes
-            See the [commit log](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}) for details.
-
-            ### Usage
             Download `Cloudflare-Scanner.exe`, place it anywhere, and run it.
             xray-core will be auto-downloaded on first launch.
           files: Cloudflare-Scanner.exe
