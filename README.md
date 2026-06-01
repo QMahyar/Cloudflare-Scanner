@@ -1,42 +1,43 @@
-# Warp Endpoint Scanner
+# Cloudflare Scanner
 
-A Windows GUI tool that scans Cloudflare Warp endpoints to find fast, working ones. Uses [xray-core](https://github.com/XTLS/Xray-core) for UDP noise support — useful when your ISP blocks standard WireGuard Warp traffic.
+**Cloudflare Warp endpoint + IP scanner** — a Windows desktop tool that scans Cloudflare's IP range to find working Warp endpoints. Uses [xray-core](https://github.com/XTLS/Xray-core) for WireGuard with UDP noise, useful when your ISP blocks standard Warp traffic.
+
+> [نسخه فارسی](README.fa.md)
 
 ## Features
 
-- **Scans Cloudflare Warp IPs** — generates random IPv4/IPv6 endpoints and tests each one
-- **UDP noise support** — random padding + delays to evade DPI-based blocking
-- **Batch apply** — takes a working endpoint and applies it to multiple config files at once
-- **Live results** — see endpoints appear in real time as they pass the handshake check
-- **Web GUI** — clean browser interface, no separate UI framework needed
-- **Self-contained** — single `.exe`, auto-downloads xray-core if missing
+- **Endpoint scanning** — generates random Cloudflare IPv4/IPv6 endpoints and tests each one
+- **UDP noise** — random padding + delays to evade DPI-based blocking
+- **Live results** — working endpoints appear in real time as they pass the handshake
+- **Batch apply** — pick a working endpoint and apply it to multiple config files at once
+- **Web GUI** — clean browser interface served by the app itself, no extra dependencies
+- **Self-contained** — single `.exe`, auto-downloads xray-core on first run
+- **Cancellable** — stop, resume, or reset scans at any time
 
 ## How it works
 
 1. Pick your WireGuard `.conf` file (standard Warp or Hogwarts-style with extra fields)
-2. Configure scan depth, IP version, and noise settings
-3. Click Start — the server tests endpoints in parallel using xray-core's WireGuard implementation
-4. Apply a working endpoint to your configs with one click
+2. Set scan depth, IP version (IPv4/IPv6/both), and toggle UDP noise
+3. Click **Start Scan** — the server tests endpoints in parallel using xray-core's WireGuard implementation behind a custom SOCKS5 proxy
+4. Watch results appear live — each endpoint's latency and status shows immediately
+5. Click an endpoint to copy it, then use **Apply Endpoint** to batch-update multiple config files
+6. Modified configs are saved to your chosen output folder
 
-## Getting Warp Configs
+## Getting configs
 
-See the **Getting Warp Configs** section inside the app for a curated list of:
-- Online generators (warp-generator.github.io, lanrat.github.io, warp-mirrors.vercel.app, and more)
-- Telegram bots (@warp_generator_bot, @WarpGenerator_bot, and channels)
-- CLI tools (ViRb3/wgcf, bash-warp-generator, etc.)
-- Client apps (Amnezia VPN, WireSock, WG Tunnel, 1.1.1.1, NekoBox)
+The app includes a curated help section with links to online generators, Telegram bots/channels, CLI tools, and client apps. Or see the [Warp config resources](https://github.com/QMahyar/Cloudflare-Scanner/wiki) wiki.
 
-## Building
+## Building from source
 
 ```powershell
-go build -ldflags="-s -w" -o WarpEndpointScanner.exe .
+go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
 ```
 
 Requires Go 1.26+. No C compiler needed.
 
 ## Usage
 
-Run `WarpEndpointScanner.exe`. It opens your browser to `http://127.0.0.1:<port>`. Close the terminal window to stop the server.
+Run `Cloudflare-Scanner.exe`. It opens your browser to `http://127.0.0.1:<port>`. Close the terminal window to stop the server.
 
 ## License
 
