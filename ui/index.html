@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Warp Endpoint Scanner</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#e6edf3;padding:20px;min-height:100vh}
+.container{max-width:800px;margin:0 auto}
+h1{font-size:24px;font-weight:600;margin-bottom:4px;color:#58a6ff}
+.subtitle{color:#8b949e;font-size:14px;margin-bottom:24px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:16px}
+.card h2{font-size:16px;font-weight:600;margin-bottom:12px;color:#f0f6fc}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.row:last-child{margin-bottom:0}
+.col{flex:1;min-width:150px}
+label{display:block;font-size:12px;color:#8b949e;margin-bottom:4px;font-weight:500}
+.file-input-wrap{display:inline-flex;width:100%}
+.file-input-wrap input[type="file"]{display:none}
+.file-input-wrap .file-label{display:flex;align-items:center;gap:8px;padding:8px 16px;background:#21262d;border:1px solid #30363d;border-radius:6px;font-size:14px;color:#e6edf3;cursor:pointer;transition:.2s;width:100%}
+.file-input-wrap .file-label:hover{border-color:#58a6ff}
+.file-input-wrap .file-label.selected{border-color:#3fb950;background:#1b2d1f}
+input[type="text"],select{padding:8px 12px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:14px;width:100%;outline:none;transition:.2s}
+input[type="text"]:focus,select:focus{border-color:#58a6ff}
+.toggle-wrap{display:flex;align-items:center;gap:8px;padding:8px 0}
+.toggle{position:relative;width:40px;height:22px;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0}
+.toggle .slider{position:absolute;inset:0;background-color:#30363d;border-radius:22px;transition:.3s}
+.toggle .slider::before{content:"";position:absolute;height:16px;width:16px;left:3px;bottom:3px;background-color:#8b949e;border-radius:50%;transition:.3s}
+.toggle input:checked+.slider{background-color:#1f6feb}
+.toggle input:checked+.slider::before{background-color:#fff;transform:translateX(18px)}
+.toggle-label{font-size:13px}
+.btn{padding:10px 24px;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;transition:.2s}
+.btn-primary{background:#238636;color:#fff}
+.btn-primary:hover{background:#2ea043}
+.btn-primary:disabled{background:#23863644;color:#fff8;cursor:not-allowed}
+.btn-danger{background:#da3633;color:#fff}
+.btn-danger:hover{background:#f85149}
+.btn-danger:disabled{background:#da363344;color:#fff8;cursor:not-allowed}
+.btn-secondary{background:#21262d;color:#e6edf3;border:1px solid #30363d}
+.btn-secondary:hover{background:#30363d}
+.btn-secondary:disabled{background:#21262d44;color:#fff8;cursor:not-allowed}
+.btn-accent{background:#1f6feb;color:#fff}
+.btn-accent:hover{background:#388bfd}
+.btn-accent:disabled{background:#1f6feb44;color:#fff8;cursor:not-allowed}
+.btn-sm{padding:4px 12px;font-size:12px}
+.btn-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.btn-bar .btn{flex:1;min-width:100px;text-align:center}
+.progress-wrap{margin:16px 0;display:none}
+.progress-wrap.active{display:block}
+.progress-bar{height:8px;background:#21262d;border-radius:4px;overflow:hidden;margin-bottom:8px}
+.progress-fill{height:100%;width:0%;background:#238636;border-radius:4px;transition:width .3s}
+.progress-fill.cancelled{background:#da3633}
+.progress-text{font-size:13px;color:#8b949e}
+.results-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+.results-table th{padding:8px 12px;text-align:left;color:#8b949e;font-weight:500;border-bottom:1px solid #30363d}
+.results-table td{padding:8px 12px;border-bottom:1px solid #21262d}
+.results-table tr:last-child td{border-bottom:none}
+.badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.badge-ok{background:#1b2d1f;color:#3fb950}
+.badge-fail{background:#2d1b1b;color:#f85149}
+.empty-state{text-align:center;padding:40px;color:#8b949e}
+.hidden{display:none}
+.error-msg{color:#f85149;font-size:13px;margin-top:8px}
+.success-msg{color:#3fb950;font-size:13px;margin-top:8px}
+.results-actions{display:flex;gap:8px;margin-top:12px}
+.tag{display:inline-block;background:#21262d;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:13px}
+.help-link{color:#58a6ff;text-decoration:none}
+.help-link:hover{text-decoration:underline}
+.app-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:8px}
+.app-card{background:#21262d;border:1px solid #30363d;border-radius:6px;padding:14px;transition:.2s}
+.app-card:hover{border-color:#58a6ff}
+.app-card h3{font-size:14px;color:#f0f6fc;margin-bottom:4px}
+.app-card p{font-size:12px;color:#8b949e;margin-bottom:8px}
+.app-card .os-tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:#1f6feb33;color:#58a6ff;margin-right:4px}
+.live-count{font-size:13px;color:#3fb950;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Warp Endpoint Scanner</h1>
+  <p class="subtitle">Test Cloudflare Warp endpoints &amp; batch-apply to configs</p>
+
+  <div class="card">
+    <h2>Config</h2>
+    <div class="row">
+      <div class="col">
+        <label>WireGuard config file (.conf)</label>
+        <label class="file-input-wrap" for="configFile">
+          <input type="file" id="configFile" accept=".conf,.txt">
+          <div class="file-label" id="fileLabel">Choose config...</div>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Settings</h2>
+    <div class="row">
+      <div class="col">
+        <label>Scan depth</label>
+        <select id="scanDepth">
+          <option value="100">Quick (100 endpoints)</option>
+          <option value="500" selected>Normal (500 endpoints)</option>
+          <option value="1000">Deep (1000 endpoints)</option>
+          <option value="5000">Insane (5000 endpoints)</option>
+          <option value="10000">Massive (10000 endpoints)</option>
+          <option value="50000">Absolutely Insane (50000 endpoints)</option>
+          <option value="0">Custom</option>
+        </select>
+        <div id="customCountWrap" class="hidden" style="margin-top:8px">
+          <input type="text" id="customCount" placeholder="Enter count" value="">
+        </div>
+      </div>
+      <div class="col">
+        <label>IP version</label>
+        <select id="ipVersion">
+          <option value="4" selected>IPv4 only</option>
+          <option value="6">IPv6 only</option>
+          <option value="46">IPv4 + IPv6</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label>Results to show</label>
+        <input type="text" id="outCount" value="0">
+      </div>
+      <div class="col">
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="noiseToggle" checked>
+            <span class="slider"></span>
+          </label>
+          <span class="toggle-label">UDP Noise (bypass ISP blocking)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-bar">
+    <button class="btn btn-primary" id="startBtn" onclick="startScan()" disabled>Start Scan</button>
+    <button class="btn btn-danger" id="stopBtn" onclick="stopScan()" disabled>Stop</button>
+    <button class="btn btn-secondary" id="rescanBtn" onclick="rescan()" disabled>Rescan</button>
+    <button class="btn btn-secondary" id="resetBtn" onclick="resetAll()">Reset</button>
+  </div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="progress-text" id="progressText">0 / 0 endpoints tested</div>
+  </div>
+
+  <div class="card" id="resultsCard">
+    <h2>Results</h2>
+    <div class="empty-state" id="emptyState">
+      <p>Select a config and start scanning</p>
+    </div>
+    <div id="resultsContent" class="hidden"></div>
+    <div id="liveCount" class="live-count hidden"></div>
+  </div>
+
+  <div class="card" id="applyCard">
+    <h2>Apply Endpoint to Configs</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:12px">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
+    <div class="row">
+      <div class="col" style="flex:2">
+        <label>Endpoint to apply</label>
+        <input type="text" id="applyEndpoint" placeholder="e.g. 162.159.192.1:2408" value="">
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label>Config files to update (select multiple)</label>
+        <label class="file-input-wrap" for="applyConfigs">
+          <input type="file" id="applyConfigs" accept=".conf,.txt" multiple>
+          <div class="file-label" id="applyFileLabel">Choose config(s)...</div>
+        </label>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label>Output folder path (leave empty to save next to .exe)</label>
+        <input type="text" id="outputDirPath" placeholder="e.g. E:\vpn\WG Configs\modified" value="">
+      </div>
+    </div>
+    <button class="btn btn-accent" id="applyBtn" onclick="handleApplyEndpoint()" disabled>Generate Configs</button>
+    <div id="applyStatus" style="margin-top:12px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Getting Warp Configs</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:12px">Where to get WireGuard configs for Cloudflare Warp:</p>
+
+    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px;margin-top:4px">Online Generators</h3>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      <div><a class="help-link" href="https://warp-generator.github.io/warp/" target="_blank" rel="noopener">&rarr; warp-generator.github.io/warp/</a> <span style="font-size:12px;color:#8b949e">— configs with license key, multiple formats</span></div>
+      <div><a class="help-link" href="https://lanrat.github.io/wireguard-warp-generator/" target="_blank" rel="noopener">&rarr; lanrat.github.io/wireguard-warp-generator/</a> <span style="font-size:12px;color:#8b949e">— browser-based, client-side, QR support</span></div>
+      <div><a class="help-link" href="https://warp-mirrors.vercel.app/" target="_blank" rel="noopener">&rarr; warp-mirrors.vercel.app</a> <span style="font-size:12px;color:#8b949e">— multi-server generator (WG, AWG, WireSock, Clash)</span></div>
+      <div><a class="help-link" href="https://warp.llimonix.pw/" target="_blank" rel="noopener">&rarr; warp.llimonix.pw</a> <span style="font-size:12px;color:#8b949e">— region-specific servers, Telegram auth for extras</span></div>
+      <div><a class="help-link" href="https://warpper.me/" target="_blank" rel="noopener">&rarr; warpper.me</a> <span style="font-size:12px;color:#8b949e">— clean UI, generates WG/AWG configs</span></div>
+      <div><a class="help-link" href="https://warp-gen.vercel.app/" target="_blank" rel="noopener">&rarr; warp-gen.vercel.app</a> <span style="font-size:12px;color:#8b949e">— online WG config generator</span></div>
+      <div><a class="help-link" href="https://warp-vless.vercel.app/" target="_blank" rel="noopener">&rarr; warp-vless.vercel.app</a> <span style="font-size:12px;color:#8b949e">— VLESS/Warp generator</span></div>
+    </div>
+
+    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px">Telegram</h3>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      <div><a class="help-link" href="https://t.me/warp_generator_bot" target="_blank" rel="noopener">&rarr; @warp_generator_bot</a> <span style="font-size:12px;color:#8b949e">— 54k+ users, generates WG/AWG configs, region selection</span></div>
+      <div><a class="help-link" href="https://t.me/WarpGenerator_bot" target="_blank" rel="noopener">&rarr; @WarpGenerator_bot</a> <span style="font-size:12px;color:#8b949e">— WireGuard + AmneziaWG config generator</span></div>
+      <div><a class="help-link" href="https://github.com/cat228608/Warp-Generator-Bot" target="_blank" rel="noopener">&rarr; Warp-Generator-Bot (GitHub)</a> <span style="font-size:12px;color:#8b949e">— open-source bot, uses 3 API sources</span></div>
+      <div><a class="help-link" href="https://t.me/ConfigWireguard" target="_blank" rel="noopener">&rarr; @ConfigWireguard</a> <span style="font-size:12px;color:#8b949e">— 20k+ subs, shares Warp/WireGuard configs daily</span></div>
+      <div><a class="help-link" href="https://t.me/str_bypass" target="_blank" rel="noopener">&rarr; str_bypass</a> <span style="font-size:12px;color:#8b949e">— Warp config channel</span></div>
+      <div><a class="help-link" href="https://t.me/findllimonix" target="_blank" rel="noopener">&rarr; @findllimonix</a> <span style="font-size:12px;color:#8b949e">— llimonix/Warp updates channel</span></div>
+    </div>
+
+    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px">CLI Tools</h3>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+      <div><a class="help-link" href="https://github.com/ViRb3/wgcf" target="_blank" rel="noopener">&rarr; ViRb3/wgcf</a> <span style="font-size:12px;color:#8b949e">— the classic CLI generator, register + generate from terminal</span></div>
+      <div><a class="help-link" href="https://github.com/lanrat/wireguard-warp-generator" target="_blank" rel="noopener">&rarr; lanrat/wireguard-warp-generator</a> <span style="font-size:12px;color:#8b949e">— shell scripts, QR code for mobile</span></div>
+      <div><a class="help-link" href="https://github.com/AnimMouse/wgcf-connector" target="_blank" rel="noopener">&rarr; AnimMouse/wgcf-connector</a> <span style="font-size:12px;color:#8b949e">— extracts WARP Connector configs for site-to-site VPN</span></div>
+      <div><a class="help-link" href="https://gitlab.com/ImMALWARE/bash-warp-generator" target="_blank" rel="noopener">&rarr; ImMALWARE/bash-warp-generator</a> <span style="font-size:12px;color:#8b949e">— bash script for AmneziaWG Warp configs</span></div>
+      <div><a class="help-link" href="https://github.com/barry-far/V2ray-Config" target="_blank" rel="noopener">&rarr; barry-far/V2ray-Config</a> <span style="font-size:12px;color:#8b949e">— GitHub repo with free V2ray/Warp configs</span></div>
+    </div>
+
+    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px">Client Apps</h3>
+    <div class="app-grid">
+      <div class="app-card">
+        <h3>Amnezia VPN</h3>
+        <div><span class="os-tag">Windows</span><span class="os-tag">Android</span><span class="os-tag">iOS</span></div>
+        <p>Open-source, built-in Warp config generator, split tunneling, containers.</p>
+        <a class="help-link" href="https://amnezia.org/" target="_blank" rel="noopener">amnezia.org &rarr;</a>
+      </div>
+      <div class="app-card">
+        <h3>WireSock</h3>
+        <div><span class="os-tag">Windows</span></div>
+        <p>Lightweight WireGuard client, advanced routing, DNS control, split tunneling.</p>
+        <a class="help-link" href="https://www.wiresock.net/" target="_blank" rel="noopener">wiresock.net &rarr;</a>
+      </div>
+      <div class="app-card">
+        <h3>WG Tunnel</h3>
+        <div><span class="os-tag">Android</span></div>
+        <p>Minimal WireGuard client, battery-friendly, config import/export.</p>
+        <a class="help-link" href="https://github.com/zaneschepke/wgtunnel" target="_blank" rel="noopener">github.com/zaneschepke/wgtunnel &rarr;</a>
+      </div>
+      <div class="app-card">
+        <h3>1.1.1.1 + WARP</h3>
+        <div><span class="os-tag">Windows</span><span class="os-tag">Android</span><span class="os-tag">iOS</span><span class="os-tag">macOS</span></div>
+        <p>Official Cloudflare app. Auto-setup, less control, 1.1.1.1 DNS included.</p>
+        <a class="help-link" href="https://1.1.1.1/" target="_blank" rel="noopener">1.1.1.1 &rarr;</a>
+      </div>
+      <div class="app-card">
+        <h3>NekoBox / Sing-box</h3>
+        <div><span class="os-tag">Windows</span><span class="os-tag">Android</span></div>
+        <p>Universal proxy platform. Route Warp through other protocols (VMess, VLESS, Trojan).</p>
+        <a class="help-link" href="https://github.com/MatsuriDayo/NekoBoxForWindows" target="_blank" rel="noopener">NekoBox &rarr;</a>
+      </div>
+      <div class="app-card">
+        <h3>v2rayNG</h3>
+        <div><span class="os-tag">Android</span></div>
+        <p>Popular Android proxy client. Can use Warp as outbound via custom configs.</p>
+        <a class="help-link" href="https://github.com/2dust/v2rayNG" target="_blank" rel="noopener">v2rayNG &rarr;</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const fileInput = document.getElementById('configFile');
+const fileLabel = document.getElementById('fileLabel');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const rescanBtn = document.getElementById('rescanBtn');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressText = document.getElementById('progressText');
+const resultsContent = document.getElementById('resultsContent');
+const emptyState = document.getElementById('emptyState');
+const liveCount = document.getElementById('liveCount');
+const applyEndpoint = document.getElementById('applyEndpoint');
+const applyConfigs = document.getElementById('applyConfigs');
+const applyFileLabel = document.getElementById('applyFileLabel');
+const applyBtn = document.getElementById('applyBtn');
+const applyStatus = document.getElementById('applyStatus');
+
+let currentJobId = null;
+let statusInterval = null;
+let resultsInterval = null;
+
+fileInput.addEventListener('change', function() {
+  if (this.files.length > 0) {
+    fileLabel.textContent = this.files[0].name;
+    fileLabel.classList.add('selected');
+    startBtn.disabled = false;
+  } else {
+    fileLabel.textContent = 'Choose config...';
+    fileLabel.classList.remove('selected');
+    startBtn.disabled = true;
+  }
+});
+
+applyConfigs.addEventListener('change', function() {
+  if (this.files.length > 0) {
+    applyFileLabel.textContent = this.files.length + ' config(s) selected';
+    applyFileLabel.classList.add('selected');
+  } else {
+    applyFileLabel.textContent = 'Choose config(s)...';
+    applyFileLabel.classList.remove('selected');
+  }
+  updateApplyBtn();
+});
+
+applyEndpoint.addEventListener('input', updateApplyBtn);
+document.getElementById('outputDirPath').addEventListener('input', updateApplyBtn);
+
+function updateApplyBtn() {
+  applyBtn.disabled = !(applyEndpoint.value.trim() && applyConfigs.files.length > 0);
+}
+
+document.getElementById('scanDepth').addEventListener('change', function() {
+  document.getElementById('customCountWrap').classList.toggle('hidden', this.value !== '0');
+});
+
+async function startScan() {
+  if (!fileInput.files.length) return;
+
+  currentJobId = null;
+  resultsContent.classList.add('hidden');
+  liveCount.classList.add('hidden');
+  emptyState.classList.add('hidden');
+
+  startBtn.disabled = true;
+  startBtn.textContent = 'Scanning...';
+  stopBtn.disabled = false;
+  rescanBtn.disabled = true;
+  progressWrap.classList.add('active');
+
+  const depth = document.getElementById('scanDepth');
+  let count = parseInt(depth.value);
+  if (depth.value === '0') {
+    count = parseInt(document.getElementById('customCount').value) || 100;
+    if (count < 1) count = 100;
+  }
+
+  const ipVer = document.getElementById('ipVersion').value;
+  const params = {
+    noise: document.getElementById('noiseToggle').checked,
+    ipv4: ipVer === '4' || ipVer === '46',
+    ipv6: ipVer === '6' || ipVer === '46',
+    count: count,
+    outCount: parseInt(document.getElementById('outCount').value) || 0
+  };
+
+  const formData = new FormData();
+  formData.append('config', fileInput.files[0]);
+  formData.append('params', JSON.stringify(params));
+
+  try {
+    const data = await apiJSON('/api/scan', { method: 'POST', body: formData });
+    currentJobId = data.id;
+    const total = parseInt(data.total);
+    pollStatus(currentJobId, total);
+    pollResults(currentJobId);
+  } catch (e) {
+    showError('Failed to start scan: ' + e.message);
+    setButtonsIdle();
+  }
+}
+
+async function stopScan() {
+  if (!currentJobId) return;
+  stopBtn.disabled = true;
+  try {
+    await fetch('/api/stop/' + currentJobId, { method: 'POST' });
+  } catch (e) {}
+}
+
+async function rescan() {
+  startScan();
+}
+
+function resetAll() {
+  if (statusInterval) clearInterval(statusInterval);
+  if (resultsInterval) clearInterval(resultsInterval);
+  statusInterval = null;
+  resultsInterval = null;
+  currentJobId = null;
+  resultsContent.classList.add('hidden');
+  liveCount.classList.add('hidden');
+  emptyState.classList.remove('hidden');
+  progressWrap.classList.remove('active');
+  progressFill.style.width = '0%';
+  progressFill.classList.remove('cancelled');
+  progressText.textContent = '0 / 0 endpoints tested';
+  setButtonsIdle();
+  startBtn.disabled = !(fileInput.files.length > 0);
+}
+
+async function apiJSON(url, opts) {
+  const resp = await fetch(url, opts);
+  const data = await resp.json();
+  if (!resp.ok) {
+    throw new Error(data.error || resp.statusText);
+  }
+  return data;
+}
+
+function setButtonsIdle() {
+  startBtn.disabled = !(fileInput.files.length > 0);
+  startBtn.textContent = 'Start Scan';
+  stopBtn.disabled = true;
+  const hasResults = resultsContent.innerHTML !== '' && !resultsContent.classList.contains('hidden');
+  rescanBtn.disabled = !(currentJobId || hasResults);
+}
+
+function setScanDone() {
+  stopBtn.disabled = true;
+  rescanBtn.disabled = false;
+  startBtn.disabled = !(fileInput.files.length > 0);
+  startBtn.textContent = 'Start Scan';
+}
+
+async function pollStatus(jobId, total) {
+  if (statusInterval) clearInterval(statusInterval);
+  statusInterval = setInterval(async () => {
+    try {
+      const data = await apiJSON('/api/status/' + jobId);
+      const pct = total > 0 ? Math.round((data.progress / total) * 100) : 0;
+      progressFill.style.width = pct + '%';
+      progressText.textContent = data.progress + ' / ' + total + ' endpoints tested';
+
+      if (data.status === 'done' || data.status === 'cancelled') {
+        clearInterval(statusInterval);
+        statusInterval = null;
+        if (resultsInterval) clearInterval(resultsInterval);
+        resultsInterval = null;
+        if (data.status === 'cancelled') {
+          progressFill.classList.add('cancelled');
+        }
+        fetchResults(jobId);
+        setScanDone();
+      }
+    } catch (e) {
+      clearInterval(statusInterval);
+      statusInterval = null;
+    }
+  }, 300);
+}
+
+async function pollResults(jobId) {
+  if (resultsInterval) clearInterval(resultsInterval);
+  resultsInterval = setInterval(async () => {
+    try {
+      const data = await apiJSON('/api/results/' + jobId);
+      if (data.total > 0) {
+        renderResultsTable(data, jobId, true);
+        liveCount.textContent = data.total + ' working endpoint(s) found so far';
+        liveCount.classList.remove('hidden');
+      }
+    } catch (e) {}
+  }, 1500);
+}
+
+function renderResultsTable(data, jobId, isLive) {
+  let html = '<table class="results-table">';
+  html += '<tr><th>#</th><th>Endpoint</th><th>Latency</th><th></th></tr>';
+  data.entries.forEach((e, i) => {
+    const ep = e.endpoint;
+    html += '<tr><td>' + (i+1) + '</td><td><span class="tag">' + ep + '</span></td><td>' + e.latency + '</td>';
+    html += '<td><button class="btn btn-secondary btn-sm" onclick="useEndpoint(\'' + ep.replace(/'/g, "\\'") + '\')">Use</button></td>';
+    html += '</tr>';
+  });
+  html += '</table>';
+
+  if (!isLive) {
+    html += '<div class="results-actions">';
+    html += '<button class="btn btn-secondary btn-sm" onclick="copyAllEndpoints(\'' + jobId + '\')">Copy All</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="downloadRaw(\'' + jobId + '\')">Download Raw</button>';
+    html += '</div>';
+    const label = data.status === 'cancelled' ? 'Scan cancelled' : 'Found ' + data.total + ' working endpoints (scanned ' + data.scanned + ')';
+    html += '<div class="' + (data.status === 'cancelled' ? 'error-msg' : 'success-msg') + '">' + label + '</div>';
+  }
+
+  resultsContent.innerHTML = html;
+  resultsContent.classList.remove('hidden');
+}
+
+async function fetchResults(jobId) {
+  try {
+    const data = await apiJSON('/api/results/' + jobId);
+    if (data.total === 0) {
+      resultsContent.innerHTML = '<div class="empty-state"><p>No working endpoints found. Try enabling noise, switching IP version, or increasing scan depth.</p></div>';
+      resultsContent.classList.remove('hidden');
+      liveCount.classList.add('hidden');
+      return;
+    }
+    renderResultsTable(data, jobId, false);
+    liveCount.classList.add('hidden');
+  } catch (e) {
+    showError('Failed to load results');
+  }
+}
+
+function useEndpoint(ep) {
+  applyEndpoint.value = ep;
+  updateApplyBtn();
+  document.getElementById('applyCard').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function copyAllEndpoints(jobId) {
+  const data = await apiJSON('/api/results/' + jobId);
+  const text = data.raw.map(r => r.endpoint).join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+}
+
+async function downloadRaw(jobId) {
+  const data = await apiJSON('/api/results/' + jobId);
+  let text = '# Warp Working Endpoints\n# Generated by WarpEndpointScanner\n\n';
+  data.raw.forEach(r => { text += r.endpoint + '\n'; });
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'warp_endpoints.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function handleApplyEndpoint() {
+  const endpoint = document.getElementById('applyEndpoint').value.trim();
+  if (!endpoint || !applyConfigs.files.length) return;
+
+  applyBtn.disabled = true;
+  applyBtn.textContent = 'Generating...';
+  applyStatus.innerHTML = '';
+
+  const formData = new FormData();
+  formData.append('endpoint', endpoint);
+  formData.append('output_dir', document.getElementById('outputDirPath').value.trim());
+  for (const f of applyConfigs.files) {
+    formData.append('configs', f);
+  }
+
+  try {
+    const data = await apiJSON('/api/apply-endpoint', { method: 'POST', body: formData });
+    let html = '<div class="success-msg">Generated ' + data.saved + '/' + data.total + ' configs</div>';
+    html += '<table class="results-table" style="margin-top:8px">';
+    html += '<tr><th>File</th><th>Status</th></tr>';
+    data.results.forEach(r => {
+      if (r.error) {
+        html += '<tr><td>' + r.name + '</td><td style="color:#f85149">' + r.error + '</td></tr>';
+      } else {
+        html += '<tr><td>' + r.name + '</td><td style="color:#3fb950">&#10003; ' + r.path + '</td></tr>';
+      }
+    });
+    html += '</table>';
+    applyStatus.innerHTML = html;
+  } catch (e) {
+    applyStatus.innerHTML = '<div class="error-msg">' + e.message + '</div>';
+  }
+
+  applyBtn.disabled = false;
+  applyBtn.textContent = 'Generate Configs';
+}
+
+function showError(msg) {
+  resultsContent.innerHTML = '<div class="error-msg">' + msg + '</div>';
+  resultsContent.classList.remove('hidden');
+}
+</script>
+</body>
+</html>

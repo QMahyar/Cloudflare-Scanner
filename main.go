@@ -1,0 +1,67 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+)
+
+func main() {
+	exePath, _ := os.Executable()
+	workDir := filepath.Dir(exePath)
+	xrayPath := filepath.Join(workDir, "xray.exe")
+
+	if _, err := os.Stat(xrayPath); os.IsNotExist(err) {
+		fmt.Print("Xray-core not found. Downloading... ")
+		dlPath, err := DownloadXray(workDir)
+		if err != nil {
+			fmt.Printf("FAILED: %v\n", err)
+			fmt.Println("Download manually from: https://github.com/XTLS/Xray-core/releases")
+			fmt.Println("Place xray.exe next to this executable.")
+			os.Exit(1)
+		}
+		xrayPath = dlPath
+		fmt.Println("OK")
+	}
+
+	port, err := startServer(xrayPath)
+	if err != nil {
+		fmt.Printf("Failed to start server: %v\n", err)
+		os.Exit(1)
+	}
+
+	url := fmt.Sprintf("http://127.0.0.1:%d", port)
+
+	fmt.Println()
+	fmt.Println("  ╔══════════════════════════════════════════╗")
+	fmt.Println("  ║      Warp Endpoint Scanner v1.0          ║")
+	fmt.Println("  ║    Open your browser to the URL below    ║")
+	fmt.Println("  ╚══════════════════════════════════════════╝")
+	fmt.Println()
+	fmt.Printf("  ➜  %s\n", url)
+	fmt.Println()
+	fmt.Println("  Pick your WireGuard .conf file, configure")
+	fmt.Println("  scan settings, and click Start Scan.")
+	fmt.Println()
+	fmt.Println("  Close this window to stop the server.")
+	fmt.Println()
+
+	openBrowser(url)
+
+	select {}
+}
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	cmd.Start()
+}
