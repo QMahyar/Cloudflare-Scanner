@@ -14,16 +14,9 @@ func main() {
 	xrayPath := filepath.Join(workDir, "xray.exe")
 
 	if _, err := os.Stat(xrayPath); os.IsNotExist(err) {
-		fmt.Print("Xray-core not found. Downloading... ")
-		dlPath, err := DownloadXray(workDir)
-		if err != nil {
-			fmt.Printf("FAILED: %v\n", err)
-			fmt.Println("Download manually from: https://github.com/XTLS/Xray-core/releases")
-			fmt.Println("Place xray.exe next to this executable.")
-			os.Exit(1)
-		}
-		xrayPath = dlPath
-		fmt.Println("OK")
+		fmt.Println("xray.exe not found. Place it next to this executable.")
+		fmt.Println("Download from: https://github.com/XTLS/Xray-core/releases")
+		os.Exit(1)
 	}
 
 	port, err := startServer(xrayPath)

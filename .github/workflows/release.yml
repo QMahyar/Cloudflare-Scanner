@@ -31,6 +31,20 @@ jobs:
       - name: Build
         run: go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
 
+      - name: Download xray-core
+        run: |
+          $url = "https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-windows-64.zip"
+          $zip = "$env:RUNNER_TEMP\xray.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\xray"
+          Copy-Item "$env:RUNNER_TEMP\xray\xray.exe" -Destination xray.exe
+
+      - name: Package
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") { $tag = "v${{ inputs.version }}" }
+          Compress-Archive -Path Cloudflare-Scanner.exe, xray.exe -DestinationPath "Cloudflare-Scanner-$tag.zip"
+
       # ── Manual dispatch ──
       - name: Create Release (manual)
         if: github.event_name == 'workflow_dispatch'
@@ -44,7 +58,7 @@ jobs:
           $bodyFile = "$env:RUNNER_TEMP\release-body.md"
           $body | Out-File -FilePath $bodyFile -Encoding utf8
           gh release create $tag --target ${{ github.sha }} --title "$title" --notes-file $bodyFile
-          gh release upload $tag Cloudflare-Scanner.exe --clobber
+          gh release upload $tag "Cloudflare-Scanner-$tag.zip" --clobber
 
       # ── Tag push ──
       - name: Create Release (tag)
@@ -55,8 +69,8 @@ jobs:
           body: |
             ## Cloudflare Scanner ${{ github.ref_name }}
 
-            Download `Cloudflare-Scanner.exe`, place it anywhere, and run it.
-            xray-core will be auto-downloaded on first launch.
-          files: Cloudflare-Scanner.exe
+            Download `Cloudflare-Scanner-${{ github.ref_name }}.zip`, extract, and run `Cloudflare-Scanner.exe`.
+            xray-core is included — no extra downloads needed.
+          files: Cloudflare-Scanner-*.zip
           draft: false
           prerelease: false

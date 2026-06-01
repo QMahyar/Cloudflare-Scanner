@@ -1,10 +1,7 @@
-# Binaries
-*.exe
-*.dll
-*.so
-*.dylib
+# Build artifact
+Cloudflare-Scanner.exe
 
-# Xray work directory (runtime scan artifacts)
+# Local xray-core runtime artifacts
 _xray_work/
 
 # IDE / editor files

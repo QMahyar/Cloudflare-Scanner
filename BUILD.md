@@ -27,16 +27,16 @@ The binary embeds `ui/index.html` via Go's `//go:embed` directive — no externa
 
 ```
 Cloudflare-Scanner/
-├── main.go          # Entry point, auto-downloads xray-core, starts HTTP server
+├── main.go          # Entry point, checks for xray.exe, starts HTTP server
 ├── server.go        # HTTP handlers (scan, status, results, stop, apply-endpoint)
 ├── config.go        # WireGuard .conf parser (case-insensitive, Hogwarts-style support)
 ├── endpoint.go      # Random Cloudflare IPv4/IPv6 endpoint generator
 ├── scanner.go       # Parallel endpoint tester (12 workers, SOCKS5 handshake)
 ├── xray.go          # xray-core config JSON generator and process manager
 ├── noise.go         # UDP noise config struct and validation
-├── download.go      # xray-core auto-downloader from GitHub releases
 ├── ui/
 │   └── index.html   # Web UI (embedded in binary)
+├── xray.exe         # xray-core v1.8.24 (bundled)
 ├── sample.conf      # Example WireGuard config for testing
 ├── README.md        # English documentation
 ├── README.fa.md     # Persian/Farsi documentation
@@ -78,14 +78,14 @@ EndpointGenerator        │
 
 | File | What it does |
 |------|-------------|
-| `main.go` | Checks for xray.exe, auto-downloads if missing, starts HTTP server on random port, opens browser |
+| `main.go` | Checks for xray.exe next to the binary, starts HTTP server on random port, opens browser |
 | `server.go` | API endpoints: `/api/scan`, `/api/status/{id}`, `/api/results/{id}`, `/api/stop/{id}`, `/api/apply-endpoint`. Embeds `ui/` as a filesystem. |
 | `config.go` | Parses WireGuard configs. Handles both standard Warp and Hogwarts-style formats. Lowercases all keys, auto-appends `/128` to bare IPv6, derives Reserved bytes from S1/S2/S3 fields. |
 | `endpoint.go` | Generates random endpoints from known Cloudflare Warp IP prefixes (14 IPv4 ranges, 4 IPv6 ranges) and 50+ ports. Deduplicates by IP. |
 | `scanner.go` | 12 concurrent workers. Each worker: generates xray config → starts xray → waits for SOCKS5 → performs SOCKS5 handshake → HTTP GET to gstatic.com → checks for 204 → records latency. |
 | `xray.go` | Builds xray-core JSON config with WireGuard outbound, SOCKS5 inbound, routing rules. Manages process lifecycle (start, wait for port, kill). |
 | `noise.go` | UDP noise: random packet size (50-100 bytes) with random delay (1-5ms) sent before each handshake. Evades DPI-based Warp blocking. |
-| `download.go` | Downloads xray-core v1.8.24 from GitHub releases, extracts `xray.exe` from zip, cleans up. |
+| `xray.exe` | xray-core v1.8.24 binary, bundled in the repo and release zip |
 
 ### Web UI API
 
@@ -147,13 +147,7 @@ Default: 5 noise packets, each 50-100 bytes random data, 1-5ms apart.
 
 ## xray-core
 
-The app bundles xray-core v1.8.24 as `xray.exe`. If missing at startup, it auto-downloads from:
-
-```
-https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-windows-64.zip
-```
-
-The binary must be in the same directory as `Cloudflare-Scanner.exe`. On first run, the app downloads it automatically.
+xray-core v1.8.24 (`xray.exe`) is bundled in the repo and included in every release zip. It must be in the same directory as `Cloudflare-Scanner.exe`.
 
 ## Environment variables
 

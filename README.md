@@ -11,7 +11,7 @@
 - **Live results** — working endpoints appear in real time as they pass the handshake
 - **Batch apply** — pick a working endpoint and apply it to multiple config files at once
 - **Web GUI** — clean browser interface served by the app itself, no extra dependencies
-- **Self-contained** — single `.exe`, auto-downloads xray-core on first run
+- **Self-contained** — single `.exe` download includes xray-core, no extra setup
 - **Cancellable** — stop, resume, or reset scans at any time
 
 ## How it works
@@ -41,7 +41,9 @@ See [BUILD.md](BUILD.md) for detailed build guide, 32-bit builds, project struct
 
 ## Usage
 
-Run `Cloudflare-Scanner.exe`. It opens your browser to `http://127.0.0.1:<port>`. Close the terminal window to stop the server.
+Download the latest `Cloudflare-Scanner-*.zip` from [releases](https://github.com/QMahyar/Cloudflare-Scanner/releases), extract both files, and run `Cloudflare-Scanner.exe`. xray-core is included — no extra downloads needed.
+
+Close the terminal window to stop the server.
 
 ## License
 
