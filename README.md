@@ -29,11 +29,15 @@ The app includes a curated help section with links to online generators, Telegra
 
 ## Building from source
 
+Requires **Go 1.26+** (no C compiler needed):
+
 ```powershell
+git clone https://github.com/QMahyar/Cloudflare-Scanner.git
+cd Cloudflare-Scanner
 go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
 ```
 
-Requires Go 1.26+. No C compiler needed.
+See [BUILD.md](BUILD.md) for detailed build guide, 32-bit builds, project structure, and architecture docs.
 
 ## Usage
 
