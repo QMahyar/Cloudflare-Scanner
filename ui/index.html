@@ -103,10 +103,10 @@ body[dir="rtl"] .empty-state{text-align:center}
     <h2 data-t="config.header">Config</h2>
     <div class="row">
       <div class="col">
-        <label data-t="config.fileLabel">WireGuard config file (.conf)</label>
+        <label data-t="config.fileLabel" data-t-title="config.fileTitle">WireGuard config file (.conf)</label>
         <label class="file-input-wrap" for="configFile">
           <input type="file" id="configFile" accept=".conf,.txt">
-          <div class="file-label" id="fileLabel" data-t="config.choose">Choose config...</div>
+          <div class="file-label" id="fileLabel" data-t="config.choose" data-t-title="config.chooseTitle">Choose config...</div>
         </label>
       </div>
     </div>
@@ -116,8 +116,8 @@ body[dir="rtl"] .empty-state{text-align:center}
     <h2 data-t="settings.header">Settings</h2>
     <div class="row">
       <div class="col">
-        <label data-t="settings.scanDepth">Scan depth</label>
-        <select id="scanDepth">
+        <label data-t="settings.scanDepth" data-t-title="settings.depthTitle">Scan depth</label>
+        <select id="scanDepth" data-t-title="settings.depthTitle">
           <option value="100" data-t="settings.depth.quick">Quick (100 endpoints)</option>
           <option value="500" data-t="settings.depth.normal" selected>Normal (500 endpoints)</option>
           <option value="1000" data-t="settings.depth.deep">Deep (1000 endpoints)</option>
@@ -127,12 +127,12 @@ body[dir="rtl"] .empty-state{text-align:center}
           <option value="0" data-t="settings.depth.custom">Custom</option>
         </select>
         <div id="customCountWrap" class="hidden" style="margin-top:8px">
-          <input type="text" id="customCount" data-t-placeholder="settings.customPlaceholder" placeholder="Enter count" value="">
+          <input type="text" id="customCount" data-t-placeholder="settings.customPlaceholder" data-t-title="settings.customTitle" placeholder="Enter count" value="">
         </div>
       </div>
       <div class="col">
-        <label data-t="settings.ipVersion">IP version</label>
-        <select id="ipVersion">
+        <label data-t="settings.ipVersion" data-t-title="settings.ipTitle">IP version</label>
+        <select id="ipVersion" data-t-title="settings.ipTitle">
           <option value="4" data-t="settings.ipv4" selected>IPv4 only</option>
           <option value="6" data-t="settings.ipv6">IPv6 only</option>
           <option value="46" data-t="settings.ipv46">IPv4 + IPv6</option>
@@ -141,26 +141,26 @@ body[dir="rtl"] .empty-state{text-align:center}
     </div>
     <div class="row">
       <div class="col">
-        <label data-t="settings.outCount">Results to show</label>
-        <input type="text" id="outCount" value="0">
+        <label data-t="settings.outCount" data-t-title="settings.outCountTitle">Results to show</label>
+        <input type="text" id="outCount" data-t-title="settings.outCountTitle" value="0">
       </div>
       <div class="col">
         <div class="toggle-wrap">
-          <label class="toggle">
+          <label class="toggle" data-t-title="settings.noiseTitle">
             <input type="checkbox" id="noiseToggle" checked>
             <span class="slider"></span>
           </label>
-          <span class="toggle-label" data-t="settings.noise">UDP Noise (bypass ISP blocking)</span>
+          <span class="toggle-label" data-t="settings.noise" data-t-title="settings.noiseTitle">UDP Noise (bypass ISP blocking)</span>
         </div>
       </div>
     </div>
   </div>
 
   <div class="btn-bar">
-    <button class="btn btn-primary" id="startBtn" onclick="startScan()" disabled data-t="buttons.start">Start Scan</button>
-    <button class="btn btn-danger" id="stopBtn" onclick="stopScan()" disabled data-t="buttons.stop">Stop</button>
-    <button class="btn btn-secondary" id="rescanBtn" onclick="rescan()" disabled data-t="buttons.rescan">Rescan</button>
-    <button class="btn btn-secondary" id="resetBtn" onclick="resetAll()" data-t="buttons.reset">Reset</button>
+    <button class="btn btn-primary" id="startBtn" onclick="startScan()" disabled data-t="buttons.start" data-t-title="buttons.startTitle">Start Scan</button>
+    <button class="btn btn-danger" id="stopBtn" onclick="stopScan()" disabled data-t="buttons.stop" data-t-title="buttons.stopTitle">Stop</button>
+    <button class="btn btn-secondary" id="rescanBtn" onclick="rescan()" disabled data-t="buttons.rescan" data-t-title="buttons.rescanTitle">Rescan</button>
+    <button class="btn btn-secondary" id="resetBtn" onclick="resetAll()" data-t="buttons.reset" data-t-title="buttons.resetTitle">Reset</button>
   </div>
 
   <div class="progress-wrap" id="progressWrap">
@@ -184,14 +184,14 @@ body[dir="rtl"] .empty-state{text-align:center}
     <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="apply.desc">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
     <div class="row">
       <div class="col" style="flex:2">
-        <label data-t="apply.endpointLabel">Endpoint to apply</label>
-        <input type="text" id="applyEndpoint" data-t-placeholder="apply.endpointPlaceholder" placeholder="e.g. 162.159.192.1:2408" value="">
+        <label data-t="apply.endpointLabel" data-t-title="apply.endpointTitle">Endpoint to apply</label>
+        <input type="text" id="applyEndpoint" data-t-placeholder="apply.endpointPlaceholder" data-t-title="apply.endpointTitle" placeholder="e.g. 162.159.192.1:2408" value="">
       </div>
     </div>
     <div class="row">
       <div class="col">
-        <label data-t="apply.configsLabel">Config files to update (select multiple)</label>
-        <label class="file-input-wrap" for="applyConfigs">
+        <label data-t="apply.configsLabel" data-t-title="apply.configsTitle">Config files to update (select multiple)</label>
+        <label class="file-input-wrap" for="applyConfigs" data-t-title="apply.configsTitle">
           <input type="file" id="applyConfigs" accept=".conf,.txt" multiple>
           <div class="file-label" id="applyFileLabel" data-t="apply.chooseConfigs">Choose config(s)...</div>
         </label>
@@ -199,11 +199,11 @@ body[dir="rtl"] .empty-state{text-align:center}
     </div>
     <div class="row">
       <div class="col">
-        <label data-t="apply.outputLabel">Output folder path (leave empty to save next to .exe)</label>
-        <input type="text" id="outputDirPath" data-t-placeholder="apply.outputPlaceholder" placeholder="e.g. E:\vpn\WG Configs\modified" value="">
+        <label data-t="apply.outputLabel" data-t-title="apply.outputTitle">Output folder path (leave empty to save next to .exe)</label>
+        <input type="text" id="outputDirPath" data-t-placeholder="apply.outputPlaceholder" data-t-title="apply.outputTitle" placeholder="e.g. E:\vpn\WG Configs\modified" value="">
       </div>
     </div>
-    <button class="btn btn-accent" id="applyBtn" onclick="handleApplyEndpoint()" disabled data-t="apply.generate">Generate Configs</button>
+    <button class="btn btn-accent" id="applyBtn" onclick="handleApplyEndpoint()" disabled data-t="apply.generate" data-t-title="apply.generateTitle">Generate Configs</button>
     <div id="applyStatus" style="margin-top:12px"></div>
   </div>
 
@@ -270,25 +270,25 @@ body[dir="rtl"] .empty-state{text-align:center}
     <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="clean.desc">Scan Cloudflare IPs with your VLESS URL and find working proxies.</p>
     <div class="row">
       <div class="col">
-        <label data-t="clean.vlessLabel">VLESS share URL</label>
-        <input type="text" id="vlessURL" data-t-placeholder="clean.vlessPlaceholder" placeholder="vless://uuid@host:port?...">
+        <label data-t="clean.vlessLabel" data-t-title="clean.vlessTitle">VLESS share URL</label>
+        <input type="text" id="vlessURL" data-t-placeholder="clean.vlessPlaceholder" data-t-title="clean.vlessTitle" placeholder="vless://uuid@host:port?...">
       </div>
     </div>
     <div class="row">
       <div class="col">
         <div class="toggle-wrap">
-          <label class="toggle">
+          <label class="toggle" data-t-title="clean.onePhaseTitle">
             <input type="checkbox" id="onePhaseClean">
             <span class="slider"></span>
           </label>
-          <span class="toggle-label" data-t="clean.onePhase">1-phase (TCP probe only, no config)</span>
+          <span class="toggle-label" data-t="clean.onePhase" data-t-title="clean.onePhaseTitle">1-phase (TCP probe only, no config)</span>
         </div>
       </div>
     </div>
     <div class="row">
       <div class="col">
-        <label data-t="settings.scanDepth">Scan depth</label>
-        <select id="cleanDepth">
+        <label data-t="settings.scanDepth" data-t-title="clean.depthTitle">Scan depth</label>
+        <select id="cleanDepth" data-t-title="clean.depthTitle">
           <option value="500" data-t="clean.depth.fast">Fast (500 IPs)</option>
           <option value="1000" selected data-t="clean.depth.normal">Normal (1000 IPs)</option>
           <option value="2000" data-t="clean.depth.deep">Deep (2000 IPs)</option>
@@ -296,8 +296,8 @@ body[dir="rtl"] .empty-state{text-align:center}
         </select>
       </div>
       <div class="col" id="cleanPhase2Col">
-        <label data-t="clean.phase2Label">Phase 2 probes</label>
-        <select id="cleanPhase2">
+        <label data-t="clean.phase2Label" data-t-title="clean.phase2Title">Phase 2 probes</label>
+        <select id="cleanPhase2" data-t-title="clean.phase2Title">
           <option value="10">10</option>
           <option value="20" selected>20</option>
           <option value="30">30</option>
@@ -307,8 +307,8 @@ body[dir="rtl"] .empty-state{text-align:center}
     </div>
     <div class="row">
       <div class="col">
-        <label data-t="settings.ipVersion">IP version</label>
-        <select id="cleanIPVersion">
+        <label data-t="settings.ipVersion" data-t-title="clean.ipTitle">IP version</label>
+        <select id="cleanIPVersion" data-t-title="clean.ipTitle">
           <option value="4" selected data-t="settings.ipv4">IPv4 only</option>
           <option value="6" data-t="settings.ipv6">IPv6 only</option>
           <option value="46" data-t="settings.ipv46">IPv4 + IPv6</option>
@@ -316,8 +316,8 @@ body[dir="rtl"] .empty-state{text-align:center}
       </div>
     </div>
     <div class="btn-bar" style="margin-top:8px">
-      <button class="btn btn-primary" id="cleanStartBtn" onclick="startCleanScan()" data-t="clean.start">Start Clean Scan</button>
-      <button class="btn btn-danger" id="cleanStopBtn" onclick="stopCleanScan()" disabled data-t="buttons.stop">Stop</button>
+      <button class="btn btn-primary" id="cleanStartBtn" onclick="startCleanScan()" data-t="clean.start" data-t-title="clean.startTitle">Start Clean Scan</button>
+      <button class="btn btn-danger" id="cleanStopBtn" onclick="stopCleanScan()" disabled data-t="buttons.stop" data-t-title="clean.stopTitle">Stop</button>
     </div>
     <div class="progress-wrap" id="cleanProgressWrap">
       <div class="progress-bar">
@@ -336,12 +336,12 @@ body[dir="rtl"] .empty-state{text-align:center}
     <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="replacer.desc">Fetch a subscription, deduplicate configs, and replace IP:port with clean endpoints.</p>
     <div class="row">
       <div class="col" style="flex:3">
-        <label data-t="replacer.subLabel">Subscription URL</label>
-        <input type="text" id="replacerURL" data-t-placeholder="replacer.subPlaceholder" placeholder="https://example.com/sub?token=...">
+        <label data-t="replacer.subLabel" data-t-title="replacer.urlTitle">Subscription URL</label>
+        <input type="text" id="replacerURL" data-t-placeholder="replacer.subPlaceholder" data-t-title="replacer.urlTitle" placeholder="https://example.com/sub?token=...">
       </div>
       <div class="col" style="flex:none;min-width:auto">
         <label>&nbsp;</label>
-        <button class="btn btn-primary" id="fetchBtn" onclick="replacerFetch()" data-t="replacer.fetch">Fetch</button>
+        <button class="btn btn-primary" id="fetchBtn" onclick="replacerFetch()" data-t="replacer.fetch" data-t-title="replacer.fetchTitle">Fetch</button>
       </div>
     </div>
     <div id="replacerFetchStatus" style="margin-top:8px"></div>
@@ -352,17 +352,17 @@ body[dir="rtl"] .empty-state{text-align:center}
     <p style="font-size:13px;color:#8b949e;margin-bottom:8px" id="replacerConfigCount"></p>
     <div id="replacerConfigsList"></div>
     <div id="replacerConfigActions" class="hidden" style="margin-top:8px">
-      <button class="btn btn-secondary btn-sm" onclick="replacerSelectAll(true)">Select All</button>
-      <button class="btn btn-secondary btn-sm" onclick="replacerSelectAll(false)">Deselect All</button>
+      <button class="btn btn-secondary btn-sm" onclick="replacerSelectAll(true)" data-t-title="replacer.configsSelectTitle">Select All</button>
+      <button class="btn btn-secondary btn-sm" onclick="replacerSelectAll(false)" data-t-title="replacer.configsSelectTitle">Deselect All</button>
     </div>
   </div>
 
   <div class="card hidden" id="replacerEndpointsCard">
     <h2 data-t="replacer.endpointsHeader">Endpoints</h2>
     <p style="font-size:13px;color:#8b949e;margin-bottom:8px" data-t="replacer.endpointsDesc">Paste IP:port endpoints (one per line) from Clean IP scan results.</p>
-    <textarea id="replacerEndpoints" rows="6" style="width:100%;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:13px;padding:8px;font-family:monospace;resize:vertical" data-t-placeholder="replacer.endpointsPlaceholder" placeholder="162.159.90.249:443&#10;162.159.82.8:443&#10;..."></textarea>
+    <textarea id="replacerEndpoints" rows="6" style="width:100%;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:13px;padding:8px;font-family:monospace;resize:vertical" data-t-placeholder="replacer.endpointsPlaceholder" data-t-title="replacer.endpointsTitle" placeholder="162.159.90.249:443&#10;162.159.82.8:443&#10;..."></textarea>
     <div style="margin-top:8px">
-      <button class="btn btn-accent" id="replacerGenerateBtn" onclick="replacerGenerate()" data-t="replacer.generate">Generate Configs</button>
+      <button class="btn btn-accent" id="replacerGenerateBtn" onclick="replacerGenerate()" data-t="replacer.generate" data-t-title="replacer.generateTitle">Generate Configs</button>
     </div>
     <div id="replacerGenStatus" style="margin-top:8px"></div>
   </div>
@@ -372,8 +372,8 @@ body[dir="rtl"] .empty-state{text-align:center}
     <p style="font-size:13px;color:#8b949e;margin-bottom:8px" id="replacerResultsCount"></p>
     <div id="replacerResultsContent"></div>
     <div class="results-actions" style="margin-top:12px" id="replacerResultsActions" class="hidden">
-      <button class="btn btn-secondary btn-sm" onclick="replacerCopyAll()" data-t="replacer.copyAll">Copy All</button>
-      <button class="btn btn-secondary btn-sm" onclick="replacerDownload()" data-t="replacer.download">Download</button>
+      <button class="btn btn-secondary btn-sm" onclick="replacerCopyAll()" data-t="replacer.copyAll" data-t-title="replacer.copyAllTitle">Copy All</button>
+      <button class="btn btn-secondary btn-sm" onclick="replacerDownload()" data-t="replacer.download" data-t-title="replacer.downloadTitle">Download</button>
     </div>
   </div>
 </div>
@@ -520,6 +520,40 @@ const TR = {
     'replacer.resultsCount': '{n} configs from {c} config(s) × {e} endpoint(s)',
     'replacer.copyAll': 'Copy All',
     'replacer.download': 'Download',
+    'config.fileTitle': 'Select a WireGuard config file (.conf) to scan',
+    'config.chooseTitle': 'Click to choose a config file',
+    'settings.depthTitle': 'Number of endpoints to generate and test',
+    'settings.customTitle': 'Enter a custom number of endpoints',
+    'settings.ipTitle': 'IPv4 only, IPv6 only, or both combined',
+    'settings.outCountTitle': 'Limit results shown (0 = show all successful)',
+    'settings.noiseTitle': 'Send random UDP packets to bypass ISP throttling',
+    'buttons.startTitle': 'Begin scanning with current settings',
+    'buttons.stopTitle': 'Stop the running scan',
+    'buttons.rescanTitle': 'Repeat last scan with same settings',
+    'buttons.resetTitle': 'Clear results and reset interface',
+    'apply.endpointTitle': 'Paste an endpoint to apply to configs',
+    'apply.configsTitle': 'Select .conf files to update with the new endpoint',
+    'apply.outputTitle': 'Custom output folder (empty = next to .exe)',
+    'apply.generateTitle': 'Generate modified config files with the new endpoint',
+    'results.copyAllTitle': 'Copy all working endpoints to clipboard',
+    'results.downloadTitle': 'Download endpoints as a text file',
+    'clean.vlessTitle': 'Paste a VLESS share URL for xray validation',
+    'clean.onePhaseTitle': 'Skip xray validation — TCP probe only',
+    'clean.depthTitle': 'Number of Cloudflare IPs to probe',
+    'clean.phase2Title': 'Number of best Phase 1 results to validate through xray',
+    'clean.ipTitle': 'IPv4 only, IPv6 only, or both',
+    'clean.startTitle': 'Begin scanning Cloudflare IPs',
+    'clean.stopTitle': 'Stop the running clean IP scan',
+    'clean.selectAllTitle': 'Select all endpoints for export',
+    'clean.deselectAllTitle': 'Deselect all endpoints',
+    'clean.exportTitle': 'Generate VLESS URLs with selected endpoints',
+    'replacer.urlTitle': 'Enter a subscription URL to fetch configs from',
+    'replacer.fetchTitle': 'Fetch, parse, and deduplicate the subscription',
+    'replacer.configsSelectTitle': 'Select configs to use for replacement',
+    'replacer.endpointsTitle': 'Paste IP:port endpoints, one per line',
+    'replacer.generateTitle': 'Generate all config × endpoint combinations',
+    'replacer.copyAllTitle': 'Copy all generated configs to clipboard',
+    'replacer.downloadTitle': 'Download generated configs as a text file',
     'langBtn': 'فارسی',
     langCode: 'en'
   },
@@ -661,6 +695,40 @@ const TR = {
     'replacer.resultsCount': '{n} کانفیگ از {c} کانفیگ × {e} اندپوینت',
     'replacer.copyAll': 'کپی همه',
     'replacer.download': 'دانلود',
+    'config.fileTitle': 'یک فایل کانفیگ WireGuard (.conf) برای اسکن انتخاب کنید',
+    'config.chooseTitle': 'برای انتخاب فایل کانفیگ کلیک کنید',
+    'settings.depthTitle': 'تعداد اندپوینت‌های تولید و تست شده',
+    'settings.customTitle': 'تعداد دلخواه اندپوینت را وارد کنید',
+    'settings.ipTitle': 'فقط IPv4، فقط IPv6، یا هر دو',
+    'settings.outCountTitle': 'محدودیت نمایش نتایج (0 = نمایش همه)',
+    'settings.noiseTitle': 'ارسال بسته‌های تصادفی UDP برای عبور از محدودیت ISP',
+    'buttons.startTitle': 'شروع اسکن با تنظیمات فعلی',
+    'buttons.stopTitle': 'توقف اسکن در حال اجرا',
+    'buttons.rescanTitle': 'تکرار آخرین اسکن با همان تنظیمات',
+    'buttons.resetTitle': 'پاک کردن نتایج و ریست رابط کاربری',
+    'apply.endpointTitle': 'یک اندپوینت برای اعمال به کانفیگ‌ها وارد کنید',
+    'apply.configsTitle': 'فایل‌های .conf را برای به‌روزرسانی انتخاب کنید',
+    'apply.outputTitle': 'پوشه خروجی دلخواه (خالی = کنار exe)',
+    'apply.generateTitle': 'ساخت کانفیگ‌های تغییر یافته با اندپوینت جدید',
+    'results.copyAllTitle': 'کپی همه اندپوینت‌ها در کلیپ‌بورد',
+    'results.downloadTitle': 'دانلود اندپوینت‌ها به صورت فایل متنی',
+    'clean.vlessTitle': 'لینک اشتراک VLESS را برای اعتبارسنجی xray وارد کنید',
+    'clean.onePhaseTitle': 'رد شدن از اعتبارسنجی xray — فقط پروب TCP',
+    'clean.depthTitle': 'تعداد آی‌پی‌های کلاودفلر برای پروب',
+    'clean.phase2Title': 'تعداد بهترین نتایج فاز ۱ برای اعتبارسنجی با xray',
+    'clean.ipTitle': 'فقط IPv4، فقط IPv6، یا هر دو',
+    'clean.startTitle': 'شروع اسکن آی‌پی‌های کلاودفلر',
+    'clean.stopTitle': 'توقف اسکن آی‌پی تمیز در حال اجرا',
+    'clean.selectAllTitle': 'انتخاب همه اندپوینت‌ها برای خروجی',
+    'clean.deselectAllTitle': 'لغو انتخاب همه اندپوینت‌ها',
+    'clean.exportTitle': 'ساخت لینک‌های VLESS با اندپوینت‌های انتخاب شده',
+    'replacer.urlTitle': 'لینک اشتراک را برای دریافت کانفیگ‌ها وارد کنید',
+    'replacer.fetchTitle': 'دریافت، تجزیه و یکتا کردن اشتراک',
+    'replacer.configsSelectTitle': 'کانفیگ‌های مورد نظر برای جایگزینی را انتخاب کنید',
+    'replacer.endpointsTitle': 'اندپوینت‌های IP:port را یک خط در یک خط وارد کنید',
+    'replacer.generateTitle': 'ساخت تمام ترکیب‌های کانفیگ × اندپوینت',
+    'replacer.copyAllTitle': 'کپی همه کانفیگ‌های ساخته شده در کلیپ‌بورد',
+    'replacer.downloadTitle': 'دانلود کانفیگ‌های ساخته شده به صورت فایل متنی',
     'langBtn': 'English',
     langCode: 'fa'
   }
@@ -699,6 +767,12 @@ function setLang(code) {
     const key = el.getAttribute('data-t-placeholder');
     if (key && lang[key] !== undefined) {
       el.placeholder = lang[key];
+    }
+  });
+  document.querySelectorAll('[data-t-title]').forEach(el => {
+    const key = el.getAttribute('data-t-title');
+    if (key && lang[key] !== undefined) {
+      el.title = lang[key];
     }
   });
   document.getElementById('langBtn').textContent = lang.langBtn;
@@ -941,15 +1015,15 @@ function renderResultsTable(data, jobId, isLive) {
   data.entries.forEach((e, i) => {
     const ep = e.endpoint;
     html += '<tr><td>' + (i+1) + '</td><td><span class="tag">' + ep + '</span></td><td>' + e.latency + '</td>';
-    html += '<td><button class="btn btn-secondary btn-sm" onclick="useEndpoint(\'' + escapeEp(ep) + '\')">' + t('results.tableUse') + '</button></td>';
+    html += '<td><button class="btn btn-secondary btn-sm" onclick="useEndpoint(\'' + escapeEp(ep) + '\')" title="Use this endpoint">' + t('results.tableUse') + '</button></td>';
     html += '</tr>';
   });
   html += '</table>';
 
   if (!isLive) {
     html += '<div class="results-actions">';
-    html += '<button class="btn btn-secondary btn-sm" onclick="copyAllEndpoints(\'' + jobId + '\')">' + t('results.copyAll') + '</button>';
-    html += '<button class="btn btn-secondary btn-sm" onclick="downloadRaw(\'' + jobId + '\')">' + t('results.downloadRaw') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="copyAllEndpoints(\'' + jobId + '\')" title="Copy all endpoints to clipboard">' + t('results.copyAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="downloadRaw(\'' + jobId + '\')" title="Download endpoints as text file">' + t('results.downloadRaw') + '</button>';
     html += '</div>';
     const label = data.status === 'cancelled' ? t('results.scanCancelled') : t('results.found', { n: data.total, s: data.scanned });
     html += '<div class="' + (data.status === 'cancelled' ? 'error-msg' : 'success-msg') + '">' + label + '</div>';
@@ -1203,8 +1277,8 @@ function pollCleanResults(jobId) {
               (isCancelled ? t('clean.progressCancelled') : t('clean.foundPhase1', { n: data.total, t: data.phase1_total })) +
               '</div>';
             html += '<div class="results-actions" style="margin-top:12px">';
-            html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanPhase1IPs(\'' + jobId + '\')">' + t('results.copyAll') + '</button>';
-            html += '<button class="btn btn-secondary btn-sm" onclick="downloadCleanPhase1IPs(\'' + jobId + '\')">' + t('results.downloadRaw') + '</button>';
+            html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanPhase1IPs(\'' + jobId + '\')" title="Copy all endpoints to clipboard">' + t('results.copyAll') + '</button>';
+            html += '<button class="btn btn-secondary btn-sm" onclick="downloadCleanPhase1IPs(\'' + jobId + '\')" title="Download endpoints as text file">' + t('results.downloadRaw') + '</button>';
             html += '</div>';
           } else {
             statusMsg.innerHTML = '<div class="live-count" style="color:#58a6ff">' + t('clean.foundPhase1', { n: data.total, t: data.phase1_total }) + '</div>';
@@ -1229,9 +1303,9 @@ function pollCleanResults(jobId) {
         html += '</table>';
 
         html += '<div class="results-actions" style="margin-top:12px">';
-        html += '<button class="btn btn-accent btn-sm" onclick="exportCleanIPs()">' + t('clean.export') + '</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(true)">' + t('clean.selectAll') + '</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
+        html += '<button class="btn btn-accent btn-sm" onclick="exportCleanIPs()" title="Generate VLESS URLs with selected endpoints">' + t('clean.export') + '</button>';
+        html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(true)" title="Select all endpoints for export">' + t('clean.selectAll') + '</button>';
+        html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(false)" title="Deselect all endpoints">' + t('clean.deselectAll') + '</button>';
         html += '</div>';
 
         container.innerHTML = html;

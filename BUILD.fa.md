@@ -2,6 +2,8 @@
 
 > [English version](BUILD.md)
 
+این سند شامل ساختار کامل پروژه، معماری، دستورات کامپایل و مرجع API برای هر سه ابزار است: **اسکنر اندپوینت** (واپ)، **اسکنر آی‌پی تمیز** (Clean IP) و **جایگزین آی‌پی** (IP Replacer). برای توسعه‌دهندگانی که از سورس کامپایل می‌کنند، برنامه را گسترش می‌دهند یا می‌خواهند اجزای پروژه را درک کنند مفید است.
+
 ## پیش‌نیازها
 
 - **Go 1.26+** (دانلود از [go.dev](https://go.dev/dl/))
@@ -28,14 +30,18 @@ $env:GOARCH="386"; go build -ldflags="-s -w" -o Cloudflare-Scanner-x86.exe .
 ```
 Cloudflare-Scanner/
 ├── main.go          # نقطه ورود، بررسی وجود xray.exe، راه‌اندازی سرور HTTP
-├── server.go        # هندلرهای HTTP (اسکن، وضعیت، نتایج، توقف، اعمال اندپوینت)
+├── server.go        # هندلرهای HTTP (اسکن، وضعیت، نتایج، توقف، اعمال اندپوینت، اسکن تمیز، جایگزین)
 ├── config.go        # پارسر کانفیگ WireGuard (case-insensitive، پشتیبانی از سبک هاگوارتز)
 ├── endpoint.go      # تولیدکننده تصادفی اندپوینت‌های IPv4/IPv6 کلاودفلر
 ├── scanner.go       # تست‌کننده موازی اندپوینت (۱۲ کارگر، دست دادن SOCKS5)
 ├── xray.go          # تولیدکننده کانفیگ JSON ایکس‌ری و مدیریت فرآیند
 ├── noise.go         # کانفیگ نویز UDP و اعتبارسنجی
+├── proxy.go         # پارسر لینک اشتراک VLESS/Trojan و سازنده کانفیگ JSON ایکس‌ری
+├── cleanip.go       # اسکنر آی‌پی تمیز: تولید آی‌پی بر اساس CIDR، پروب TCP، اعتبارسنجی xray، خروجی
+├── replacer.go      # دریافت کننده اشتراک، یکتا کننده، جایگزین IP به صورت ضرب دکارتی
+├── cleanip_test.go  # تست‌های تولید آی‌پی، محاسبه وزن، IPv6
 ├── ui/
-│   └── index.html   # رابط کاربری وب (جاسازی شده در باینری)
+│   └── index.html   # رابط کاربری وب (۳ برگه، دوزبانه، tooltips، جاسازی شده در باینری)
 ├── xray.exe         # xray-core نسخه v1.8.24 (همراه برنامه)
 ├── sample.conf      # نمونه کانفیگ WireGuard برای تست
 ├── README.md        # مستندات انگلیسی
@@ -86,6 +92,10 @@ EndpointGenerator                        │
 | `scanner.go` | ۱۲ کارگر هم‌زمان. هر کارگر: کانفیگ ایکس‌ری می‌سازد → ایکس‌ری را اجرا می‌کند → منتظر SOCKS5 می‌ماند → دست دادن SOCKS5 انجام می‌دهد → HTTP GET به gstatic.com → بررسی ۲۰۴ → ثبت latency. |
 | `xray.go` | ساخت کانفیگ JSON ایکس‌ری با خروجی WireGuard، ورودی SOCKS5، قوانین مسیریابی. مدیریت چرخه حیات پردازه (اجرا، انتظار برای پورت، کشتن). |
 | `noise.go` | نویز UDP: اندازه تصادفی بسته (۵۰-۱۰۰ بایت) با تأخیر تصادفی (۱-۵ms) که قبل از هر دست دادن WireGuard ارسال می‌شود. برای عبور از مسدودسازی DPI واپ. |
+| `proxy.go` | پارس لینک‌های اشتراک VLESS/Trojan (`ParseProxyURL`)، ساخت کانفیگ JSON ایکس‌ری (`BuildXrayJSON`)، تولید لینک اشتراک از کانفیگ (`GenerateShareURL`). همیشه `sni` را در صورت وجود حفظ می‌کند. |
+| `cleanip.go` | اسکنر آی‌پی تمیز. تولید آی‌پی از ۲۵ محدوده IPv4 + ۹۱ محدوده IPv6 کلاودفلر (`GenerateIPs`). فاز ۱: پروب TCP با ۵۰۰ کارگر هم‌زمان (`runCleanPhase1TCP`). فاز ۲: اعتبارسنجی xray از طریق SOCKS5 (`validateWithXray`). خروجی کانفیگ (`GenerateExport`). پشتیبانی از حالت SkipPhase2. |
+| `replacer.go` | دریافت لینک اشتراک (`FetchSubscription`)، پارس کانفیگ‌های VLESS (`ParseSubscription`)، یکتا کردن با نادیده گرفتن Address/Port/Remark (`DeduplicateConfigs`)، تولید تمام ترکیب‌های کانفیگ×اندپوینت (`GenerateReplacedConfigs`). |
+| `cleanip_test.go` | تست‌های Go برای `GenerateIPs`، محاسبه وزن و تولید IPv6. همه قبول. |
 | `xray.exe` | xray-core نسخه v1.8.24، همراه در ریپو و زیپ ریلیز |
 
 ### API رابط کاربری وب
@@ -98,6 +108,13 @@ EndpointGenerator                        │
 | `/api/results/{id}` | GET | برگرداندن اندپوینت‌های working (زنده هنگام اسکن، کامل پس از اتمام) |
 | `/api/stop/{id}` | POST | لغو یک اسکن در حال اجرا |
 | `/api/apply-endpoint` | POST | آپلود کانفیگ‌ها + اندپوینت ← ذخیره کپی‌های تغییر یافته |
+| `/api/clean-scan` | POST | شروع اسکن آی‌پی تمیز ← برگرداندن شناسه job |
+| `/api/clean-status/{id}` | GET | برگرداندن وضعیت اسکن تمیز `{status, phase1Progress, phase1Total, phase2Progress, phase2Total}` |
+| `/api/clean-results/{id}` | GET | برگرداندن phase1Results + phase2Results (زنده هنگام اسکن، کامل پس از اتمام) |
+| `/api/clean-stop/{id}` | POST | توقف یک اسکن تمیز در حال اجرا |
+| `/api/clean-export/{id}` | GET | دانلود نتایج اسکن تمیز به صورت فایل متنی |
+| `/api/replacer-fetch` | POST | دریافت و یکتا کردن کانفیگ‌ها از لینک اشتراک |
+| `/api/replacer-apply` | POST | تولید کانفیگ‌های جایگزین شده از کانفیگ‌های انتخاب شده + اندپوینت‌ها |
 
 ### جزئیات پارس کانفیگ
 
@@ -149,6 +166,54 @@ Endpoint = ...
 ## xray-core
 
 xray-core نسخه v1.8.24 با نام `xray.exe` همراه در ریپو و هر زیپ ریلیز قرار دارد. باید در همان پوشه `Cloudflare-Scanner.exe` باشد.
+
+### جریان اسکن آی‌پی تمیز
+
+```
+کاربر لینک VLESS را وارد می‌کند       CleanIPGenerator
+       (اختیاری)                         └─ GenerateIPs()
+                                           └─ ۲۵ CIDR IPv4 (۵۹۵۵ زیرشبکه /۲۴)
+                                           └─ ۹۱ CIDR IPv6 (توزیع وزنی)
+                                                │
+                                         فاز ۱: پروب TCP
+                                           └─ ۵۰۰ کارگر هم‌زمان
+                                           └─ net.DialTimeout(ip:port, 2s)
+                                           └─ نوشتن نتایج به صورت تدریجی در job.Phase1Progress
+                                                │
+                                   ┌───────────┴──────────┐
+                                   ▼                      ▼
+                             SkipPhase2=true         SkipPhase2=false
+                                   │                      │
+                              اتمام (status)       فاز ۲: اعتبارسنجی xray
+                                                   └─ مرتب‌سازی فاز ۱ بر اساس latency
+                                                   └─ انتخاب N تا از بهترین‌ها (تعداد فاز ۲)
+                                                   └─ ۱۲ کارگر xray هم‌زمان
+                                                   └─ هرکدام: BuildXrayJSON → StartXray → SOCKS5 → HTTP GET
+                                                   └─ نوشتن نتایج تدریجی در job.Phase2Progress
+                                                        │
+                                                   GenerateExport()
+                                                   └─ لینک‌های VLESS
+                                                   └─ لیست خام IP:port
+```
+
+### جریان جایگزین آی‌پی
+
+```
+لینک اشتراک ──> FetchSubscription()
+                  └─ HTTP GET → base64.decode → ParseSubscription()
+                       │
+                  DeduplicateConfigs()
+                  └─ اثر انگشت: حذف Address, Port, Remark
+                  └─ برگرداندن قالب‌های کانفیگ یکتا
+                       │
+                  کاربر کانفیگ‌ها را انتخاب می‌کند + اندپوینت‌ها را می‌چسباند
+                       │
+                  GenerateReplacedConfigs(configs, endpoints)
+                  └─ ضرب دکارتی: هر کانفیگ × هر اندپوینت
+                  └─ رد کردن موارد تکراری (همان کانفیگ + همان اندپوینت)
+                  └─ افزودن " @ endpoint" به هر remark
+                  └─ برگرداندن لینک‌های VLESS
+```
 
 ## متغیرهای محیطی
 

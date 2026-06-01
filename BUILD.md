@@ -2,6 +2,8 @@
 
 > [نسخه فارسی](BUILD.fa.md)
 
+This document covers the complete project structure, architecture, build commands, and API reference for all three tools: **Endpoint Scanner** (Warp), **IP Scanner** (Clean IP), and **IP Replacer** (subscription IP replacement). Useful for developers building from source, extending the app, or understanding how the parts fit together.
+
 ## Prerequisites
 
 - **Go 1.26+** (download from [go.dev](https://go.dev/dl/))
@@ -28,19 +30,24 @@ The binary embeds `ui/index.html` via Go's `//go:embed` directive — no externa
 ```
 Cloudflare-Scanner/
 ├── main.go          # Entry point, checks for xray.exe, starts HTTP server
-├── server.go        # HTTP handlers (scan, status, results, stop, apply-endpoint)
+├── server.go        # HTTP handlers (scan, status, results, stop, apply-endpoint, clean scan, replacer)
 ├── config.go        # WireGuard .conf parser (case-insensitive, Hogwarts-style support)
 ├── endpoint.go      # Random Cloudflare IPv4/IPv6 endpoint generator
 ├── scanner.go       # Parallel endpoint tester (12 workers, SOCKS5 handshake)
 ├── xray.go          # xray-core config JSON generator and process manager
 ├── noise.go         # UDP noise config struct and validation
+├── proxy.go         # VLESS/Trojan share URL parser and xray JSON builder
+├── cleanip.go       # Clean IP scanner: CIDR-based IP generator, TCP probe, xray validation, export
+├── replacer.go      # Subscription fetcher, deduplicator, cross-product IP replacer
+├── cleanip_test.go  # Tests for IP generation, weight calculation, IPv6
 ├── ui/
-│   └── index.html   # Web UI (embedded in binary)
+│   └── index.html   # Web UI (3 tabs, bilingual i18n, tooltips, embedded in binary)
 ├── xray.exe         # xray-core v1.8.24 (bundled)
 ├── sample.conf      # Example WireGuard config for testing
 ├── README.md        # English documentation
 ├── README.fa.md     # Persian/Farsi documentation
-└── BUILD.md         # This file
+├── BUILD.md         # This file
+└── BUILD.fa.md      # Persian build guide
 ```
 
 ## Architecture
@@ -85,6 +92,10 @@ EndpointGenerator        │
 | `scanner.go` | 12 concurrent workers. Each worker: generates xray config → starts xray → waits for SOCKS5 → performs SOCKS5 handshake → HTTP GET to gstatic.com → checks for 204 → records latency. |
 | `xray.go` | Builds xray-core JSON config with WireGuard outbound, SOCKS5 inbound, routing rules. Manages process lifecycle (start, wait for port, kill). |
 | `noise.go` | UDP noise: random packet size (50-100 bytes) with random delay (1-5ms) sent before each handshake. Evades DPI-based Warp blocking. |
+| `proxy.go` | Parses VLESS/Trojan share URLs (`ParseProxyURL`), builds xray JSON configs (`BuildXrayJSON`), generates share URLs from config (`GenerateShareURL`). Always includes `sni` when set. |
+| `cleanip.go` | Clean IP scanner. Generates IPs from 25 IPv4 + 91 IPv6 Cloudflare CIDR ranges (`GenerateIPs`). Phase 1: TCP probe with 500 concurrent workers (`runCleanPhase1TCP`). Phase 2: xray validation through SOCKS5 (`validateWithXray`). Config export (`GenerateExport`). Supports SkipPhase2 mode. |
+| `replacer.go` | Fetches subscription URLs (`FetchSubscription`), parses VLESS configs (`ParseSubscription`), deduplicates ignoring Address/Port/Remark (`DeduplicateConfigs`), generates all config×endpoint combos (`GenerateReplacedConfigs`). |
+| `cleanip_test.go` | Go tests for `GenerateIPs`, weight calculation, and IPv6 generation. All passing. |
 | `xray.exe` | xray-core v1.8.24 binary, bundled in the repo and release zip |
 
 ### Web UI API
@@ -97,6 +108,13 @@ EndpointGenerator        │
 | `/api/results/{id}` | GET | Returns working endpoints (live during scan, full on done) |
 | `/api/stop/{id}` | POST | Cancels a running scan |
 | `/api/apply-endpoint` | POST | Upload configs + endpoint → saves modified copies |
+| `/api/clean-scan` | POST | Start a clean IP scan → returns job ID |
+| `/api/clean-status/{id}` | GET | Returns clean scan `{status, phase1Progress, phase1Total, phase2Progress, phase2Total}` |
+| `/api/clean-results/{id}` | GET | Returns phase1Results + phase2Results (live during scan, full on done) |
+| `/api/clean-stop/{id}` | POST | Stops a running clean scan |
+| `/api/clean-export/{id}` | GET | Downloads clean scan results as text file |
+| `/api/replacer-fetch` | POST | Fetches and deduplicates configs from a subscription URL |
+| `/api/replacer-apply` | POST | Generates replaced configs from selected configs + endpoints |
 
 ### Config parsing details
 
@@ -148,6 +166,54 @@ Default: 5 noise packets, each 50-100 bytes random data, 1-5ms apart.
 ## xray-core
 
 xray-core v1.8.24 (`xray.exe`) is bundled in the repo and included in every release zip. It must be in the same directory as `Cloudflare-Scanner.exe`.
+
+### Clean IP scanning flow
+
+```
+User provides VLESS URL        CleanIPGenerator
+       (optional)                  └─ GenerateIPs()
+                                      └─ 25 IPv4 CIDRs (5955 /24 subnets)
+                                      └─ 91 IPv6 CIDRs (weighted distribution)
+                                           │
+                                    Phase 1: TCP probe
+                                      └─ 500 concurrent workers
+                                      └─ net.DialTimeout(ip:port, 2s)
+                                      └─ Writes results incrementally to job.Phase1Progress
+                                           │
+                              ┌───────────┴──────────┐
+                              ▼                      ▼
+                        SkipPhase2=true         SkipPhase2=false
+                              │                      │
+                         DONE (status)        Phase 2: xray validation
+                                                   └─ Sort Phase 1 by latency
+                                                   └─ Take top N (Phase 2 probe count)
+                                                   └─ 12 concurrent xray workers
+                                                   └─ Each: BuildXrayJSON → StartXray → SOCKS5 → HTTP GET
+                                                   └─ Writes results incrementally to job.Phase2Progress
+                                                        │
+                                                   GenerateExport()
+                                                   └─ VLESS share URLs
+                                                   └─ Raw IP:port list
+```
+
+### IP Replacer flow
+
+```
+Subscription URL ──> FetchSubscription()
+                        └─ HTTP GET → base64.decode → ParseSubscription()
+                             │
+                        DeduplicateConfigs()
+                        └─ Fingerprint: exclude Address, Port, Remark
+                        └─ Returns unique config templates
+                             │
+                        User selects configs + pastes endpoints
+                             │
+                        GenerateReplacedConfigs(configs, endpoints)
+                        └─ Cross product: every config × every endpoint
+                        └─ Skips duplicates (same config + same endpoint)
+                        └─ Appends " @ endpoint" to each remark
+                        └─ Returns VLESS share URLs
+```
 
 ## Environment variables
 
