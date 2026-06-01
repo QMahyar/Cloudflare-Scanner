@@ -2,13 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Warp Endpoint Scanner</title>
+<title>Cloudflare Scanner</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#e6edf3;padding:20px;min-height:100vh}
+body[dir="rtl"]{font-family:'Vazirmatn',-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,sans-serif}
 .container{max-width:800px;margin:0 auto}
-h1{font-size:24px;font-weight:600;margin-bottom:4px;color:#58a6ff}
+.header-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.header-row h1{font-size:24px;font-weight:600;color:#58a6ff}
 .subtitle{color:#8b949e;font-size:14px;margin-bottom:24px}
+.lang-btn{background:transparent;border:1px solid #30363d;color:#8b949e;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:.2s;white-space:nowrap}
+.lang-btn:hover{border-color:#58a6ff;color:#58a6ff}
 .card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:16px}
 .card h2{font-size:16px;font-weight:600;margin-bottom:12px;color:#f0f6fc}
 .row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
@@ -54,12 +58,14 @@ input[type="text"]:focus,select:focus{border-color:#58a6ff}
 .progress-text{font-size:13px;color:#8b949e}
 .results-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
 .results-table th{padding:8px 12px;text-align:left;color:#8b949e;font-weight:500;border-bottom:1px solid #30363d}
+body[dir="rtl"] .results-table th{text-align:right}
 .results-table td{padding:8px 12px;border-bottom:1px solid #21262d}
 .results-table tr:last-child td{border-bottom:none}
 .badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
 .badge-ok{background:#1b2d1f;color:#3fb950}
 .badge-fail{background:#2d1b1b;color:#f85149}
 .empty-state{text-align:center;padding:40px;color:#8b949e}
+body[dir="rtl"] .empty-state{text-align:center}
 .hidden{display:none}
 .error-msg{color:#f85149;font-size:13px;margin-top:8px}
 .success-msg{color:#3fb950;font-size:13px;margin-top:8px}
@@ -78,52 +84,55 @@ input[type="text"]:focus,select:focus{border-color:#58a6ff}
 </head>
 <body>
 <div class="container">
-  <h1>Warp Endpoint Scanner</h1>
-  <p class="subtitle">Test Cloudflare Warp endpoints &amp; batch-apply to configs</p>
+  <div class="header-row">
+    <h1 data-t="title">Cloudflare Scanner</h1>
+    <button class="lang-btn" id="langBtn" onclick="toggleLang()">فارسی</button>
+  </div>
+  <p class="subtitle" data-t="subtitle">Scan Cloudflare Warp endpoints &amp; batch-apply to configs</p>
 
   <div class="card">
-    <h2>Config</h2>
+    <h2 data-t="config.header">Config</h2>
     <div class="row">
       <div class="col">
-        <label>WireGuard config file (.conf)</label>
+        <label data-t="config.fileLabel">WireGuard config file (.conf)</label>
         <label class="file-input-wrap" for="configFile">
           <input type="file" id="configFile" accept=".conf,.txt">
-          <div class="file-label" id="fileLabel">Choose config...</div>
+          <div class="file-label" id="fileLabel" data-t="config.choose">Choose config...</div>
         </label>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <h2>Settings</h2>
+    <h2 data-t="settings.header">Settings</h2>
     <div class="row">
       <div class="col">
-        <label>Scan depth</label>
+        <label data-t="settings.scanDepth">Scan depth</label>
         <select id="scanDepth">
-          <option value="100">Quick (100 endpoints)</option>
-          <option value="500" selected>Normal (500 endpoints)</option>
-          <option value="1000">Deep (1000 endpoints)</option>
-          <option value="5000">Insane (5000 endpoints)</option>
-          <option value="10000">Massive (10000 endpoints)</option>
-          <option value="50000">Absolutely Insane (50000 endpoints)</option>
-          <option value="0">Custom</option>
+          <option value="100" data-t="settings.depth.quick">Quick (100 endpoints)</option>
+          <option value="500" data-t="settings.depth.normal" selected>Normal (500 endpoints)</option>
+          <option value="1000" data-t="settings.depth.deep">Deep (1000 endpoints)</option>
+          <option value="5000" data-t="settings.depth.insane">Insane (5000 endpoints)</option>
+          <option value="10000" data-t="settings.depth.massive">Massive (10000 endpoints)</option>
+          <option value="50000" data-t="settings.depth.absolutelyInsane">Absolutely Insane (50000 endpoints)</option>
+          <option value="0" data-t="settings.depth.custom">Custom</option>
         </select>
         <div id="customCountWrap" class="hidden" style="margin-top:8px">
-          <input type="text" id="customCount" placeholder="Enter count" value="">
+          <input type="text" id="customCount" data-t-placeholder="settings.customPlaceholder" placeholder="Enter count" value="">
         </div>
       </div>
       <div class="col">
-        <label>IP version</label>
+        <label data-t="settings.ipVersion">IP version</label>
         <select id="ipVersion">
-          <option value="4" selected>IPv4 only</option>
-          <option value="6">IPv6 only</option>
-          <option value="46">IPv4 + IPv6</option>
+          <option value="4" data-t="settings.ipv4" selected>IPv4 only</option>
+          <option value="6" data-t="settings.ipv6">IPv6 only</option>
+          <option value="46" data-t="settings.ipv46">IPv4 + IPv6</option>
         </select>
       </div>
     </div>
     <div class="row">
       <div class="col">
-        <label>Results to show</label>
+        <label data-t="settings.outCount">Results to show</label>
         <input type="text" id="outCount" value="0">
       </div>
       <div class="col">
@@ -132,140 +141,390 @@ input[type="text"]:focus,select:focus{border-color:#58a6ff}
             <input type="checkbox" id="noiseToggle" checked>
             <span class="slider"></span>
           </label>
-          <span class="toggle-label">UDP Noise (bypass ISP blocking)</span>
+          <span class="toggle-label" data-t="settings.noise">UDP Noise (bypass ISP blocking)</span>
         </div>
       </div>
     </div>
   </div>
 
   <div class="btn-bar">
-    <button class="btn btn-primary" id="startBtn" onclick="startScan()" disabled>Start Scan</button>
-    <button class="btn btn-danger" id="stopBtn" onclick="stopScan()" disabled>Stop</button>
-    <button class="btn btn-secondary" id="rescanBtn" onclick="rescan()" disabled>Rescan</button>
-    <button class="btn btn-secondary" id="resetBtn" onclick="resetAll()">Reset</button>
+    <button class="btn btn-primary" id="startBtn" onclick="startScan()" disabled data-t="buttons.start">Start Scan</button>
+    <button class="btn btn-danger" id="stopBtn" onclick="stopScan()" disabled data-t="buttons.stop">Stop</button>
+    <button class="btn btn-secondary" id="rescanBtn" onclick="rescan()" disabled data-t="buttons.rescan">Rescan</button>
+    <button class="btn btn-secondary" id="resetBtn" onclick="resetAll()" data-t="buttons.reset">Reset</button>
   </div>
 
   <div class="progress-wrap" id="progressWrap">
     <div class="progress-bar">
       <div class="progress-fill" id="progressFill"></div>
     </div>
-    <div class="progress-text" id="progressText">0 / 0 endpoints tested</div>
+    <div class="progress-text" id="progressText" data-t="scan.progressTemplate">0 / 0 endpoints tested</div>
   </div>
 
   <div class="card" id="resultsCard">
-    <h2>Results</h2>
+    <h2 data-t="results.header">Results</h2>
     <div class="empty-state" id="emptyState">
-      <p>Select a config and start scanning</p>
+      <p data-t="results.empty">Select a config and start scanning</p>
     </div>
     <div id="resultsContent" class="hidden"></div>
     <div id="liveCount" class="live-count hidden"></div>
   </div>
 
   <div class="card" id="applyCard">
-    <h2>Apply Endpoint to Configs</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:12px">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
+    <h2 data-t="apply.header">Apply Endpoint to Configs</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="apply.desc">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
     <div class="row">
       <div class="col" style="flex:2">
-        <label>Endpoint to apply</label>
-        <input type="text" id="applyEndpoint" placeholder="e.g. 162.159.192.1:2408" value="">
+        <label data-t="apply.endpointLabel">Endpoint to apply</label>
+        <input type="text" id="applyEndpoint" data-t-placeholder="apply.endpointPlaceholder" placeholder="e.g. 162.159.192.1:2408" value="">
       </div>
     </div>
     <div class="row">
       <div class="col">
-        <label>Config files to update (select multiple)</label>
+        <label data-t="apply.configsLabel">Config files to update (select multiple)</label>
         <label class="file-input-wrap" for="applyConfigs">
           <input type="file" id="applyConfigs" accept=".conf,.txt" multiple>
-          <div class="file-label" id="applyFileLabel">Choose config(s)...</div>
+          <div class="file-label" id="applyFileLabel" data-t="apply.chooseConfigs">Choose config(s)...</div>
         </label>
       </div>
     </div>
     <div class="row">
       <div class="col">
-        <label>Output folder path (leave empty to save next to .exe)</label>
-        <input type="text" id="outputDirPath" placeholder="e.g. E:\vpn\WG Configs\modified" value="">
+        <label data-t="apply.outputLabel">Output folder path (leave empty to save next to .exe)</label>
+        <input type="text" id="outputDirPath" data-t-placeholder="apply.outputPlaceholder" placeholder="e.g. E:\vpn\WG Configs\modified" value="">
       </div>
     </div>
-    <button class="btn btn-accent" id="applyBtn" onclick="handleApplyEndpoint()" disabled>Generate Configs</button>
+    <button class="btn btn-accent" id="applyBtn" onclick="handleApplyEndpoint()" disabled data-t="apply.generate">Generate Configs</button>
     <div id="applyStatus" style="margin-top:12px"></div>
   </div>
 
   <div class="card">
-    <h2>Getting Warp Configs</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:12px">Where to get WireGuard configs for Cloudflare Warp:</p>
+    <h2 data-t="help.header">Getting Warp Configs</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="help.desc">Where to get WireGuard configs for Cloudflare Warp:</p>
 
-    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px;margin-top:4px">Online Generators</h3>
+    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px;margin-top:4px" data-t="help.onlineGen">Online Generators</h3>
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-      <div><a class="help-link" href="https://warp-generator.github.io/warp/" target="_blank" rel="noopener">&rarr; warp-generator.github.io/warp/</a> <span style="font-size:12px;color:#8b949e">— configs with license key, multiple formats</span></div>
-      <div><a class="help-link" href="https://lanrat.github.io/wireguard-warp-generator/" target="_blank" rel="noopener">&rarr; lanrat.github.io/wireguard-warp-generator/</a> <span style="font-size:12px;color:#8b949e">— browser-based, client-side, QR support</span></div>
-      <div><a class="help-link" href="https://warp-mirrors.vercel.app/" target="_blank" rel="noopener">&rarr; warp-mirrors.vercel.app</a> <span style="font-size:12px;color:#8b949e">— multi-server generator (WG, AWG, WireSock, Clash)</span></div>
-      <div><a class="help-link" href="https://warp.llimonix.pw/" target="_blank" rel="noopener">&rarr; warp.llimonix.pw</a> <span style="font-size:12px;color:#8b949e">— region-specific servers, Telegram auth for extras</span></div>
-      <div><a class="help-link" href="https://warpper.me/" target="_blank" rel="noopener">&rarr; warpper.me</a> <span style="font-size:12px;color:#8b949e">— clean UI, generates WG/AWG configs</span></div>
-      <div><a class="help-link" href="https://warp-gen.vercel.app/" target="_blank" rel="noopener">&rarr; warp-gen.vercel.app</a> <span style="font-size:12px;color:#8b949e">— online WG config generator</span></div>
-      <div><a class="help-link" href="https://warp-vless.vercel.app/" target="_blank" rel="noopener">&rarr; warp-vless.vercel.app</a> <span style="font-size:12px;color:#8b949e">— VLESS/Warp generator</span></div>
+      <div><a class="help-link" href="https://warp-generator.github.io/warp/" target="_blank" rel="noopener">&rarr; warp-generator.github.io/warp/</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen1">— configs with license key, multiple formats</span></div>
+      <div><a class="help-link" href="https://lanrat.github.io/wireguard-warp-generator/" target="_blank" rel="noopener">&rarr; lanrat.github.io/wireguard-warp-generator/</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen2">— browser-based, client-side, QR support</span></div>
+      <div><a class="help-link" href="https://warp-mirrors.vercel.app/" target="_blank" rel="noopener">&rarr; warp-mirrors.vercel.app</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen3">— multi-server generator (WG, AWG, WireSock, Clash)</span></div>
+      <div><a class="help-link" href="https://warp.llimonix.pw/" target="_blank" rel="noopener">&rarr; warp.llimonix.pw</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen4">— region-specific servers, Telegram auth for extras</span></div>
+      <div><a class="help-link" href="https://warpper.me/" target="_blank" rel="noopener">&rarr; warpper.me</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen5">— clean UI, generates WG/AWG configs</span></div>
+      <div><a class="help-link" href="https://warp-gen.vercel.app/" target="_blank" rel="noopener">&rarr; warp-gen.vercel.app</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen6">— online WG config generator</span></div>
+      <div><a class="help-link" href="https://warp-vless.vercel.app/" target="_blank" rel="noopener">&rarr; warp-vless.vercel.app</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen7">— VLESS/Warp generator</span></div>
     </div>
 
-    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px">Telegram</h3>
+    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px" data-t="help.telegram">Telegram</h3>
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-      <div><a class="help-link" href="https://t.me/warp_generator_bot" target="_blank" rel="noopener">&rarr; @warp_generator_bot</a> <span style="font-size:12px;color:#8b949e">— 54k+ users, generates WG/AWG configs, region selection</span></div>
-      <div><a class="help-link" href="https://t.me/WarpGenerator_bot" target="_blank" rel="noopener">&rarr; @WarpGenerator_bot</a> <span style="font-size:12px;color:#8b949e">— WireGuard + AmneziaWG config generator</span></div>
-      <div><a class="help-link" href="https://github.com/cat228608/Warp-Generator-Bot" target="_blank" rel="noopener">&rarr; Warp-Generator-Bot (GitHub)</a> <span style="font-size:12px;color:#8b949e">— open-source bot, uses 3 API sources</span></div>
-      <div><a class="help-link" href="https://t.me/ConfigWireguard" target="_blank" rel="noopener">&rarr; @ConfigWireguard</a> <span style="font-size:12px;color:#8b949e">— 20k+ subs, shares Warp/WireGuard configs daily</span></div>
-      <div><a class="help-link" href="https://t.me/str_bypass" target="_blank" rel="noopener">&rarr; str_bypass</a> <span style="font-size:12px;color:#8b949e">— Warp config channel</span></div>
-      <div><a class="help-link" href="https://t.me/findllimonix" target="_blank" rel="noopener">&rarr; @findllimonix</a> <span style="font-size:12px;color:#8b949e">— llimonix/Warp updates channel</span></div>
+      <div><a class="help-link" href="https://t.me/warp_generator_bot" target="_blank" rel="noopener">&rarr; @warp_generator_bot</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg1">— 54k+ users, generates WG/AWG configs, region selection</span></div>
+      <div><a class="help-link" href="https://t.me/WarpGenerator_bot" target="_blank" rel="noopener">&rarr; @WarpGenerator_bot</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg2">— WireGuard + AmneziaWG config generator</span></div>
+      <div><a class="help-link" href="https://github.com/cat228608/Warp-Generator-Bot" target="_blank" rel="noopener">&rarr; Warp-Generator-Bot (GitHub)</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg3">— open-source bot, uses 3 API sources</span></div>
+      <div><a class="help-link" href="https://t.me/ConfigWireguard" target="_blank" rel="noopener">&rarr; @ConfigWireguard</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg4">— 20k+ subs, shares Warp/WireGuard configs daily</span></div>
+      <div><a class="help-link" href="https://t.me/str_bypass" target="_blank" rel="noopener">&rarr; str_bypass</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg5">— Warp config channel</span></div>
+      <div><a class="help-link" href="https://t.me/findllimonix" target="_blank" rel="noopener">&rarr; @findllimonix</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg6">— llimonix/Warp updates channel</span></div>
     </div>
 
-    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px">CLI Tools</h3>
+    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px" data-t="help.cliTools">CLI Tools</h3>
     <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-      <div><a class="help-link" href="https://github.com/ViRb3/wgcf" target="_blank" rel="noopener">&rarr; ViRb3/wgcf</a> <span style="font-size:12px;color:#8b949e">— the classic CLI generator, register + generate from terminal</span></div>
-      <div><a class="help-link" href="https://github.com/lanrat/wireguard-warp-generator" target="_blank" rel="noopener">&rarr; lanrat/wireguard-warp-generator</a> <span style="font-size:12px;color:#8b949e">— shell scripts, QR code for mobile</span></div>
-      <div><a class="help-link" href="https://github.com/AnimMouse/wgcf-connector" target="_blank" rel="noopener">&rarr; AnimMouse/wgcf-connector</a> <span style="font-size:12px;color:#8b949e">— extracts WARP Connector configs for site-to-site VPN</span></div>
-      <div><a class="help-link" href="https://gitlab.com/ImMALWARE/bash-warp-generator" target="_blank" rel="noopener">&rarr; ImMALWARE/bash-warp-generator</a> <span style="font-size:12px;color:#8b949e">— bash script for AmneziaWG Warp configs</span></div>
-      <div><a class="help-link" href="https://github.com/barry-far/V2ray-Config" target="_blank" rel="noopener">&rarr; barry-far/V2ray-Config</a> <span style="font-size:12px;color:#8b949e">— GitHub repo with free V2ray/Warp configs</span></div>
+      <div><a class="help-link" href="https://github.com/ViRb3/wgcf" target="_blank" rel="noopener">&rarr; ViRb3/wgcf</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli1">— the classic CLI generator, register + generate from terminal</span></div>
+      <div><a class="help-link" href="https://github.com/lanrat/wireguard-warp-generator" target="_blank" rel="noopener">&rarr; lanrat/wireguard-warp-generator</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli2">— shell scripts, QR code for mobile</span></div>
+      <div><a class="help-link" href="https://github.com/AnimMouse/wgcf-connector" target="_blank" rel="noopener">&rarr; AnimMouse/wgcf-connector</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli3">— extracts WARP Connector configs for site-to-site VPN</span></div>
+      <div><a class="help-link" href="https://gitlab.com/ImMALWARE/bash-warp-generator" target="_blank" rel="noopener">&rarr; ImMALWARE/bash-warp-generator</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli4">— bash script for AmneziaWG Warp configs</span></div>
+      <div><a class="help-link" href="https://github.com/barry-far/V2ray-Config" target="_blank" rel="noopener">&rarr; barry-far/V2ray-Config</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli5">— GitHub repo with free V2ray/Warp configs</span></div>
     </div>
 
-    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px">Client Apps</h3>
+    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px" data-t="help.clientApps">Client Apps</h3>
     <div class="app-grid">
       <div class="app-card">
         <h3>Amnezia VPN</h3>
         <div><span class="os-tag">Windows</span><span class="os-tag">Android</span><span class="os-tag">iOS</span></div>
-        <p>Open-source, built-in Warp config generator, split tunneling, containers.</p>
-        <a class="help-link" href="https://amnezia.org/" target="_blank" rel="noopener">amnezia.org &rarr;</a>
+        <p data-t="help.app1">Open-source, built-in Warp config generator, split tunneling, containers.</p>
+        <a class="help-link" href="https://amnezia.org/" target="_blank" rel="noopener" data-t="help.visit">amnezia.org &rarr;</a>
       </div>
       <div class="app-card">
         <h3>WireSock</h3>
         <div><span class="os-tag">Windows</span></div>
-        <p>Lightweight WireGuard client, advanced routing, DNS control, split tunneling.</p>
-        <a class="help-link" href="https://www.wiresock.net/" target="_blank" rel="noopener">wiresock.net &rarr;</a>
+        <p data-t="help.app2">Lightweight WireGuard client, advanced routing, DNS control, split tunneling.</p>
+        <a class="help-link" href="https://www.wiresock.net/" target="_blank" rel="noopener" data-t="help.visit2">wiresock.net &rarr;</a>
       </div>
       <div class="app-card">
         <h3>WG Tunnel</h3>
         <div><span class="os-tag">Android</span></div>
-        <p>Minimal WireGuard client, battery-friendly, config import/export.</p>
-        <a class="help-link" href="https://github.com/zaneschepke/wgtunnel" target="_blank" rel="noopener">github.com/zaneschepke/wgtunnel &rarr;</a>
+        <p data-t="help.app3">Minimal WireGuard client, battery-friendly, config import/export.</p>
+        <a class="help-link" href="https://github.com/zaneschepke/wgtunnel" target="_blank" rel="noopener" data-t="help.visit3">github.com/zaneschepke/wgtunnel &rarr;</a>
       </div>
       <div class="app-card">
         <h3>1.1.1.1 + WARP</h3>
         <div><span class="os-tag">Windows</span><span class="os-tag">Android</span><span class="os-tag">iOS</span><span class="os-tag">macOS</span></div>
-        <p>Official Cloudflare app. Auto-setup, less control, 1.1.1.1 DNS included.</p>
-        <a class="help-link" href="https://1.1.1.1/" target="_blank" rel="noopener">1.1.1.1 &rarr;</a>
+        <p data-t="help.app4">Official Cloudflare app. Auto-setup, less control, 1.1.1.1 DNS included.</p>
+        <a class="help-link" href="https://1.1.1.1/" target="_blank" rel="noopener" data-t="help.visit4">1.1.1.1 &rarr;</a>
       </div>
       <div class="app-card">
         <h3>NekoBox / Sing-box</h3>
         <div><span class="os-tag">Windows</span><span class="os-tag">Android</span></div>
-        <p>Universal proxy platform. Route Warp through other protocols (VMess, VLESS, Trojan).</p>
-        <a class="help-link" href="https://github.com/MatsuriDayo/NekoBoxForWindows" target="_blank" rel="noopener">NekoBox &rarr;</a>
+        <p data-t="help.app5">Universal proxy platform. Route Warp through other protocols (VMess, VLESS, Trojan).</p>
+        <a class="help-link" href="https://github.com/MatsuriDayo/NekoBoxForWindows" target="_blank" rel="noopener" data-t="help.visit5">NekoBox &rarr;</a>
       </div>
       <div class="app-card">
         <h3>v2rayNG</h3>
         <div><span class="os-tag">Android</span></div>
-        <p>Popular Android proxy client. Can use Warp as outbound via custom configs.</p>
-        <a class="help-link" href="https://github.com/2dust/v2rayNG" target="_blank" rel="noopener">v2rayNG &rarr;</a>
+        <p data-t="help.app6">Popular Android proxy client. Can use Warp as outbound via custom configs.</p>
+        <a class="help-link" href="https://github.com/2dust/v2rayNG" target="_blank" rel="noopener" data-t="help.visit6">v2rayNG &rarr;</a>
       </div>
     </div>
   </div>
 </div>
 
 <script>
+const TR = {
+  en: {
+    title: 'Cloudflare Scanner',
+    subtitle: 'Scan Cloudflare Warp endpoints & batch-apply to configs',
+    'config.header': 'Config',
+    'config.fileLabel': 'WireGuard config file (.conf)',
+    'config.choose': 'Choose config...',
+    'settings.header': 'Settings',
+    'settings.scanDepth': 'Scan depth',
+    'settings.depth.quick': 'Quick (100 endpoints)',
+    'settings.depth.normal': 'Normal (500 endpoints)',
+    'settings.depth.deep': 'Deep (1000 endpoints)',
+    'settings.depth.insane': 'Insane (5000 endpoints)',
+    'settings.depth.massive': 'Massive (10000 endpoints)',
+    'settings.depth.absolutelyInsane': 'Absolutely Insane (50000 endpoints)',
+    'settings.depth.custom': 'Custom',
+    'settings.customPlaceholder': 'Enter count',
+    'settings.ipVersion': 'IP version',
+    'settings.ipv4': 'IPv4 only',
+    'settings.ipv6': 'IPv6 only',
+    'settings.ipv46': 'IPv4 + IPv6',
+    'settings.outCount': 'Results to show',
+    'settings.noise': 'UDP Noise (bypass ISP blocking)',
+    'buttons.start': 'Start Scan',
+    'buttons.stop': 'Stop',
+    'buttons.rescan': 'Rescan',
+    'buttons.reset': 'Reset',
+    'scan.scanning': 'Scanning...',
+    'scan.progressTemplate': '{p} / {t} endpoints tested',
+    'results.header': 'Results',
+    'results.empty': 'Select a config and start scanning',
+    'results.working': '{n} working endpoint(s) found so far',
+    'results.notFound': 'No working endpoints found. Try enabling noise, switching IP version, or increasing scan depth.',
+    'results.scanCancelled': 'Scan cancelled',
+    'results.found': 'Found {n} working endpoints (scanned {s})',
+    'results.tableNum': '#',
+    'results.tableEndpoint': 'Endpoint',
+    'results.tableLatency': 'Latency',
+    'results.tableUse': 'Use',
+    'results.copyAll': 'Copy All',
+    'results.downloadRaw': 'Download Raw',
+    'results.failed': 'Failed to load results',
+    'scan.failed': 'Failed to start scan: {msg}',
+    'apply.header': 'Apply Endpoint to Configs',
+    'apply.desc': 'Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.',
+    'apply.endpointLabel': 'Endpoint to apply',
+    'apply.endpointPlaceholder': 'e.g. 162.159.192.1:2408',
+    'apply.configsLabel': 'Config files to update (select multiple)',
+    'apply.chooseConfigs': 'Choose config(s)...',
+    'apply.nConfigs': '{n} config(s) selected',
+    'apply.outputLabel': 'Output folder path (leave empty to save next to .exe)',
+    'apply.outputPlaceholder': 'e.g. E:\\vpn\\WG Configs\\modified',
+    'apply.generate': 'Generate Configs',
+    'apply.generating': 'Generating...',
+    'apply.generated': 'Generated {s}/{t} configs',
+    'help.header': 'Getting Warp Configs',
+    'help.desc': 'Where to get WireGuard configs for Cloudflare Warp:',
+    'help.onlineGen': 'Online Generators',
+    'help.gen1': '— configs with license key, multiple formats',
+    'help.gen2': '— browser-based, client-side, QR support',
+    'help.gen3': '— multi-server generator (WG, AWG, WireSock, Clash)',
+    'help.gen4': '— region-specific servers, Telegram auth for extras',
+    'help.gen5': '— clean UI, generates WG/AWG configs',
+    'help.gen6': '— online WG config generator',
+    'help.gen7': '— VLESS/Warp generator',
+    'help.telegram': 'Telegram',
+    'help.tg1': '— 54k+ users, generates WG/AWG configs, region selection',
+    'help.tg2': '— WireGuard + AmneziaWG config generator',
+    'help.tg3': '— open-source bot, uses 3 API sources',
+    'help.tg4': '— 20k+ subs, shares Warp/WireGuard configs daily',
+    'help.tg5': '— Warp config channel',
+    'help.tg6': '— llimonix/Warp updates channel',
+    'help.cliTools': 'CLI Tools',
+    'help.cli1': '— the classic CLI generator, register + generate from terminal',
+    'help.cli2': '— shell scripts, QR code for mobile',
+    'help.cli3': '— extracts WARP Connector configs for site-to-site VPN',
+    'help.cli4': '— bash script for AmneziaWG Warp configs',
+    'help.cli5': '— GitHub repo with free V2ray/Warp configs',
+    'help.clientApps': 'Client Apps',
+    'help.app1': 'Open-source, built-in Warp config generator, split tunneling, containers.',
+    'help.app2': 'Lightweight WireGuard client, advanced routing, DNS control, split tunneling.',
+    'help.app3': 'Minimal WireGuard client, battery-friendly, config import/export.',
+    'help.app4': 'Official Cloudflare app. Auto-setup, less control, 1.1.1.1 DNS included.',
+    'help.app5': 'Universal proxy platform. Route Warp through other protocols (VMess, VLESS, Trojan).',
+    'help.app6': 'Popular Android proxy client. Can use Warp as outbound via custom configs.',
+    'help.visit': 'amnezia.org →',
+    'help.visit2': 'wiresock.net →',
+    'help.visit3': 'github.com/zaneschepke/wgtunnel →',
+    'help.visit4': '1.1.1.1 →',
+    'help.visit5': 'NekoBox →',
+    'help.visit6': 'v2rayNG →',
+    'langBtn': 'فارسی',
+    langCode: 'en'
+  },
+  fa: {
+    title: 'اسکنر کلاودفلر',
+    subtitle: 'اسکن اندپوینت‌های واپ کلاودفلر و اعمال دسته‌جمعی به کانفیگ‌ها',
+    'config.header': 'کانفیگ',
+    'config.fileLabel': 'فایل کانفیگ WireGuard (.conf)',
+    'config.choose': 'انتخاب کانفیگ...',
+    'settings.header': 'تنظیمات',
+    'settings.scanDepth': 'تعداد اسکن',
+    'settings.depth.quick': 'سریع (۱۰۰ اندپوینت)',
+    'settings.depth.normal': 'معمولی (۵۰۰ اندپوینت)',
+    'settings.depth.deep': 'عمیق (۱۰۰۰ اندپوینت)',
+    'settings.depth.insane': 'وحشتناک (۵۰۰۰ اندپوینت)',
+    'settings.depth.massive': 'عظیم (۱۰۰۰۰ اندپوینت)',
+    'settings.depth.absolutelyInsane': 'فوق‌العاده وحشتناک (۵۰۰۰۰ اندپوینت)',
+    'settings.depth.custom': 'دلخواه',
+    'settings.customPlaceholder': 'تعداد را وارد کنید',
+    'settings.ipVersion': 'ورژن آی‌پی',
+    'settings.ipv4': 'فقط IPv4',
+    'settings.ipv6': 'فقط IPv6',
+    'settings.ipv46': 'IPv4 + IPv6',
+    'settings.outCount': 'نتایج برای نمایش',
+    'settings.noise': 'نویز UDP (عبور از مسدودسازی ISP)',
+    'buttons.start': 'شروع اسکن',
+    'buttons.stop': 'توقف',
+    'buttons.rescan': 'اسکن مجدد',
+    'buttons.reset': 'ریست',
+    'scan.scanning': 'در حال اسکن...',
+    'scan.progressTemplate': '{p} / {t} اندپوینت تست شد',
+    'results.header': 'نتایج',
+    'results.empty': 'یک کانفیگ انتخاب کنید و اسکن را شروع کنید',
+    'results.working': '{n} اندپوینت working پیدا شد',
+    'results.notFound': 'هیچ اندپوینت working پیدا نشد. نویز را فعال کنید، ورژن آی‌پی را عوض کنید یا تعداد اسکن را بیشتر کنید.',
+    'results.scanCancelled': 'اسکن لغو شد',
+    'results.found': '{n} اندپوینت working پیدا شد (اسکن {s})',
+    'results.tableNum': '#',
+    'results.tableEndpoint': 'اندپوینت',
+    'results.tableLatency': 'تأخیر',
+    'results.tableUse': 'انتخاب',
+    'results.copyAll': 'کپی همه',
+    'results.downloadRaw': 'دانلود خام',
+    'results.failed': 'بارگیری نتایج ناموفق بود',
+    'scan.failed': 'شروع اسکن ناموفق بود: {msg}',
+    'apply.header': 'اعمال اندپوینت به کانفیگ‌ها',
+    'apply.desc': 'یک اندپوینت working انتخاب کنید، کانفیگ‌های خود را انتخاب کنید و کپی‌های تغییر یافته با اندپوینت جدید بسازید.',
+    'apply.endpointLabel': 'اندپوینت برای اعمال',
+    'apply.endpointPlaceholder': 'مثال: 2408:192.1.159.162',
+    'apply.configsLabel': 'فایل‌های کانفیگ برای به‌روزرسانی (چندتایی انتخاب کنید)',
+    'apply.chooseConfigs': 'انتخاب کانفیگ(ها)...',
+    'apply.nConfigs': '{n} کانفیگ انتخاب شد',
+    'apply.outputLabel': 'پوشه خروجی (خالی بگذارید تا کنار exe ذخیره شود)',
+    'apply.outputPlaceholder': 'مثال: E:\\vpn\\WG Configs\\modified',
+    'apply.generate': 'ساخت کانفیگ‌ها',
+    'apply.generating': 'در حال ساخت...',
+    'apply.generated': '{s}/{t} کانفیگ ساخته شد',
+    'help.header': 'دریافت کانفیگ واپ',
+    'help.desc': 'از کجا کانفیگ WireGuard برای کلاودفلر واپ بگیریم:',
+    'help.onlineGen': 'تولیدکننده‌های آنلاین',
+    'help.gen1': '— کانفیگ با لایسنس، چندین فرمت',
+    'help.gen2': '— مبتنی بر مرورگر، بدون سرور، پشتیبانی QR',
+    'help.gen3': '— تولیدکننده چند سروره (WG, AWG, WireSock, Clash)',
+    'help.gen4': '— سرورهای منطقه‌ای، احراز تلگرام برای امکانات اضافه',
+    'help.gen5': '— رابط کاربری تمیز، تولید کانفیگ WG/AWG',
+    'help.gen6': '— تولیدکننده آنلاین کانفیگ WG',
+    'help.gen7': '— تولیدکننده VLESS/Warp',
+    'help.telegram': 'تلگرام',
+    'help.tg1': '— ۵۴هزار+ کاربر، تولید کانفیگ WG/AWG، انتخاب منطقه',
+    'help.tg2': '— تولیدکننده کانفیگ WireGuard + AmneziaWG',
+    'help.tg3': '— ربات متن‌باز، استفاده از ۳ منبع API',
+    'help.tg4': '— ۲۰هزار+ عضو، اشتراک روزانه کانفیگ واپ',
+    'help.tg5': '— کانال کانفیگ واپ',
+    'help.tg6': '— کانال به‌روزرسانی llimonix/Warp',
+    'help.cliTools': 'ابزارهای خط فرمان',
+    'help.cli1': '— تولیدکننده کلاسیک CLI، ثبت نام + تولید از ترمینال',
+    'help.cli2': '— اسکریپت‌های شل، QR کد برای موبایل',
+    'help.cli3': '— استخراج کانفیگ WARP Connector برای VPN site-to-site',
+    'help.cli4': '— اسکریپت bash برای کانفیگ AmneziaWG واپ',
+    'help.cli5': '— ریپوی گیت‌هاب با کانفیگ رایگان V2ray/Warp',
+    'help.clientApps': 'برنامه‌های کلاینت',
+    'help.app1': 'متن‌باز، تولیدکننده کانفیگ واپ داخلی، split tunneling، کانتینرها.',
+    'help.app2': 'کلاینت سبک WireGuard، مسیریابی پیشرفته، کنترل DNS، split tunneling.',
+    'help.app3': 'کلاینت مینیمال WireGuard، بهینه برای باتری، ایمپورت/اکسپورت کانفیگ.',
+    'help.app4': 'برنامه رسمی کلاودفلر. نصب خودکار، کنترل کمتر، DNS ۱.۱.۱.۱.',
+    'help.app5': 'پلتفرم پروکسی universal. مسیریابی واپ از طریق پروتکل‌های دیگر (VMess, VLESS, Trojan).',
+    'help.app6': 'کلاینت محبوب اندروید. امکان استفاده از واپ به عنوان outbound با کانفیگ دلخواه.',
+    'help.visit': 'amnezia.org →',
+    'help.visit2': 'wiresock.net →',
+    'help.visit3': 'github.com/zaneschepke/wgtunnel →',
+    'help.visit4': '1.1.1.1 →',
+    'help.visit5': 'NekoBox →',
+    'help.visit6': 'v2rayNG →',
+    'langBtn': 'English',
+    langCode: 'fa'
+  }
+};
+
+let currentLang = localStorage.getItem('cfscanner_lang') || 'en';
+
+function t(key, vars) {
+  let s = TR[currentLang][key] || TR.en[key] || key;
+  if (vars) {
+    for (const k of Object.keys(vars)) {
+      s = s.replace('{' + k + '}', vars[k]);
+    }
+  }
+  return s;
+}
+
+function setLang(code) {
+  currentLang = code;
+  localStorage.setItem('cfscanner_lang', code);
+  const lang = TR[code];
+  document.documentElement.lang = lang.langCode;
+  document.documentElement.dir = code === 'fa' ? 'rtl' : 'ltr';
+  document.title = lang.title;
+  document.querySelectorAll('[data-t]').forEach(el => {
+    const key = el.getAttribute('data-t');
+    if (key && lang[key] !== undefined) {
+      if (el.tagName === 'OPTION') {
+        el.textContent = lang[key];
+      } else {
+        el.textContent = lang[key];
+      }
+    }
+  });
+  document.querySelectorAll('[data-t-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-t-placeholder');
+    if (key && lang[key] !== undefined) {
+      el.placeholder = lang[key];
+    }
+  });
+  document.getElementById('langBtn').textContent = lang.langBtn;
+  // update dynamic text if visible
+  if (currentJobId) {
+    const statusEl = document.getElementById('progressText');
+    const m = statusEl.textContent.match(/(\d+) \/ (\d+)/);
+    if (m) {
+      statusEl.textContent = t('scan.progressTemplate', { p: m[1], t: m[2] });
+    }
+  }
+  const liveEl = document.getElementById('liveCount');
+  if (!liveEl.classList.contains('hidden')) {
+    const m = liveEl.textContent.match(/(\d+)/);
+    if (m) {
+      liveEl.textContent = t('results.working', { n: m[1] });
+    }
+  }
+  const startBtn = document.getElementById('startBtn');
+  if (!startBtn.disabled || startBtn.textContent === t('scan.scanning')) {
+    // button text managed in JS functions
+  }
+}
+
+function toggleLang() {
+  setLang(currentLang === 'en' ? 'fa' : 'en');
+}
+
 const fileInput = document.getElementById('configFile');
 const fileLabel = document.getElementById('fileLabel');
 const startBtn = document.getElementById('startBtn');
@@ -293,7 +552,7 @@ fileInput.addEventListener('change', function() {
     fileLabel.classList.add('selected');
     startBtn.disabled = false;
   } else {
-    fileLabel.textContent = 'Choose config...';
+    fileLabel.textContent = t('config.choose');
     fileLabel.classList.remove('selected');
     startBtn.disabled = true;
   }
@@ -301,10 +560,10 @@ fileInput.addEventListener('change', function() {
 
 applyConfigs.addEventListener('change', function() {
   if (this.files.length > 0) {
-    applyFileLabel.textContent = this.files.length + ' config(s) selected';
+    applyFileLabel.textContent = t('apply.nConfigs', { n: this.files.length });
     applyFileLabel.classList.add('selected');
   } else {
-    applyFileLabel.textContent = 'Choose config(s)...';
+    applyFileLabel.textContent = t('apply.chooseConfigs');
     applyFileLabel.classList.remove('selected');
   }
   updateApplyBtn();
@@ -330,7 +589,7 @@ async function startScan() {
   emptyState.classList.add('hidden');
 
   startBtn.disabled = true;
-  startBtn.textContent = 'Scanning...';
+  startBtn.textContent = t('scan.scanning');
   stopBtn.disabled = false;
   rescanBtn.disabled = true;
   progressWrap.classList.add('active');
@@ -362,7 +621,7 @@ async function startScan() {
     pollStatus(currentJobId, total);
     pollResults(currentJobId);
   } catch (e) {
-    showError('Failed to start scan: ' + e.message);
+    showError(t('scan.failed', { msg: e.message }));
     setButtonsIdle();
   }
 }
@@ -391,7 +650,7 @@ function resetAll() {
   progressWrap.classList.remove('active');
   progressFill.style.width = '0%';
   progressFill.classList.remove('cancelled');
-  progressText.textContent = '0 / 0 endpoints tested';
+  progressText.textContent = t('scan.progressTemplate', { p: '0', t: '0' });
   setButtonsIdle();
   startBtn.disabled = !(fileInput.files.length > 0);
 }
@@ -407,7 +666,7 @@ async function apiJSON(url, opts) {
 
 function setButtonsIdle() {
   startBtn.disabled = !(fileInput.files.length > 0);
-  startBtn.textContent = 'Start Scan';
+  startBtn.textContent = t('buttons.start');
   stopBtn.disabled = true;
   const hasResults = resultsContent.innerHTML !== '' && !resultsContent.classList.contains('hidden');
   rescanBtn.disabled = !(currentJobId || hasResults);
@@ -417,7 +676,7 @@ function setScanDone() {
   stopBtn.disabled = true;
   rescanBtn.disabled = false;
   startBtn.disabled = !(fileInput.files.length > 0);
-  startBtn.textContent = 'Start Scan';
+  startBtn.textContent = t('buttons.start');
 }
 
 async function pollStatus(jobId, total) {
@@ -427,7 +686,7 @@ async function pollStatus(jobId, total) {
       const data = await apiJSON('/api/status/' + jobId);
       const pct = total > 0 ? Math.round((data.progress / total) * 100) : 0;
       progressFill.style.width = pct + '%';
-      progressText.textContent = data.progress + ' / ' + total + ' endpoints tested';
+      progressText.textContent = t('scan.progressTemplate', { p: data.progress, t: total });
 
       if (data.status === 'done' || data.status === 'cancelled') {
         clearInterval(statusInterval);
@@ -454,30 +713,34 @@ async function pollResults(jobId) {
       const data = await apiJSON('/api/results/' + jobId);
       if (data.total > 0) {
         renderResultsTable(data, jobId, true);
-        liveCount.textContent = data.total + ' working endpoint(s) found so far';
+        liveCount.textContent = t('results.working', { n: data.total });
         liveCount.classList.remove('hidden');
       }
     } catch (e) {}
   }, 1500);
 }
 
+function escapeEp(ep) {
+  return ep.replace(/'/g, "\\'");
+}
+
 function renderResultsTable(data, jobId, isLive) {
   let html = '<table class="results-table">';
-  html += '<tr><th>#</th><th>Endpoint</th><th>Latency</th><th></th></tr>';
+  html += '<tr><th>' + t('results.tableNum') + '</th><th>' + t('results.tableEndpoint') + '</th><th>' + t('results.tableLatency') + '</th><th></th></tr>';
   data.entries.forEach((e, i) => {
     const ep = e.endpoint;
     html += '<tr><td>' + (i+1) + '</td><td><span class="tag">' + ep + '</span></td><td>' + e.latency + '</td>';
-    html += '<td><button class="btn btn-secondary btn-sm" onclick="useEndpoint(\'' + ep.replace(/'/g, "\\'") + '\')">Use</button></td>';
+    html += '<td><button class="btn btn-secondary btn-sm" onclick="useEndpoint(\'' + escapeEp(ep) + '\')">' + t('results.tableUse') + '</button></td>';
     html += '</tr>';
   });
   html += '</table>';
 
   if (!isLive) {
     html += '<div class="results-actions">';
-    html += '<button class="btn btn-secondary btn-sm" onclick="copyAllEndpoints(\'' + jobId + '\')">Copy All</button>';
-    html += '<button class="btn btn-secondary btn-sm" onclick="downloadRaw(\'' + jobId + '\')">Download Raw</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="copyAllEndpoints(\'' + jobId + '\')">' + t('results.copyAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="downloadRaw(\'' + jobId + '\')">' + t('results.downloadRaw') + '</button>';
     html += '</div>';
-    const label = data.status === 'cancelled' ? 'Scan cancelled' : 'Found ' + data.total + ' working endpoints (scanned ' + data.scanned + ')';
+    const label = data.status === 'cancelled' ? t('results.scanCancelled') : t('results.found', { n: data.total, s: data.scanned });
     html += '<div class="' + (data.status === 'cancelled' ? 'error-msg' : 'success-msg') + '">' + label + '</div>';
   }
 
@@ -489,7 +752,7 @@ async function fetchResults(jobId) {
   try {
     const data = await apiJSON('/api/results/' + jobId);
     if (data.total === 0) {
-      resultsContent.innerHTML = '<div class="empty-state"><p>No working endpoints found. Try enabling noise, switching IP version, or increasing scan depth.</p></div>';
+      resultsContent.innerHTML = '<div class="empty-state"><p>' + t('results.notFound') + '</p></div>';
       resultsContent.classList.remove('hidden');
       liveCount.classList.add('hidden');
       return;
@@ -497,7 +760,7 @@ async function fetchResults(jobId) {
     renderResultsTable(data, jobId, false);
     liveCount.classList.add('hidden');
   } catch (e) {
-    showError('Failed to load results');
+    showError(t('results.failed'));
   }
 }
 
@@ -524,7 +787,7 @@ async function copyAllEndpoints(jobId) {
 
 async function downloadRaw(jobId) {
   const data = await apiJSON('/api/results/' + jobId);
-  let text = '# Warp Working Endpoints\n# Generated by WarpEndpointScanner\n\n';
+  let text = '# Warp Working Endpoints\n# Generated by Cloudflare Scanner\n\n';
   data.raw.forEach(r => { text += r.endpoint + '\n'; });
   const blob = new Blob([text], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
@@ -540,7 +803,7 @@ async function handleApplyEndpoint() {
   if (!endpoint || !applyConfigs.files.length) return;
 
   applyBtn.disabled = true;
-  applyBtn.textContent = 'Generating...';
+  applyBtn.textContent = t('apply.generating');
   applyStatus.innerHTML = '';
 
   const formData = new FormData();
@@ -552,9 +815,9 @@ async function handleApplyEndpoint() {
 
   try {
     const data = await apiJSON('/api/apply-endpoint', { method: 'POST', body: formData });
-    let html = '<div class="success-msg">Generated ' + data.saved + '/' + data.total + ' configs</div>';
+    let html = '<div class="success-msg">' + t('apply.generated', { s: data.saved, t: data.total }) + '</div>';
     html += '<table class="results-table" style="margin-top:8px">';
-    html += '<tr><th>File</th><th>Status</th></tr>';
+    html += '<tr><th>' + t('results.tableEndpoint') + '</th><th>' + t('results.tableNum') + '</th></tr>';
     data.results.forEach(r => {
       if (r.error) {
         html += '<tr><td>' + r.name + '</td><td style="color:#f85149">' + r.error + '</td></tr>';
@@ -569,13 +832,16 @@ async function handleApplyEndpoint() {
   }
 
   applyBtn.disabled = false;
-  applyBtn.textContent = 'Generate Configs';
+  applyBtn.textContent = t('apply.generate');
 }
 
 function showError(msg) {
   resultsContent.innerHTML = '<div class="error-msg">' + msg + '</div>';
   resultsContent.classList.remove('hidden');
 }
+
+// Init language on load
+setLang(currentLang);
 </script>
 </body>
 </html>
