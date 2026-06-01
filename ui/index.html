@@ -80,6 +80,10 @@ body[dir="rtl"] .empty-state{text-align:center}
 .app-card p{font-size:12px;color:#8b949e;margin-bottom:8px}
 .app-card .os-tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:#1f6feb33;color:#58a6ff;margin-right:4px}
 .live-count{font-size:13px;color:#3fb950;margin-top:8px}
+.tab-bar{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #21262d}
+.tab{padding:10px 24px;background:transparent;border:none;border-bottom:2px solid transparent;color:#8b949e;font-size:14px;font-weight:500;cursor:pointer;transition:.2s;margin-bottom:-2px}
+.tab:hover{color:#e6edf3}
+.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
 </style>
 </head>
 <body>
@@ -88,8 +92,12 @@ body[dir="rtl"] .empty-state{text-align:center}
     <h1 data-t="title">Cloudflare Scanner</h1>
     <button class="lang-btn" id="langBtn" onclick="toggleLang()">فارسی</button>
   </div>
-  <p class="subtitle" data-t="subtitle">Scan Cloudflare Warp endpoints &amp; batch-apply to configs</p>
+  <div class="tab-bar">
+    <button class="tab active" id="tabEndpoint" onclick="switchTab('endpoint')" data-t="tab.endpoint">Endpoint Scanner</button>
+    <button class="tab" id="tabClean" onclick="switchTab('clean')" data-t="tab.clean">IP Scanner</button>
+  </div>
 
+  <div id="endpointTab">
   <div class="card">
     <h2 data-t="config.header">Config</h2>
     <div class="row">
@@ -255,11 +263,81 @@ body[dir="rtl"] .empty-state{text-align:center}
   </div>
 </div>
 
+<div id="cleanTab" class="hidden">
+  <div class="card">
+    <h2 data-t="clean.header">Clean IP Scanner</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="clean.desc">Scan Cloudflare IPs with your VLESS URL and find working proxies.</p>
+    <div class="row">
+      <div class="col">
+        <label data-t="clean.vlessLabel">VLESS share URL</label>
+        <input type="text" id="vlessURL" data-t-placeholder="clean.vlessPlaceholder" placeholder="vless://uuid@host:port?...">
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <div class="toggle-wrap">
+          <label class="toggle">
+            <input type="checkbox" id="onePhaseClean">
+            <span class="slider"></span>
+          </label>
+          <span class="toggle-label" data-t="clean.onePhase">1-phase (TCP probe only, no config)</span>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label data-t="settings.scanDepth">Scan depth</label>
+        <select id="cleanDepth">
+          <option value="500" data-t="clean.depth.fast">Fast (500 IPs)</option>
+          <option value="1000" selected data-t="clean.depth.normal">Normal (1000 IPs)</option>
+          <option value="2000" data-t="clean.depth.deep">Deep (2000 IPs)</option>
+          <option value="5000" data-t="clean.depth.max">Max (5000 IPs)</option>
+        </select>
+      </div>
+      <div class="col" id="cleanPhase2Col">
+        <label data-t="clean.phase2Label">Phase 2 probes</label>
+        <select id="cleanPhase2">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="30">30</option>
+          <option value="50">50</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col">
+        <label data-t="settings.ipVersion">IP version</label>
+        <select id="cleanIPVersion">
+          <option value="4" selected data-t="settings.ipv4">IPv4 only</option>
+          <option value="6" data-t="settings.ipv6">IPv6 only</option>
+          <option value="46" data-t="settings.ipv46">IPv4 + IPv6</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-bar" style="margin-top:8px">
+      <button class="btn btn-primary" id="cleanStartBtn" onclick="startCleanScan()" data-t="clean.start">Start Clean Scan</button>
+      <button class="btn btn-danger" id="cleanStopBtn" onclick="stopCleanScan()" disabled data-t="buttons.stop">Stop</button>
+    </div>
+    <div class="progress-wrap" id="cleanProgressWrap">
+      <div class="progress-bar">
+        <div class="progress-fill" id="cleanProgressFill"></div>
+      </div>
+      <div class="progress-text" id="cleanProgressText" data-t="clean.progressPhase1">Phase 1: TCP probe — 0 / 0</div>
+    </div>
+    <div id="cleanResultsContent" class="hidden" style="margin-top:12px"></div>
+    <div id="cleanStatusMsg" style="margin-top:8px"></div>
+  </div>
+</div>
+
+</div>
+
 <script>
 const TR = {
   en: {
     title: 'Cloudflare Scanner',
     subtitle: 'Scan Cloudflare Warp endpoints & batch-apply to configs',
+    'tab.endpoint': 'Endpoint Scanner',
+    'tab.clean': 'IP Scanner',
     'config.header': 'Config',
     'config.fileLabel': 'WireGuard config file (.conf)',
     'config.choose': 'Choose config...',
@@ -339,12 +417,41 @@ const TR = {
     'help.visit': 'amnezia.org →',
     'help.visit2': 'wiresock.net →',
     'help.visit3': 'github.com/zaneschepke/wgtunnel →',
+    'clean.header': 'Clean IP Scanner',
+    'clean.desc': 'Scan Cloudflare IPs with your VLESS URL and find working proxies.',
+    'clean.vlessLabel': 'VLESS share URL',
+    'clean.vlessPlaceholder': 'vless://uuid@host:port?...',
+    'clean.depth.fast': 'Fast (500 IPs)',
+    'clean.depth.normal': 'Normal (1000 IPs)',
+    'clean.depth.deep': 'Deep (2000 IPs)',
+    'clean.depth.max': 'Max (5000 IPs)',
+    'clean.phase2Label': 'Phase 2 probes',
+    'clean.start': 'Start Clean Scan',
+    'clean.scanning': 'Scanning...',
+    'clean.progressPhase1': 'Phase 1: TCP probe — {p} / {t}',
+    'clean.progressPhase2': 'Phase 2: Proxy validation — {p} / {t}',
+    'clean.progressDone': 'Scan complete',
+    'clean.progressCancelled': 'Scan cancelled',
+    'clean.onePhase': '1-phase (TCP probe only, no config)',
+    'clean.foundPhase1': 'Phase 1: {n} of {t} IPs responded',
+    'clean.foundPhase2': 'Phase 2: Found {n} working (scanned {s})',
+    'clean.noResults': 'No working IPs found. Try increasing scan depth.',
+    'clean.export': 'Export Configs',
+    'clean.selectAll': 'Select All',
+    'clean.deselectAll': 'Deselect All',
+    'clean.errNoURL': 'Please enter a VLESS URL',
+    'clean.errStart': 'Failed to start scan: {msg}',
+    'clean.errNoSelection': 'Select at least one endpoint',
+    'clean.errExport': 'Export failed: {msg}',
+    'clean.exported': 'Exported {n} configs',
     'langBtn': 'فارسی',
     langCode: 'en'
   },
   fa: {
     title: 'اسکنر کلاودفلر',
     subtitle: 'اسکن اندپوینت‌های واپ کلاودفلر و اعمال دسته‌جمعی به کانفیگ‌ها',
+    'tab.endpoint': 'اسکنر اندپوینت',
+    'tab.clean': 'اسکنر آی‌پی',
     'config.header': 'کانفیگ',
     'config.fileLabel': 'فایل کانفیگ WireGuard (.conf)',
     'config.choose': 'انتخاب کانفیگ...',
@@ -424,6 +531,33 @@ const TR = {
     'help.visit': 'amnezia.org →',
     'help.visit2': 'wiresock.net →',
     'help.visit3': 'github.com/zaneschepke/wgtunnel →',
+    'clean.header': 'اسکنر آی‌پی تمیز',
+    'clean.desc': 'آی‌پی‌های کلاودفلر را با لینک VLESS خود اسکن کنید و پروکسی‌های working پیدا کنید.',
+    'clean.vlessLabel': 'لینک اشتراک VLESS',
+    'clean.vlessPlaceholder': 'vless://uuid@host:port?...',
+    'clean.depth.fast': 'سریع (۵۰۰ آی‌پی)',
+    'clean.depth.normal': 'معمولی (۱۰۰۰ آی‌پی)',
+    'clean.depth.deep': 'عمیق (۲۰۰۰ آی‌پی)',
+    'clean.depth.max': 'حداکثر (۵۰۰۰ آی‌پی)',
+    'clean.phase2Label': 'تست‌های فاز ۲',
+    'clean.start': 'شروع اسکن تمیز',
+    'clean.scanning': 'در حال اسکن...',
+    'clean.progressPhase1': 'فاز ۱: پروب TCP — {p} / {t}',
+    'clean.progressPhase2': 'فاز ۲: اعتبارسنجی پروکسی — {p} / {t}',
+    'clean.progressDone': 'اسکن کامل شد',
+    'clean.progressCancelled': 'اسکن لغو شد',
+    'clean.onePhase': '۱-فاز (فقط پروب TCP، بدون کانفیگ)',
+    'clean.foundPhase1': 'فاز ۱: {n} از {t} آی‌پی پاسخ دادند',
+    'clean.foundPhase2': 'فاز ۲: {n} آی‌پی working پیدا شد (اسکن {s})',
+    'clean.noResults': 'هیچ آی‌پی working پیدا نشد. تعداد اسکن را بیشتر کنید.',
+    'clean.export': 'خروجی کانفیگ‌ها',
+    'clean.selectAll': 'انتخاب همه',
+    'clean.deselectAll': 'لغو انتخاب همه',
+    'clean.errNoURL': 'لطفاً یک لینک VLESS وارد کنید',
+    'clean.errStart': 'شروع اسکن ناموفق بود: {msg}',
+    'clean.errNoSelection': 'حداقل یک اندپوینت انتخاب کنید',
+    'clean.errExport': 'خروجی ناموفق بود: {msg}',
+    'clean.exported': '{n} کانفیگ خروجی گرفته شد',
     'langBtn': 'English',
     langCode: 'fa'
   }
@@ -488,6 +622,13 @@ function setLang(code) {
 
 function toggleLang() {
   setLang(currentLang === 'en' ? 'fa' : 'en');
+}
+
+function switchTab(tab) {
+  document.getElementById('endpointTab').classList.toggle('hidden', tab !== 'endpoint');
+  document.getElementById('cleanTab').classList.toggle('hidden', tab !== 'clean');
+  document.getElementById('tabEndpoint').classList.toggle('active', tab === 'endpoint');
+  document.getElementById('tabClean').classList.toggle('active', tab === 'clean');
 }
 
 const fileInput = document.getElementById('configFile');
@@ -803,6 +944,277 @@ async function handleApplyEndpoint() {
 function showError(msg) {
   resultsContent.innerHTML = '<div class="error-msg">' + msg + '</div>';
   resultsContent.classList.remove('hidden');
+}
+
+// ── Clean IP Scanner ──
+
+let cleanJobId = null;
+let cleanStatusInterval = null;
+let cleanResultsInterval = null;
+
+async function startCleanScan() {
+  const onePhase = document.getElementById('onePhaseClean').checked;
+  const vlessURL = document.getElementById('vlessURL').value.trim();
+  if (!onePhase && !vlessURL) {
+    document.getElementById('cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errNoURL') + '</div>';
+    return;
+  }
+
+  cleanJobId = null;
+  const cleanResults = document.getElementById('cleanResultsContent');
+  cleanResults.classList.add('hidden');
+  cleanResults.innerHTML = '';
+  document.getElementById('cleanStatusMsg').innerHTML = '';
+
+  const startBtn = document.getElementById('cleanStartBtn');
+  const stopBtn = document.getElementById('cleanStopBtn');
+  startBtn.disabled = true;
+  startBtn.textContent = t('clean.scanning');
+  stopBtn.disabled = false;
+
+  const progressWrap = document.getElementById('cleanProgressWrap');
+  progressWrap.classList.add('active');
+  document.getElementById('cleanProgressFill').style.width = '0%';
+  document.getElementById('cleanProgressFill').classList.remove('cancelled');
+  document.getElementById('cleanProgressText').textContent = t('clean.progressPhase1', { p: '0', t: '0' });
+
+  const depth = parseInt(document.getElementById('cleanDepth').value);
+  const phase2 = parseInt(document.getElementById('cleanPhase2').value);
+  const ipVer = document.getElementById('cleanIPVersion').value;
+
+  try {
+    const data = await apiJSON('/api/clean-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        vless_url: vlessURL,
+        count: depth,
+        ipv4: ipVer === '4' || ipVer === '46',
+        ipv6: ipVer === '6' || ipVer === '46',
+        phase2_count: phase2,
+        one_phase: onePhase
+      })
+    });
+    cleanJobId = data.id;
+    pollCleanStatus(cleanJobId);
+    pollCleanResults(cleanJobId);
+  } catch (e) {
+    document.getElementById('cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errStart', { msg: e.message }) + '</div>';
+    startBtn.disabled = false;
+    startBtn.textContent = t('clean.start');
+    stopBtn.disabled = true;
+  }
+}
+
+async function stopCleanScan() {
+  if (!cleanJobId) return;
+  document.getElementById('cleanStopBtn').disabled = true;
+  try {
+    await fetch('/api/clean-stop/' + cleanJobId, { method: 'POST' });
+  } catch (e) {}
+}
+
+function pollCleanStatus(jobId) {
+  if (cleanStatusInterval) clearInterval(cleanStatusInterval);
+  cleanStatusInterval = setInterval(async () => {
+    try {
+      const data = await apiJSON('/api/clean-status/' + jobId);
+      const fill = document.getElementById('cleanProgressFill');
+      const text = document.getElementById('cleanProgressText');
+
+      if (data.status === 'running-phase1') {
+        const p = data.phase1_progress || 0;
+        const t = data.phase1_total || 1;
+        const pct = Math.round((p / t) * 50);
+        fill.style.width = pct + '%';
+        text.textContent = t('clean.progressPhase1', { p: p, t: t });
+      } else if (data.status === 'running-phase2') {
+        const p = data.phase2_progress || 0;
+        const t = data.phase2_total || 1;
+        const pct = 50 + Math.round((p / t) * 50);
+        fill.style.width = Math.min(pct, 99) + '%';
+        text.textContent = t('clean.progressPhase2', { p: p, t: t });
+      } else if (data.status === 'done') {
+        fill.style.width = '100%';
+        text.textContent = t('clean.progressDone');
+      } else if (data.status === 'cancelled') {
+        fill.classList.add('cancelled');
+        text.textContent = t('clean.progressCancelled');
+      }
+
+      if (data.status === 'done' || data.status === 'cancelled') {
+        clearInterval(cleanStatusInterval);
+        cleanStatusInterval = null;
+        document.getElementById('cleanStartBtn').disabled = false;
+        document.getElementById('cleanStartBtn').textContent = t('clean.start');
+        document.getElementById('cleanStopBtn').disabled = true;
+      }
+    } catch (e) {
+      clearInterval(cleanStatusInterval);
+      cleanStatusInterval = null;
+    }
+  }, 200);
+}
+
+document.getElementById('onePhaseClean').addEventListener('change', function() {
+  const phase2Col = document.getElementById('cleanPhase2Col');
+  phase2Col.classList.toggle('hidden', this.checked);
+});
+
+function renderCleanResultsTable(data) {
+  let html = '<table class="results-table">';
+  html += '<tr><th>' + t('results.tableNum') + '</th><th>' + t('results.tableEndpoint') + '</th><th>' + t('results.tableLatency') + '</th></tr>';
+  data.entries.forEach((e, i) => {
+    html += '<tr><td>' + (i+1) + '</td><td><span class="tag">' + e.endpoint + '</span></td><td>' + e.latency + '</td></tr>';
+  });
+  html += '</table>';
+  return html;
+}
+
+function pollCleanResults(jobId) {
+  if (cleanResultsInterval) clearInterval(cleanResultsInterval);
+  cleanResultsInterval = setInterval(async () => {
+    try {
+      const data = await apiJSON('/api/clean-results/' + jobId);
+      const container = document.getElementById('cleanResultsContent');
+      const statusMsg = document.getElementById('cleanStatusMsg');
+
+      if (data.status === 'done' || data.status === 'cancelled') {
+        clearInterval(cleanResultsInterval);
+        cleanResultsInterval = null;
+
+        if (data.status === 'cancelled') {
+          document.getElementById('cleanProgressFill').classList.add('cancelled');
+        }
+      }
+
+      if (data.phase === 'phase1') {
+        if (data.entries && data.entries.length > 0) {
+          let html = renderCleanResultsTable(data);
+
+          if (data.status === 'done' || data.status === 'cancelled') {
+            const isCancelled = data.status === 'cancelled';
+            html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + '" style="margin-top:8px">' +
+              (isCancelled ? t('clean.progressCancelled') : t('clean.foundPhase1', { n: data.total, t: data.phase1_total })) +
+              '</div>';
+            html += '<div class="results-actions" style="margin-top:12px">';
+            html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanPhase1IPs(\'' + jobId + '\')">' + t('results.copyAll') + '</button>';
+            html += '<button class="btn btn-secondary btn-sm" onclick="downloadCleanPhase1IPs(\'' + jobId + '\')">' + t('results.downloadRaw') + '</button>';
+            html += '</div>';
+          } else {
+            statusMsg.innerHTML = '<div class="live-count" style="color:#58a6ff">' + t('clean.foundPhase1', { n: data.total, t: data.phase1_total }) + '</div>';
+          }
+
+          container.innerHTML = html;
+          container.classList.remove('hidden');
+        } else {
+          statusMsg.innerHTML = '<div class="live-count" style="color:#58a6ff">' + t('clean.foundPhase1', { n: 0, t: data.phase1_total || 0 }) + '</div>';
+        }
+        return;
+      }
+
+      if (data.entries && data.entries.length > 0) {
+        let html = '<div class="success-msg" style="margin-bottom:8px">' + t('clean.foundPhase2', { n: data.total, s: data.scanned }) + '</div>';
+        html += '<table class="results-table">';
+        html += '<tr><th>' + t('results.tableNum') + '</th><th>' + t('results.tableEndpoint') + '</th><th>' + t('results.tableLatency') + '</th><th></th></tr>';
+        data.entries.forEach((e, i) => {
+          html += '<tr><td>' + (i+1) + '</td><td><span class="tag">' + e.endpoint + '</span></td><td>' + e.latency + '</td>';
+          html += '<td><input type="checkbox" class="clean-select" value="' + e.endpoint.replace(/'/g, "\\'") + '"></td></tr>';
+        });
+        html += '</table>';
+
+        html += '<div class="results-actions" style="margin-top:12px">';
+        html += '<button class="btn btn-accent btn-sm" onclick="exportCleanIPs()">' + t('clean.export') + '</button>';
+        html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(true)">' + t('clean.selectAll') + '</button>';
+        html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
+        html += '</div>';
+
+        container.innerHTML = html;
+        container.classList.remove('hidden');
+        statusMsg.innerHTML = '';
+
+        if (data.status === 'done') {
+          document.getElementById('cleanProgressText').textContent = t('clean.progressDone');
+        }
+      } else if (data.phase === 'phase2' && data.status === 'done') {
+        container.innerHTML = '<div class="empty-state"><p>' + t('clean.noResults') + '</p></div>';
+        container.classList.remove('hidden');
+      }
+    } catch (e) {
+      clearInterval(cleanResultsInterval);
+      cleanResultsInterval = null;
+    }
+  }, 800);
+}
+
+async function copyCleanPhase1IPs(jobId) {
+  const data = await apiJSON('/api/clean-results/' + jobId);
+  const text = data.entries.map(r => r.endpoint).join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+}
+
+async function downloadCleanPhase1IPs(jobId) {
+  const data = await apiJSON('/api/clean-results/' + jobId);
+  let text = '# Cloudflare Responding IPs\n# Generated by Cloudflare Scanner\n\n';
+  data.entries.forEach(r => { text += r.endpoint + '\n'; });
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'responded_ips.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function selectAllClean(select) {
+  document.querySelectorAll('.clean-select').forEach(cb => cb.checked = select);
+}
+
+async function exportCleanIPs() {
+  const vlessURL = document.getElementById('vlessURL').value.trim();
+  const selected = [];
+  document.querySelectorAll('.clean-select:checked').forEach(cb => {
+    selected.push(cb.value);
+  });
+
+  if (selected.length === 0) {
+    document.getElementById('cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errNoSelection') + '</div>';
+    return;
+  }
+
+  try {
+    const resp = await fetch('/api/clean-export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vless_url: vlessURL, endpoints: selected })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.error || resp.statusText);
+    }
+
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'clean_ips_vless.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    document.getElementById('cleanStatusMsg').innerHTML = '<div class="success-msg">' + t('clean.exported', { n: selected.length }) + '</div>';
+  } catch (e) {
+    document.getElementById('cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errExport', { msg: e.message }) + '</div>';
+  }
 }
 
 // Init language on load

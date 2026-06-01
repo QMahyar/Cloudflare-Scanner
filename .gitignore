@@ -1,5 +1,6 @@
-# Build artifact
+# Build artifacts
 Cloudflare-Scanner.exe
+WarpEndpointScanner.exe
 
 # Local xray-core runtime artifacts
 _xray_work/
@@ -14,6 +15,9 @@ _xray_work/
 # OS files
 Thumbs.db
 .DS_Store
+
+# User configs
+WARPGermany.conf
 
 # Go workspace
 go.work

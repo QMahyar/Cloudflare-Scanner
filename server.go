@@ -36,6 +36,10 @@ var (
 	scanJobs   = map[string]*ScanJob{}
 	scanJobsMu sync.Mutex
 	jobCounter int
+
+	cleanJobs   = map[string]*CleanIPJob{}
+	cleanJobsMu sync.Mutex
+	cleanJobCounter int
 )
 
 type scanRequest struct {
@@ -61,6 +65,11 @@ func startServer(xrayPath string) (int, error) {
 	mux.HandleFunc("/api/results/", handleScanResults)
 	mux.HandleFunc("/api/stop/", handleScanStop)
 	mux.HandleFunc("/api/apply-endpoint", handleApplyEndpoint)
+	mux.HandleFunc("/api/clean-scan", handleCleanScanStart(xrayPath))
+	mux.HandleFunc("/api/clean-status/", handleCleanScanStatus)
+	mux.HandleFunc("/api/clean-results/", handleCleanScanResults)
+	mux.HandleFunc("/api/clean-stop/", handleCleanScanStop)
+	mux.HandleFunc("/api/clean-export", handleCleanExport)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -442,4 +451,266 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 		"saved":   saved,
 		"total":   len(files),
 	})
+}
+
+type cleanScanRequest struct {
+	VLESSURL    string `json:"vless_url"`
+	Count       int    `json:"count"`
+	IPv4        bool   `json:"ipv4"`
+	IPv6        bool   `json:"ipv6"`
+	Phase2Count int    `json:"phase2_count"`
+	OnePhase    bool   `json:"one_phase"`
+}
+
+func handleCleanScanStart(xrayPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			jsonError(w, "POST required", 405)
+			return
+		}
+
+		var req cleanScanRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			jsonError(w, err.Error(), 400)
+			return
+		}
+
+		if !req.OnePhase && req.VLESSURL == "" {
+			jsonError(w, "vless_url required", 400)
+			return
+		}
+
+		port := 443
+		var cfg *ProxyConfig
+		if req.VLESSURL != "" {
+			var err error
+			cfg, err = ParseProxyURL(req.VLESSURL)
+			if err != nil {
+				jsonError(w, fmt.Sprintf("parse url: %v", err), 400)
+				return
+			}
+			port = cfg.Port
+		}
+
+		if req.Count <= 0 {
+			req.Count = 1000
+		}
+		if req.Phase2Count <= 0 {
+			req.Phase2Count = 30
+		}
+		if !req.IPv4 && !req.IPv6 {
+			req.IPv4 = true
+		}
+
+		gen := NewCleanIPGenerator()
+		endpoints := gen.GenerateIPs(req.Count, req.IPv4, req.IPv6, port)
+
+		cleanJobCounter++
+		jobID := fmt.Sprintf("clean_%d", cleanJobCounter)
+
+		job := &CleanIPJob{
+			ID:          jobID,
+			Status:      "pending",
+			Total:       len(endpoints),
+			Config:      cfg,
+			Endpoints:   endpoints,
+			Phase2Count: req.Phase2Count,
+			SkipPhase2:  req.OnePhase,
+			Cancel:      make(chan struct{}),
+		}
+
+		cleanJobsMu.Lock()
+		cleanJobs[jobID] = job
+		cleanJobsMu.Unlock()
+
+		go runCleanScan(job, xrayPath)
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"id": jobID, "total": fmt.Sprintf("%d", job.Total)})
+	}
+}
+
+func handleCleanScanStop(w http.ResponseWriter, r *http.Request) {
+	jobID := r.URL.Path[len("/api/clean-stop/"):]
+
+	cleanJobsMu.Lock()
+	job, ok := cleanJobs[jobID]
+	cleanJobsMu.Unlock()
+
+	if !ok {
+		jsonError(w, "not found", 404)
+		return
+	}
+
+	job.mu.Lock()
+	status := job.Status
+	job.mu.Unlock()
+
+	if status != "running-phase1" && status != "running-phase2" {
+		jsonError(w, "scan not running", 400)
+		return
+	}
+
+	close(job.Cancel)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
+}
+
+func handleCleanScanStatus(w http.ResponseWriter, r *http.Request) {
+	jobID := r.URL.Path[len("/api/clean-status/"):]
+
+	cleanJobsMu.Lock()
+	job, ok := cleanJobs[jobID]
+	cleanJobsMu.Unlock()
+
+	if !ok {
+		jsonError(w, "not found", 404)
+		return
+	}
+
+	job.mu.Lock()
+	status := job.Status
+	phase1Progress := job.Phase1Progress
+	phase1Total := job.Phase1Total
+	phase2Progress := job.Phase2Progress
+	phase2Total := job.Phase2Total
+	job.mu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":          status,
+		"phase1_progress": phase1Progress,
+		"phase1_total":    phase1Total,
+		"phase2_progress": phase2Progress,
+		"phase2_total":    phase2Total,
+	})
+}
+
+func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
+	jobID := r.URL.Path[len("/api/clean-results/"):]
+
+	cleanJobsMu.Lock()
+	job, ok := cleanJobs[jobID]
+	cleanJobsMu.Unlock()
+
+	if !ok {
+		jsonError(w, "not found", 404)
+		return
+	}
+
+	job.mu.Lock()
+	status := job.Status
+	phase1Results := job.Phase1Results
+	phase2Results := job.Phase2Results
+	phase1Progress := job.Phase1Progress
+	phase1Total := job.Phase1Total
+	skipPhase2 := job.SkipPhase2
+	job.mu.Unlock()
+
+	showPhase2 := (status == "done" || status == "cancelled" || status == "running-phase2") && !skipPhase2
+
+	type resultEntry struct {
+		Endpoint string `json:"endpoint"`
+		Latency  string `json:"latency"`
+		Success  bool   `json:"success"`
+		Error    string `json:"error,omitempty"`
+	}
+
+	if showPhase2 {
+		entries := make([]resultEntry, 0, len(phase2Results))
+		for _, r := range phase2Results {
+			if !r.Success {
+				continue
+			}
+			entries = append(entries, resultEntry{
+				Endpoint: r.Endpoint,
+				Latency:  r.Latency.Round(time.Millisecond).String(),
+				Success:  true,
+			})
+		}
+		raw := make([]resultEntry, 0)
+		for _, r := range phase2Results {
+			if r.Success {
+				raw = append(raw, resultEntry{Endpoint: r.Endpoint, Latency: r.Latency.Round(time.Millisecond).String(), Success: true})
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"entries": entries,
+			"raw":     raw,
+			"total":   len(entries),
+			"scanned": len(phase2Results),
+			"status":  status,
+			"phase":   "phase2",
+			"phase1":  phase1Progress,
+		})
+		return
+	}
+
+	entries := make([]resultEntry, 0, len(phase1Results))
+	for _, r := range phase1Results {
+		if !r.Success {
+			continue
+		}
+		entries = append(entries, resultEntry{
+			Endpoint: r.Endpoint,
+			Latency:  r.Latency.Round(time.Millisecond).String(),
+			Success:  true,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"entries":     entries,
+		"total":       len(entries),
+		"scanned":     phase1Progress,
+		"phase1_total": phase1Total,
+		"status":      status,
+		"phase":       "phase1",
+		"phase1":      phase1Progress,
+	})
+}
+
+type cleanExportRequest struct {
+	VLESSURL  string   `json:"vless_url"`
+	Endpoints []string `json:"endpoints"`
+}
+
+func handleCleanExport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		jsonError(w, "POST required", 405)
+		return
+	}
+
+	var req cleanExportRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, err.Error(), 400)
+		return
+	}
+
+	if req.VLESSURL == "" || len(req.Endpoints) == 0 {
+		jsonError(w, "vless_url and endpoints required", 400)
+		return
+	}
+
+	cfg, err := ParseProxyURL(req.VLESSURL)
+	if err != nil {
+		jsonError(w, fmt.Sprintf("parse url: %v", err), 400)
+		return
+	}
+
+	urls := cfg.GenerateExport(req.Endpoints)
+
+	content := "# Clean IP VLESS Configs\n"
+	content += "# Generated by Cloudflare Scanner\n"
+	content += fmt.Sprintf("# Original: %s\n", req.VLESSURL)
+	content += fmt.Sprintf("# Working IPs: %d\n\n", len(urls))
+	for _, u := range urls {
+		content += u + "\n"
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=clean_ips_vless.txt")
+	w.Write([]byte(content))
 }
