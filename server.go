@@ -70,6 +70,8 @@ func startServer(xrayPath string) (int, error) {
 	mux.HandleFunc("/api/clean-results/", handleCleanScanResults)
 	mux.HandleFunc("/api/clean-stop/", handleCleanScanStop)
 	mux.HandleFunc("/api/clean-export", handleCleanExport)
+	mux.HandleFunc("/api/replacer/fetch", handleReplacerFetch)
+	mux.HandleFunc("/api/replacer/apply", handleReplacerApply)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -713,4 +715,143 @@ func handleCleanExport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Content-Disposition", "attachment; filename=clean_ips_vless.txt")
 	w.Write([]byte(content))
+}
+
+type replacerFetchRequest struct {
+	URL string `json:"url"`
+}
+
+type replacerConfigEntry struct {
+	Fingerprint string `json:"fingerprint"`
+	Protocol    string `json:"protocol"`
+	UUID        string `json:"uuid"`
+	Address     string `json:"address"`
+	Port        int    `json:"port"`
+	Encryption  string `json:"encryption"`
+	Security    string `json:"security"`
+	SNI         string `json:"sni"`
+	FingerprintFP string `json:"fingerprint_fp"`
+	Network     string `json:"network"`
+	Host        string `json:"host"`
+	Path        string `json:"path"`
+	PacketEnc   string `json:"packet_enc"`
+	Remark      string `json:"remark"`
+}
+
+func handleReplacerFetch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		jsonError(w, "POST required", 405)
+		return
+	}
+
+	var req replacerFetchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, err.Error(), 400)
+		return
+	}
+
+	if req.URL == "" {
+		jsonError(w, "url required", 400)
+		return
+	}
+
+	content, err := FetchSubscription(req.URL)
+	if err != nil {
+		jsonError(w, fmt.Sprintf("fetch: %v", err), 400)
+		return
+	}
+
+	configs, err := ParseSubscription(content)
+	if err != nil {
+		jsonError(w, fmt.Sprintf("parse: %v", err), 400)
+		return
+	}
+
+	if len(configs) == 0 {
+		jsonError(w, "no valid configs found in subscription", 400)
+		return
+	}
+
+	unique := DeduplicateConfigs(configs)
+
+	entries := make([]replacerConfigEntry, 0, len(unique))
+	for _, c := range unique {
+		entries = append(entries, replacerConfigEntry{
+			Fingerprint:   ConfigFingerprint(c),
+			Protocol:      c.Protocol,
+			UUID:          c.UUID,
+			Address:       c.Address,
+			Port:          c.Port,
+			Encryption:    c.Encryption,
+			Security:      c.Security,
+			SNI:           c.SNI,
+			FingerprintFP: c.Fingerprint,
+			Network:       c.Network,
+			Host:          c.Host,
+			Path:          c.Path,
+			PacketEnc:     c.PacketEncoding,
+			Remark:        c.Remark,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"configs": entries,
+		"total":   len(configs),
+		"unique":  len(unique),
+	})
+}
+
+type replacerApplyRequest struct {
+	Configs   []replacerConfigEntry `json:"configs"`
+	Endpoints []string              `json:"endpoints"`
+}
+
+func handleReplacerApply(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		jsonError(w, "POST required", 405)
+		return
+	}
+
+	var req replacerApplyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, err.Error(), 400)
+		return
+	}
+
+	if len(req.Configs) == 0 {
+		jsonError(w, "no configs provided", 400)
+		return
+	}
+	if len(req.Endpoints) == 0 {
+		jsonError(w, "no endpoints provided", 400)
+		return
+	}
+
+	configs := make([]*ProxyConfig, 0, len(req.Configs))
+	for _, e := range req.Configs {
+		configs = append(configs, &ProxyConfig{
+			Protocol:       e.Protocol,
+			UUID:           e.UUID,
+			Address:        e.Address,
+			Port:           e.Port,
+			Encryption:     e.Encryption,
+			Security:       e.Security,
+			SNI:            e.SNI,
+			Fingerprint:    e.FingerprintFP,
+			Network:        e.Network,
+			Host:           e.Host,
+			Path:           e.Path,
+			PacketEncoding: e.PacketEnc,
+			Remark:         e.Remark,
+		})
+	}
+
+	urls := GenerateReplacedConfigs(configs, req.Endpoints)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"urls":  urls,
+		"count": len(urls),
+	})
 }

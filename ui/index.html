@@ -95,6 +95,7 @@ body[dir="rtl"] .empty-state{text-align:center}
   <div class="tab-bar">
     <button class="tab active" id="tabEndpoint" onclick="switchTab('endpoint')" data-t="tab.endpoint">Endpoint Scanner</button>
     <button class="tab" id="tabClean" onclick="switchTab('clean')" data-t="tab.clean">IP Scanner</button>
+    <button class="tab" id="tabReplacer" onclick="switchTab('replacer')" data-t="tab.replacer">IP Replacer</button>
   </div>
 
   <div id="endpointTab">
@@ -329,6 +330,54 @@ body[dir="rtl"] .empty-state{text-align:center}
   </div>
 </div>
 
+<div id="replacerTab" class="hidden">
+  <div class="card">
+    <h2 data-t="replacer.header">IP Replacer</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="replacer.desc">Fetch a subscription, deduplicate configs, and replace IP:port with clean endpoints.</p>
+    <div class="row">
+      <div class="col" style="flex:3">
+        <label data-t="replacer.subLabel">Subscription URL</label>
+        <input type="text" id="replacerURL" data-t-placeholder="replacer.subPlaceholder" placeholder="https://example.com/sub?token=...">
+      </div>
+      <div class="col" style="flex:none;min-width:auto">
+        <label>&nbsp;</label>
+        <button class="btn btn-primary" id="fetchBtn" onclick="replacerFetch()" data-t="replacer.fetch">Fetch</button>
+      </div>
+    </div>
+    <div id="replacerFetchStatus" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card hidden" id="replacerConfigsCard">
+    <h2 data-t="replacer.configsHeader">Unique Configs</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:8px" id="replacerConfigCount"></p>
+    <div id="replacerConfigsList"></div>
+    <div id="replacerConfigActions" class="hidden" style="margin-top:8px">
+      <button class="btn btn-secondary btn-sm" onclick="replacerSelectAll(true)">Select All</button>
+      <button class="btn btn-secondary btn-sm" onclick="replacerSelectAll(false)">Deselect All</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="replacerEndpointsCard">
+    <h2 data-t="replacer.endpointsHeader">Endpoints</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:8px" data-t="replacer.endpointsDesc">Paste IP:port endpoints (one per line) from Clean IP scan results.</p>
+    <textarea id="replacerEndpoints" rows="6" style="width:100%;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:13px;padding:8px;font-family:monospace;resize:vertical" data-t-placeholder="replacer.endpointsPlaceholder" placeholder="162.159.90.249:443&#10;162.159.82.8:443&#10;..."></textarea>
+    <div style="margin-top:8px">
+      <button class="btn btn-accent" id="replacerGenerateBtn" onclick="replacerGenerate()" data-t="replacer.generate">Generate Configs</button>
+    </div>
+    <div id="replacerGenStatus" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card hidden" id="replacerResultsCard">
+    <h2 data-t="replacer.resultsHeader">Generated Configs</h2>
+    <p style="font-size:13px;color:#8b949e;margin-bottom:8px" id="replacerResultsCount"></p>
+    <div id="replacerResultsContent"></div>
+    <div class="results-actions" style="margin-top:12px" id="replacerResultsActions" class="hidden">
+      <button class="btn btn-secondary btn-sm" onclick="replacerCopyAll()" data-t="replacer.copyAll">Copy All</button>
+      <button class="btn btn-secondary btn-sm" onclick="replacerDownload()" data-t="replacer.download">Download</button>
+    </div>
+  </div>
+</div>
+
 </div>
 
 <script>
@@ -444,6 +493,33 @@ const TR = {
     'clean.errNoSelection': 'Select at least one endpoint',
     'clean.errExport': 'Export failed: {msg}',
     'clean.exported': 'Exported {n} configs',
+    'tab.replacer': 'IP Replacer',
+    'replacer.header': 'IP Replacer',
+    'replacer.desc': 'Fetch a subscription, deduplicate configs, and replace IP:port with clean endpoints.',
+    'replacer.subLabel': 'Subscription URL',
+    'replacer.subPlaceholder': 'https://example.com/sub?token=...',
+    'replacer.fetch': 'Fetch',
+    'replacer.fetching': 'Fetching...',
+    'replacer.fetched': 'Fetched {t} configs, {u} unique',
+    'replacer.errNoURL': 'Please enter a subscription URL',
+    'replacer.errFetch': 'Fetch failed: {msg}',
+    'replacer.configsHeader': 'Unique Configs',
+    'replacer.configCount': '{n} unique config(s)',
+    'replacer.tablePort': 'Port',
+    'replacer.tableConfig': 'Config',
+    'replacer.endpointsHeader': 'Endpoints',
+    'replacer.endpointsDesc': 'Paste IP:port endpoints (one per line) from Clean IP scan results.',
+    'replacer.endpointsPlaceholder': '162.159.90.249:443\n162.159.82.8:443\n...',
+    'replacer.generate': 'Generate Configs',
+    'replacer.generating': 'Generating...',
+    'replacer.errNoConfigs': 'Select at least one config',
+    'replacer.errNoEndpoints': 'Enter at least one endpoint',
+    'replacer.errGenerate': 'Generation failed: {msg}',
+    'replacer.generated': 'Generated {n} configs',
+    'replacer.resultsHeader': 'Generated Configs',
+    'replacer.resultsCount': '{n} configs from {c} config(s) × {e} endpoint(s)',
+    'replacer.copyAll': 'Copy All',
+    'replacer.download': 'Download',
     'langBtn': 'فارسی',
     langCode: 'en'
   },
@@ -558,6 +634,33 @@ const TR = {
     'clean.errNoSelection': 'حداقل یک اندپوینت انتخاب کنید',
     'clean.errExport': 'خروجی ناموفق بود: {msg}',
     'clean.exported': '{n} کانفیگ خروجی گرفته شد',
+    'tab.replacer': 'جایگزین آی‌پی',
+    'replacer.header': 'جایگزین آی‌پی',
+    'replacer.desc': 'یک اشترک را دریافت کنید، کانفیگ‌ها را یکتا کنید و آی‌پی:پورت را با اندپوینت‌های تمیز جایگزین کنید.',
+    'replacer.subLabel': 'لینک اشتراک',
+    'replacer.subPlaceholder': 'https://example.com/sub?token=...',
+    'replacer.fetch': 'دریافت',
+    'replacer.fetching': 'در حال دریافت...',
+    'replacer.fetched': '{t} کانفیگ دریافت شد، {u} تا یکتا',
+    'replacer.errNoURL': 'لطفاً یک لینک اشتراک وارد کنید',
+    'replacer.errFetch': 'دریافت ناموفق: {msg}',
+    'replacer.configsHeader': 'کانفیگ‌های یکتا',
+    'replacer.configCount': '{n} کانفیگ یکتا',
+    'replacer.tablePort': 'پورت',
+    'replacer.tableConfig': 'کانفیگ',
+    'replacer.endpointsHeader': 'اندپوینت‌ها',
+    'replacer.endpointsDesc': 'اندپوینت‌های IP:port را (یک خط در هر) از نتایج اسکن آی‌پی تمیز بچسبانید.',
+    'replacer.endpointsPlaceholder': '162.159.90.249:443\n162.159.82.8:443\n...',
+    'replacer.generate': 'ساخت کانفیگ‌ها',
+    'replacer.generating': 'در حال ساخت...',
+    'replacer.errNoConfigs': 'حداقل یک کانفیگ انتخاب کنید',
+    'replacer.errNoEndpoints': 'حداقل یک اندپوینت وارد کنید',
+    'replacer.errGenerate': 'ساخت ناموفق: {msg}',
+    'replacer.generated': '{n} کانفیگ ساخته شد',
+    'replacer.resultsHeader': 'کانفیگ‌های ساخته شده',
+    'replacer.resultsCount': '{n} کانفیگ از {c} کانفیگ × {e} اندپوینت',
+    'replacer.copyAll': 'کپی همه',
+    'replacer.download': 'دانلود',
     'langBtn': 'English',
     langCode: 'fa'
   }
@@ -627,8 +730,10 @@ function toggleLang() {
 function switchTab(tab) {
   document.getElementById('endpointTab').classList.toggle('hidden', tab !== 'endpoint');
   document.getElementById('cleanTab').classList.toggle('hidden', tab !== 'clean');
+  document.getElementById('replacerTab').classList.toggle('hidden', tab !== 'replacer');
   document.getElementById('tabEndpoint').classList.toggle('active', tab === 'endpoint');
   document.getElementById('tabClean').classList.toggle('active', tab === 'clean');
+  document.getElementById('tabReplacer').classList.toggle('active', tab === 'replacer');
 }
 
 const fileInput = document.getElementById('configFile');
@@ -1215,6 +1320,165 @@ async function exportCleanIPs() {
   } catch (e) {
     document.getElementById('cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errExport', { msg: e.message }) + '</div>';
   }
+}
+
+// ── IP Replacer ──
+
+let replacerConfigs = [];
+let replacerGeneratedURLs = [];
+
+async function replacerFetch() {
+  const url = document.getElementById('replacerURL').value.trim();
+  const statusEl = document.getElementById('replacerFetchStatus');
+  const fetchBtn = document.getElementById('fetchBtn');
+  if (!url) {
+    statusEl.innerHTML = '<div class="error-msg">' + t('replacer.errNoURL') + '</div>';
+    return;
+  }
+
+  fetchBtn.disabled = true;
+  fetchBtn.textContent = t('replacer.fetching');
+  statusEl.innerHTML = '';
+
+  try {
+    const data = await apiJSON('/api/replacer/fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: url })
+    });
+
+    replacerConfigs = data.configs;
+
+    statusEl.innerHTML = '<div class="success-msg">' + t('replacer.fetched', { t: data.total, u: data.unique }) + '</div>';
+
+    renderReplacerConfigs(data.configs);
+    document.getElementById('replacerConfigsCard').classList.remove('hidden');
+    document.getElementById('replacerEndpointsCard').classList.remove('hidden');
+  } catch (e) {
+    statusEl.innerHTML = '<div class="error-msg">' + t('replacer.errFetch', { msg: e.message }) + '</div>';
+  }
+
+  fetchBtn.disabled = false;
+  fetchBtn.textContent = t('replacer.fetch');
+}
+
+function renderReplacerConfigs(configs) {
+  const container = document.getElementById('replacerConfigsList');
+  document.getElementById('replacerConfigCount').textContent = t('replacer.configCount', { n: configs.length });
+
+  let html = '<table class="results-table">';
+  html += '<tr><th><input type="checkbox" id="replacerSelectAllCb" onchange="replacerToggleAll()" checked></th>';
+  html += '<th>#</th><th>' + t('results.tableEndpoint') + '</th><th>' + t('replacer.tablePort') + '</th><th>' + t('replacer.tableConfig') + '</th></tr>';
+
+  configs.forEach((c, i) => {
+    html += '<tr>';
+    html += '<td><input type="checkbox" class="replacer-cfg-cb" value="' + i + '" checked></td>';
+    html += '<td>' + (i+1) + '</td>';
+    html += '<td><span class="tag">' + c.address + '</span></td>';
+    html += '<td>' + c.port + '</td>';
+    html += '<td style="font-size:12px;color:#8b949e">' + c.remark + ' (' + c.protocol + '://' + c.uuid.substring(0,8) + '…)</td>';
+    html += '</tr>';
+  });
+  html += '</table>';
+
+  container.innerHTML = html;
+  document.getElementById('replacerConfigActions').classList.remove('hidden');
+}
+
+function replacerToggleAll() {
+  const checked = document.getElementById('replacerSelectAllCb').checked;
+  document.querySelectorAll('.replacer-cfg-cb').forEach(cb => cb.checked = checked);
+}
+
+function replacerSelectAll(select) {
+  document.querySelectorAll('.replacer-cfg-cb').forEach(cb => cb.checked = select);
+  const master = document.getElementById('replacerSelectAllCb');
+  if (master) master.checked = select;
+}
+
+async function replacerGenerate() {
+  const selected = [];
+  document.querySelectorAll('.replacer-cfg-cb:checked').forEach(cb => {
+    const idx = parseInt(cb.value);
+    selected.push(replacerConfigs[idx]);
+  });
+
+  const endpointsText = document.getElementById('replacerEndpoints').value.trim();
+  const endpoints = endpointsText.split('\n').map(s => s.trim()).filter(s => s);
+  const genStatus = document.getElementById('replacerGenStatus');
+
+  if (selected.length === 0) {
+    genStatus.innerHTML = '<div class="error-msg">' + t('replacer.errNoConfigs') + '</div>';
+    return;
+  }
+  if (endpoints.length === 0) {
+    genStatus.innerHTML = '<div class="error-msg">' + t('replacer.errNoEndpoints') + '</div>';
+    return;
+  }
+
+  const genBtn = document.getElementById('replacerGenerateBtn');
+  genBtn.disabled = true;
+  genBtn.textContent = t('replacer.generating');
+  genStatus.innerHTML = '';
+
+  try {
+    const data = await apiJSON('/api/replacer/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ configs: selected, endpoints: endpoints })
+    });
+
+    replacerGeneratedURLs = data.urls;
+    renderReplacerResults(data.urls, selected.length, endpoints.length);
+    document.getElementById('replacerResultsCard').classList.remove('hidden');
+    genStatus.innerHTML = '<div class="success-msg">' + t('replacer.generated', { n: data.count }) + '</div>';
+  } catch (e) {
+    genStatus.innerHTML = '<div class="error-msg">' + t('replacer.errGenerate', { msg: e.message }) + '</div>';
+  }
+
+  genBtn.disabled = false;
+  genBtn.textContent = t('replacer.generate');
+}
+
+function renderReplacerResults(urls, numConfigs, numEndpoints) {
+  const container = document.getElementById('replacerResultsContent');
+  document.getElementById('replacerResultsCount').textContent = t('replacer.resultsCount', { n: urls.length, c: numConfigs, e: numEndpoints });
+
+  let html = '<table class="results-table"><tr><th>#</th><th>' + t('replacer.tableConfig') + '</th></tr>';
+  urls.forEach((u, i) => {
+    const display = u.length > 100 ? u.substring(0, 100) + '…' : u;
+    html += '<tr><td>' + (i+1) + '</td><td style="font-size:12px;font-family:monospace;word-break:break-all">' + display + '</td></tr>';
+  });
+  html += '</table>';
+  container.innerHTML = html;
+
+  document.getElementById('replacerResultsActions').classList.remove('hidden');
+}
+
+async function replacerCopyAll() {
+  const text = replacerGeneratedURLs.join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }
+}
+
+function replacerDownload() {
+  let text = '# Replaced VLESS Configs\n# Generated by Cloudflare Scanner\n\n';
+  replacerGeneratedURLs.forEach(u => { text += u + '\n'; });
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'replaced_configs.txt';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Init language on load
