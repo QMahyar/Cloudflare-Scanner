@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 )
@@ -58,18 +57,28 @@ func isTermux() bool {
 }
 
 func openBrowser(url string) {
-	var cmd *exec.Cmd
+	var argv0 string
+	var args []string
 	if runtime.GOOS == "linux" && isTermux() {
-		cmd = exec.Command("termux-open-url", url)
+		argv0 = "termux-open-url"
+		args = []string{argv0, url}
 	} else {
 		switch runtime.GOOS {
 		case "windows":
-			cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+			argv0 = "rundll32"
+			args = []string{argv0, "url.dll,FileProtocolHandler", url}
 		case "darwin":
-			cmd = exec.Command("open", url)
+			argv0 = "open"
+			args = []string{argv0, url}
 		default:
-			cmd = exec.Command("xdg-open", url)
+			argv0 = "xdg-open"
+			args = []string{argv0, url}
 		}
 	}
-	cmd.Start()
+	proc, err := os.StartProcess(argv0, args, &os.ProcAttr{
+		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
+	})
+	if err == nil {
+		proc.Release()
+	}
 }
