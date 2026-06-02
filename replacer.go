@@ -12,6 +12,8 @@ import (
 )
 
 func ParseRawConfigs(rawText string) []*ProxyConfig {
+	replacer := strings.NewReplacer(",", " ", ";", " ", "|", " ")
+	rawText = replacer.Replace(rawText)
 	tokens := strings.Fields(rawText)
 	configs := make([]*ProxyConfig, 0, len(tokens))
 	for _, token := range tokens {
