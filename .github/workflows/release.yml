@@ -18,7 +18,51 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+            ext: .exe
+            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-windows-64.zip
+            xray_in: xray.exe
+            platform: windows-amd64
+
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            ext: ""
+            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-linux-64.zip
+            xray_in: xray
+            platform: linux-amd64
+
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            ext: ""
+            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-linux-arm64-v8a.zip
+            xray_in: xray
+            platform: linux-arm64
+
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+            ext: ""
+            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-macos-64.zip
+            xray_in: xray
+            platform: darwin-amd64
+
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+            ext: ""
+            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-macos-arm64-v8a.zip
+            xray_in: xray
+            platform: darwin-arm64
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -27,23 +71,51 @@ jobs:
 
       - name: Vet
         run: go vet ./...
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
 
       - name: Build
-        run: go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
+        run: go build -ldflags="-s -w" -o Cloudflare-Scanner${{ matrix.ext }} .
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
 
       - name: Download xray-core
+        shell: bash
         run: |
-          $url = "https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-windows-64.zip"
-          $zip = "$env:RUNNER_TEMP\xray.zip"
-          Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath "$env:RUNNER_TEMP\xray"
-          Copy-Item "$env:RUNNER_TEMP\xray\xray.exe" -Destination xray.exe
+          cd "$RUNNER_TEMP"
+          curl -sL "${{ matrix.xray_url }}" -o xray.zip
+          unzip -o xray.zip ${{ matrix.xray_in }}
+          mkdir -p "${{ github.workspace }}/xray-bin"
+          cp ${{ matrix.xray_in }} "${{ github.workspace }}/xray-bin/"
 
       - name: Package
+        shell: bash
         run: |
-          $tag = "${{ github.ref_name }}"
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") { $tag = "v${{ inputs.version }}" }
-          Compress-Archive -Path Cloudflare-Scanner.exe, xray.exe -DestinationPath "Cloudflare-Scanner-$tag.zip"
+          cd "${{ github.workspace }}"
+          tag="${{ github.ref_name }}"
+          [ "${{ github.event_name }}" = "workflow_dispatch" ] && tag="v${{ inputs.version }}"
+          cp xray-bin/${{ matrix.xray_in }} xray${{ matrix.ext }}
+          tar -czf "Cloudflare-Scanner-$tag-${{ matrix.platform }}.tar.gz" Cloudflare-Scanner${{ matrix.ext }} xray${{ matrix.ext }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: Cloudflare-Scanner-*.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -la
 
       # ── Manual dispatch ──
       - name: Create Release (manual)
@@ -51,14 +123,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "v${{ inputs.version }}"
-          $title = "Cloudflare Scanner $tag"
-          $body = "${{ inputs.description }}"
-          if ($body -eq "") { $body = "Release $tag" }
-          $bodyFile = "$env:RUNNER_TEMP\release-body.md"
-          $body | Out-File -FilePath $bodyFile -Encoding utf8
-          gh release create $tag --target ${{ github.sha }} --title "$title" --notes-file $bodyFile
-          gh release upload $tag "Cloudflare-Scanner-$tag.zip" --clobber
+          tag="v${{ inputs.version }}"
+          title="Cloudflare Scanner $tag"
+          body="${{ inputs.description }}"
+          [ -z "$body" ] && body="Release $tag"
+          echo "$body" > release-body.md
+          gh release create "$tag" --target "${{ github.sha }}" --title "$title" --notes-file release-body.md
+          gh release upload "$tag" Cloudflare-Scanner-*.tar.gz --clobber
 
       # ── Tag push ──
       - name: Create Release (tag)
@@ -69,8 +140,15 @@ jobs:
           body: |
             ## Cloudflare Scanner ${{ github.ref_name }}
 
-            Download `Cloudflare-Scanner-${{ github.ref_name }}.zip`, extract, and run `Cloudflare-Scanner.exe`.
-            xray-core is included — no extra downloads needed.
-          files: Cloudflare-Scanner-*.zip
+            Downloads by platform:
+
+            - **Windows (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-windows-amd64.tar.gz`
+            - **Linux (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-linux-amd64.tar.gz`
+            - **Linux (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-linux-arm64.tar.gz`
+            - **macOS (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-darwin-amd64.tar.gz`
+            - **macOS (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-darwin-arm64.tar.gz`
+
+            Extract, make `xray` executable (`chmod +x xray` on Linux/macOS), and run `Cloudflare-Scanner` (or `Cloudflare-Scanner.exe` on Windows).
+          files: Cloudflare-Scanner-*.tar.gz
           draft: false
           prerelease: false

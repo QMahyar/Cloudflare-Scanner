@@ -8,20 +8,30 @@ This document covers the complete project structure, architecture, build command
 
 - **Go 1.26+** (download from [go.dev](https://go.dev/dl/))
 - **No C compiler needed** — all dependencies are pure Go
-- Windows 10/11 (the app only targets Windows)
+- Cross-platform: Windows, Linux, macOS (all architectures)
 
 ## Build commands
 
-```powershell
-# Standard build (debug symbols included, larger binary)
-go build -o Cloudflare-Scanner.exe .
+```bash
+# Windows (amd64)
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
 
-# Release build (stripped, smaller binary)
-go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
+# Linux (amd64)
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 
-# 32-bit build
-$env:GOARCH="386"; go build -ldflags="-s -w" -o Cloudflare-Scanner-x86.exe .
+# Linux (arm64) — e.g. Raspberry Pi
+GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
+
+# macOS (Intel)
+GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
+
+# macOS (Apple Silicon)
+GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 ```
+
+On **Windows (PowerShell)** the same commands work with `$env:GOOS="windows"; $env:GOARCH="amd64"; go build ...`.
+
+The binary embeds `ui/index.html` via Go's `//go:embed` directive — no external files needed at runtime.
 
 The binary embeds `ui/index.html` via Go's `//go:embed` directive — no external files needed at runtime.
 
@@ -165,7 +175,7 @@ Default: 5 noise packets, each 50-100 bytes random data, 1-5ms apart.
 
 ## xray-core
 
-xray-core v1.8.24 (`xray.exe`) is bundled in the repo and included in every release zip. It must be in the same directory as `Cloudflare-Scanner.exe`.
+xray-core v1.8.24 is bundled in every release archive. The app looks for `xray.exe` (Windows) or `xray` (Linux/macOS) in the same directory as its own binary. If not found, it prints an error with the download URL.
 
 ### Clean IP scanning flow
 
@@ -218,6 +228,17 @@ Subscription URL ──> FetchSubscription()
 ## Environment variables
 
 None required. Everything is configured through the web UI at runtime.
+
+## Platform-specific notes
+
+### Linux
+- After extracting, make `xray` executable: `chmod +x xray`
+- The app opens the browser via `xdg-open` (install `xdg-utils` if missing)
+
+### macOS
+- After extracting, make `xray` executable: `chmod +x xray`
+- The app opens the browser via `open` (built-in)
+- If macOS blocks the unsigned binary, run: `xattr -d com.apple.quarantine Cloudflare-Scanner`
 
 ## Contributing
 

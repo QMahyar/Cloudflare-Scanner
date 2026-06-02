@@ -11,10 +11,15 @@ import (
 func main() {
 	exePath, _ := os.Executable()
 	workDir := filepath.Dir(exePath)
-	xrayPath := filepath.Join(workDir, "xray.exe")
+
+	xrayName := "xray"
+	if runtime.GOOS == "windows" {
+		xrayName = "xray.exe"
+	}
+	xrayPath := filepath.Join(workDir, xrayName)
 
 	if _, err := os.Stat(xrayPath); os.IsNotExist(err) {
-		fmt.Println("xray.exe not found. Place it next to this executable.")
+		fmt.Printf("%s not found. Place it next to this executable.\n", xrayName)
 		fmt.Println("Download from: https://github.com/XTLS/Xray-core/releases")
 		os.Exit(1)
 	}

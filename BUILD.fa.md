@@ -8,20 +8,30 @@
 
 - **Go 1.26+** (دانلود از [go.dev](https://go.dev/dl/))
 - **کامپایلر C لازم نیست** — تمام وابستگی‌ها خالص Go هستند
-- ویندوز 10/11 (برنامه فقط برای ویندوز است)
+- کراس پلتفرم: ویندوز، لینوکس، مک (تمامی معماری‌ها)
 
 ## دستورات کامپایل
 
-```powershell
-# کامپایل استاندارد (با نمادهای دیباگ، فایل بزرگ‌تر)
-go build -o Cloudflare-Scanner.exe .
+```bash
+# ویندوز (amd64)
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
 
-# کامپایل ریلیز (حذف نمادها، فایل کوچک‌تر)
-go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
+# لینوکس (amd64)
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 
-# کامپایل ۳۲ بیتی
-$env:GOARCH="386"; go build -ldflags="-s -w" -o Cloudflare-Scanner-x86.exe .
+# لینوکس (arm64) — مثلاً Raspberry Pi
+GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
+
+# مک (Intel)
+GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
+
+# مک (Apple Silicon)
+GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 ```
+
+در **ویندوز (PowerShell)** دستورات مشابه با `$env:GOOS="windows"; $env:GOARCH="amd64"; go build ...` کار می‌کنند.
+
+فایل باینری `ui/index.html` را از طریق دستور `//go:embed` گو در خود جاسازی می‌کند — نیازی به فایل‌های خارجی در زمان اجرا نیست.
 
 فایل باینری `ui/index.html` را از طریق دستور `//go:embed` گو در خود جاسازی می‌کند — نیازی به فایل‌های خارجی در زمان اجرا نیست.
 
@@ -165,7 +175,7 @@ Endpoint = ...
 
 ## xray-core
 
-xray-core نسخه v1.8.24 با نام `xray.exe` همراه در ریپو و هر زیپ ریلیز قرار دارد. باید در همان پوشه `Cloudflare-Scanner.exe` باشد.
+xray-core نسخه v1.8.24 همراه در هر فایل ریلیز قرار دارد. برنامه به دنبال `xray.exe` (ویندوز) یا `xray` (لینوکس/مک) در همان پوشه باینری خود می‌گردد. اگر پیدا نشود، پیغام خطا با لینک دانلود نمایش می‌دهد.
 
 ### جریان اسکن آی‌پی تمیز
 
@@ -218,6 +228,17 @@ xray-core نسخه v1.8.24 با نام `xray.exe` همراه در ریپو و ه
 ## متغیرهای محیطی
 
 هیچ متغیر محیطی لازم نیست. همه چیز از طریق رابط کاربری وب در زمان اجرا تنظیم می‌شود.
+
+## نکات مختص پلتفرم
+
+### لینوکس
+- پس از extract، فایل xray را قابل اجرا کنید: `chmod +x xray`
+- برنامه مرورگر را از طریق `xdg-open` باز می‌کند (در صورت نیاز `xdg-utils` را نصب کنید)
+
+### مک
+- پس از extract، فایل xray را قابل اجرا کنید: `chmod +x xray`
+- برنامه مرورگر را از طریق `open` باز می‌کند (داخلی)
+- اگر مک باینری امضا نشده را بلاک کرد، اجرا کنید: `xattr -d com.apple.quarantine Cloudflare-Scanner`
 
 ## مشارکت
 

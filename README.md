@@ -1,6 +1,6 @@
 # Cloudflare Scanner
 
-**Cloudflare Warp endpoint + Clean IP scanner** — a Windows desktop tool with a web GUI. Three tools in one: finds working Warp WireGuard endpoints when your ISP blocks standard Warp traffic, scans Cloudflare IP ranges for clean proxies using a VLESS URL, and replaces IP:port in subscription configs with discovered clean endpoints.
+**Cloudflare Warp endpoint + Clean IP scanner** — a cross-platform desktop tool (Windows, Linux, macOS) with a web GUI. Three tools in one: finds working Warp WireGuard endpoints when your ISP blocks standard Warp traffic, scans Cloudflare IP ranges for clean proxies using a VLESS URL, and replaces IP:port in subscription configs with discovered clean endpoints.
 
 > [نسخه فارسی](README.fa.md)
 
@@ -75,15 +75,23 @@ The app includes a curated help section with links to online generators, Telegra
 
 ## Building from source
 
-Requires **Go 1.26+** (no C compiler needed):
+Requires **Go 1.26+** (no C compiler needed). Cross-platform — builds for Windows, Linux, and macOS:
 
-```powershell
+```bash
 git clone https://github.com/QMahyar/Cloudflare-Scanner.git
 cd Cloudflare-Scanner
-go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
+
+# Windows
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
+
+# Linux
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
+
+# macOS (Apple Silicon)
+GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 ```
 
-See [BUILD.md](BUILD.md) for detailed build guide, 32-bit builds, project structure, and architecture docs.
+See [BUILD.md](BUILD.md) for detailed build guide, cross-platform notes, project structure, and architecture docs.
 
 ## License
 

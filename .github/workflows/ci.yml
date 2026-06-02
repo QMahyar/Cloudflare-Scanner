@@ -7,13 +7,31 @@ on:
     branches: [master]
 
 jobs:
-  vet:
-    runs-on: windows-latest
+  check:
+    strategy:
+      matrix:
+        goos: [windows, linux, darwin]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+
+    runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
-      - run: go vet ./...
-      - run: go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
-      - run: dir Cloudflare-Scanner.exe
+
+      - name: Vet
+        run: go vet ./...
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+
+      - name: Build
+        run: go build -ldflags="-s -w" -o /dev/null .
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
