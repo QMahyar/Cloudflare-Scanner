@@ -1,66 +1,46 @@
 # Getting Started
 
-## 1. Download
+> **Step 0 — Install the app:** See the [README](../README.md#platform-guides) for OS-specific download, extract, and run instructions.
 
-Go to the [releases page](https://github.com/QMahyar/Cloudflare-Scanner/releases) and download the archive for your platform:
+---
 
-| Platform | Archive to download |
-|---|---|
-| Windows (Intel/AMD) | `Cloudflare-Scanner-*-windows-amd64.tar.gz` |
-| Windows (ARM, e.g. Surface Pro X) | `Cloudflare-Scanner-*-windows-arm64.tar.gz` |
-| Linux (Intel/AMD) | `Cloudflare-Scanner-*-linux-amd64.tar.gz` |
-| Linux (ARM, e.g. Raspberry Pi) | `Cloudflare-Scanner-*-linux-arm64.tar.gz` |
-| macOS (Intel) | `Cloudflare-Scanner-*-darwin-amd64.tar.gz` |
-| macOS (Apple Silicon M1/M2/M3) | `Cloudflare-Scanner-*-darwin-arm64.tar.gz` |
-| Termux / Android (ARM64) | `Cloudflare-Scanner-*-termux-arm64.tar.gz` |
+## First-Use Workflow
 
-## 2. Extract & Run
+These steps assume the app is running and you see the web UI at `http://127.0.0.1:XXXXX`.
 
-### Windows
+### Step 1 — Open the Web UI
 
-1. Right-click the `.tar.gz` file and choose **Extract All** (7-Zip), or run `tar.exe -xzf Cloudflare-Scanner-*-windows-amd64.tar.gz`
-2. Open the extracted folder
-3. Double-click `Cloudflare-Scanner.exe`
+A browser tab should open automatically at `http://127.0.0.1:XXXXX` (port changes each run).
 
-### Linux / macOS
+If the browser doesn't open, look at the terminal output for a line like:
 
-```bash
-# Open a terminal in the Downloads folder
-tar -xzf Cloudflare-Scanner-*-linux-amd64.tar.gz
-cd Cloudflare-Scanner-*-linux-amd64
-chmod +x Cloudflare-Scanner xray
-./Cloudflare-Scanner
+```
+Web UI: http://127.0.0.1:53671
 ```
 
-**Note:** Linux requires `xdg-utils` for the browser to open automatically:
+Copy that address and paste it into your browser manually.
 
-- Debian/Ubuntu: `sudo apt install xdg-utils`
-- Fedora: `sudo dnf install xdg-utils`
-- Arch: `sudo pacman -S xdg-utils`
+### Step 2 — Switch Language
 
-### Termux (Android)
+Click the **فارسی** button in the top-right corner to switch between English and Persian/Farsi. The entire UI switches instantly.
 
-```bash
-curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh
-```
+### Step 3 — Get a Warp Config
 
-This downloads the latest Termux release, extracts it, and creates a `scan` command. Just type `scan` to run later.
+Scroll down on the **Endpoint Scanner** tab. The app includes links to online generators, Telegram bots, CLI tools, and client apps.
 
-No extra packages needed — the app uses `termux-open-url` to open the browser.
+### Step 4 — Scan Warp Endpoints
 
-## 3. Open the Web UI
+1. Upload your `.conf` file
+2. Pick a scan depth (Quick = 100 is fine for a first try)
+3. Click **Start Scan**
+4. Results appear live — pick the fastest one
 
-A browser tab automatically opens at `http://127.0.0.1:XXXXX` (the port changes each time).
+### Step 5 — Apply the Endpoint
 
-If the browser doesn't open automatically, look at the terminal output for the address and open it manually.
-
-## 4. Switch Language
-
-Click the **فارسی** button in the top-right corner to switch between English and Persian/Farsi. The entire UI, including labels, placeholders, and tooltips, switches instantly.
-
-## 5. Stop the App
-
-Close the terminal window, or press **Ctrl+C** in the terminal.
+1. Click the endpoint in the results table
+2. Select your `.conf` file(s)
+3. Click **Generate Configs**
+4. Use the modified config with your Warp client
 
 ---
 
@@ -68,19 +48,22 @@ Close the terminal window, or press **Ctrl+C** in the terminal.
 
 | File | Description |
 |---|---|
-| `Cloudflare-Scanner` (or `.exe`) | The main app — a web server + scanning engine |
-| `xray` (or `xray.exe`) | xray-core v1.8.24 — handles Warp endpoint validation and proxy connections |
+| `Cloudflare-Scanner` (or `.exe`) | The main app — web server + scanning engine |
+| `xray` (or `xray.exe`) | xray-core v1.8.24 — Warp validation + proxy connections |
 
 Both files are required. Keep them in the same folder.
 
 ---
 
-## First Use Workflow
+## Stop the App
 
-Here's a typical first session:
+Close the terminal window, or press **Ctrl+C** in the terminal.
 
-1. **Get a Warp config** — Use one of the online generators listed in the app's help section (scroll down on the Endpoint Scanner tab)
-2. **Scan Warp endpoints** — Upload your `.conf` file, pick a scan depth, and scan
-3. **Apply a good endpoint** — Pick the fastest result, select your config files, save modified copies
-4. **(Optional) Scan clean IPs** — Paste a VLESS URL, find working Cloudflare proxy IPs
-5. **(Optional) Replace IPs in configs** — Paste subscription or configs + endpoints, generate refreshed configs
+---
+
+## Next Steps
+
+- [Endpoint Scanner](endpoint-scanner.md) — full walkthrough with all options
+- [IP Scanner](ip-scanner.md) — find clean Cloudflare proxy IPs
+- [IP Replacer](ip-replacer.md) — batch-replace IPs in configs
+- [FAQ](faq.md) — troubleshooting and common questions

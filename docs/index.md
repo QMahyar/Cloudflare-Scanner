@@ -1,39 +1,51 @@
 # Cloudflare Scanner — Documentation
 
-Welcome! This documentation covers everything you need to know about the Cloudflare Scanner app.
-
+> **Start here** → [README.md](../README.md) for Quick Start, per-OS install guides, and the full 1-to-100 workflow.
+>
 > [نسخه فارسی](fa/index.md)
 
 ---
 
-## Getting Started
+## Reading Path
 
-- [Getting Started Guide](getting-started.md) — Download, extract, run, and first steps on any platform
+For the best experience, follow this path in order:
 
-## Tool Guides
+| # | Document | What you'll learn |
+|---|----------|-------------------|
+| 0 | **[README.md](../README.md)** | Quick Start, per-OS setup, TOC, 1-to-100 workflow |
+| 1 | [Getting Started](getting-started.md) | First-use workflow after the app is running |
+| 2 | [Endpoint Scanner](endpoint-scanner.md) | Full walkthrough of scanning Warp endpoints |
+| 3 | [IP Scanner](ip-scanner.md) | Two-phase clean IP scanning with VLESS validation |
+| 4 | [IP Replacer](ip-replacer.md) | Batch IP replacement in subscription configs |
+| 5 | [FAQ](faq.md) | Troubleshooting and common questions |
 
-Each guide walks through one tab step by step, with screenshots of every field and button:
-
-| Guide | What it covers |
-|---|---|
-| [Endpoint Scanner](endpoint-scanner.md) | Finding working Warp endpoints with your WireGuard config |
-| [IP Scanner (Clean IP)](ip-scanner.md) | Scanning Cloudflare IP ranges for clean proxies |
-| [IP Replacer](ip-replacer.md) | Replacing IP:port in subscription/VLESS configs with endpoints |
-
-## How the Tools Work Together
+## Tool Overview
 
 ```
-Endpoint Scanner ──>  Pick a fast Warp endpoint
-                           │
-IP Scanner       ──>  Find clean Cloudflare proxy IPs
-                           │
-IP Replacer      ──>  Replace IP:port in configs with clean IPs
+┌────────────────────────────────────────────────────────────┐
+│                     Cloudflare Scanner                     │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│  Endpoint Scanner    ──>   Pick a fast Warp endpoint       │
+│       │                                                    │
+│       ▼                                                    │
+│  Apply endpoint to your .conf files                        │
+│       │                                                    │
+│  ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─                    │
+│       │                                                    │
+│  IP Scanner          ──>   Find clean Cloudflare proxy IPs │
+│       │                                                    │
+│       ▼                                                    │
+│  IP Replacer         ──>   Replace IP:port in configs      │
+│                            with clean IPs                  │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
 ```
 
-## FAQ
+## Also See
 
-- [Frequently Asked Questions](faq.md)
+- [BUILD.md](../BUILD.md) — Build from source, project structure, architecture
 
-## Build & Development
+---
 
-See [BUILD.md](../BUILD.md) for building from source, project structure, and architecture.
+**Tip:** If you're new, just follow steps 0→1→2. That's all you need for a working Warp endpoint.
