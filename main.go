@@ -86,8 +86,8 @@ func openBrowser(url string) {
 		cmdPath := filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe")
 		openBrowserCmd(cmdPath, []string{cmdPath, "/c", "start", "", url})
 	case "darwin":
-		openBrowserCmd("open", []string{"open", url})
+		openBrowserCmd("/usr/bin/open", []string{"/usr/bin/open", url})
 	default:
-		openBrowserCmd("xdg-open", []string{"xdg-open", url})
+		openBrowserCmd("/usr/bin/xdg-open", []string{"/usr/bin/xdg-open", url})
 	}
 }
