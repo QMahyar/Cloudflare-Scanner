@@ -47,6 +47,7 @@ input[type="text"]:focus,select:focus{border-color:#58a6ff}
 .btn-accent{background:#1f6feb;color:#fff}
 .btn-accent:hover{background:#388bfd}
 .btn-accent:disabled{background:#1f6feb44;color:#fff8;cursor:not-allowed}
+.method-btn.active{background:#1f6feb33 !important;color:#58a6ff !important}
 .btn-sm{padding:4px 12px;font-size:12px}
 .btn-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .btn-bar .btn{flex:1;min-width:100px;text-align:center}
@@ -333,27 +334,33 @@ body[dir="rtl"] .empty-state{text-align:center}
 <div id="replacerTab" class="hidden">
   <div class="card">
     <h2 data-t="replacer.header">IP Replacer</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="replacer.desc">Fetch a subscription, deduplicate configs, and replace IP:port with clean endpoints.</p>
-    <div class="row">
-      <div class="col" style="flex:3">
-        <label data-t="replacer.subLabel" data-t-title="replacer.urlTitle">Subscription URL</label>
-        <input type="text" id="replacerURL" data-t-placeholder="replacer.subPlaceholder" data-t-title="replacer.urlTitle" placeholder="https://example.com/sub?token=...">
+    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="replacer.desc">Deduplicate configs and replace IP:port with clean endpoints.</p>
+    <div class="input-method-bar" style="display:flex;gap:0;margin-bottom:12px;border:1px solid #30363d;border-radius:6px;overflow:hidden">
+      <button class="method-btn" data-method="url" onclick="selectReplacerMethod('url')" style="flex:1;padding:8px 16px;background:#21262d;border:none;border-right:1px solid #30363d;color:#8b949e;font-size:13px;cursor:pointer;transition:.2s" data-t="replacer.methodURL">Subscription URL</button>
+      <button class="method-btn" data-method="paste" onclick="selectReplacerMethod('paste')" style="flex:1;padding:8px 16px;background:transparent;border:none;color:#8b949e;font-size:13px;cursor:pointer;transition:.2s" data-t="replacer.methodPaste">Paste Configs</button>
+    </div>
+
+    <div id="replacerURLWrap">
+      <div class="row">
+        <div class="col" style="flex:3">
+          <label data-t="replacer.subLabel" data-t-title="replacer.urlTitle">Subscription URL</label>
+          <input type="text" id="replacerURL" data-t-placeholder="replacer.subPlaceholder" data-t-title="replacer.urlTitle" placeholder="https://example.com/sub?token=...">
+        </div>
+        <div class="col" style="flex:none;min-width:auto">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" id="fetchBtn" onclick="replacerFetch()" data-t="replacer.fetch" data-t-title="replacer.fetchTitle">Fetch</button>
+        </div>
       </div>
-      <div class="col" style="flex:none;min-width:auto">
-        <label>&nbsp;</label>
-        <button class="btn btn-primary" id="fetchBtn" onclick="replacerFetch()" data-t="replacer.fetch" data-t-title="replacer.fetchTitle">Fetch</button>
+      <div id="replacerFetchStatus" style="margin-top:8px"></div>
+    </div>
+
+    <div id="replacerPasteWrap" class="hidden">
+      <textarea id="replacerRawText" rows="4" style="width:100%;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:13px;padding:8px;font-family:monospace;resize:vertical" data-t-placeholder="replacer.pastePlaceholder" data-t-title="replacer.pasteTitle" placeholder="vless://uuid@ip:port?encryption=none&...&#10;trojan://password@ip:port?security=tls&..."></textarea>
+      <div style="margin-top:8px">
+        <button class="btn btn-secondary" id="parseBtn" onclick="replacerParse()" data-t="replacer.parse" data-t-title="replacer.parseTitle">Parse</button>
+        <div id="replacerParseStatus" style="margin-top:8px"></div>
       </div>
     </div>
-    <div id="replacerFetchStatus" style="margin-top:8px"></div>
-
-    <div style="border-top:1px solid #30363d;margin:16px 0 12px"></div>
-
-    <p style="font-size:13px;color:#8b949e;margin-bottom:8px" data-t="replacer.pasteDesc">Or paste configs directly (vless://, trojan:// — one per line, extra lines ignored):</p>
-    <textarea id="replacerRawText" rows="4" style="width:100%;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:13px;padding:8px;font-family:monospace;resize:vertical" data-t-placeholder="replacer.pastePlaceholder" data-t-title="replacer.pasteTitle" placeholder="vless://uuid@ip:port?encryption=none&...&#10;trojan://password@ip:port?security=tls&..."></textarea>
-    <div style="margin-top:8px">
-      <button class="btn btn-secondary" id="parseBtn" onclick="replacerParse()" data-t="replacer.parse" data-t-title="replacer.parseTitle">Parse</button>
-    </div>
-    <div id="replacerParseStatus" style="margin-top:8px"></div>
   </div>
 
   <div class="card hidden" id="replacerConfigsCard">
@@ -504,8 +511,9 @@ const TR = {
     'clean.exported': 'Exported {n} configs',
     'tab.replacer': 'IP Replacer',
     'replacer.header': 'IP Replacer',
-    'replacer.desc': 'Fetch a subscription, deduplicate configs, and replace IP:port with clean endpoints.',
-    'replacer.pasteDesc': 'Or paste configs directly (vless://, trojan:// — one per line, extra lines ignored):',
+    'replacer.desc': 'Deduplicate configs and replace IP:port with clean endpoints.',
+    'replacer.methodURL': 'Subscription URL',
+    'replacer.methodPaste': 'Paste Configs',
     'replacer.pastePlaceholder': 'vless://uuid@ip:port?encryption=none&...\ntrojan://password@ip:port?security=tls&...',
     'replacer.parse': 'Parse',
     'replacer.parsing': 'Parsing...',
@@ -688,8 +696,9 @@ const TR = {
     'clean.exported': '{n} کانفیگ خروجی گرفته شد',
     'tab.replacer': 'جایگزین آی‌پی',
     'replacer.header': 'جایگزین آی‌پی',
-    'replacer.desc': 'یک اشترک را دریافت کنید، کانفیگ‌ها را یکتا کنید و آی‌پی:پورت را با اندپوینت‌های تمیز جایگزین کنید.',
-    'replacer.pasteDesc': 'یا کانفیگ‌ها را مستقیم بچسبانید (vless://, trojan:// — یک خط در هر، خطوط اضافی نادیده گرفته می‌شوند):',
+    'replacer.desc': 'کانفیگ‌ها را یکتا کنید و آی‌پی:پورت را با اندپوینت‌های تمیز جایگزین کنید.',
+    'replacer.methodURL': 'لینک اشتراک',
+    'replacer.methodPaste': 'چسباندن کانفیگ',
     'replacer.pastePlaceholder': 'vless://uuid@ip:port?encryption=none&...\ntrojan://password@ip:port?security=tls&...',
     'replacer.parse': 'تجزیه',
     'replacer.parsing': 'در حال تجزیه...',
@@ -1427,6 +1436,23 @@ async function exportCleanIPs() {
 
 let replacerConfigs = [];
 let replacerGeneratedURLs = [];
+let replacerMethod = 'url';
+
+function selectReplacerMethod(method) {
+  replacerMethod = method;
+  document.querySelectorAll('.input-method-bar .method-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.method === method);
+    b.style.background = b.dataset.method === method ? '#1f6feb33' : 'transparent';
+    b.style.color = b.dataset.method === method ? '#58a6ff' : '#8b949e';
+  });
+  document.getElementById('replacerURLWrap').classList.toggle('hidden', method !== 'url');
+  document.getElementById('replacerPasteWrap').classList.toggle('hidden', method !== 'paste');
+  document.getElementById('replacerFetchStatus').innerHTML = '';
+  document.getElementById('replacerParseStatus').innerHTML = '';
+  document.getElementById('replacerConfigsCard').classList.add('hidden');
+  document.getElementById('replacerEndpointsCard').classList.add('hidden');
+  document.getElementById('replacerResultsCard').classList.add('hidden');
+}
 
 async function replacerParse() {
   const raw = document.getElementById('replacerRawText').value.trim();
@@ -1617,8 +1643,9 @@ function replacerDownload() {
   URL.revokeObjectURL(url);
 }
 
-// Init language on load
+// Init language + replacer method on load
 setLang(currentLang);
+selectReplacerMethod('url');
 </script>
 </body>
 </html>
