@@ -33,7 +33,7 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("  ╔══════════════════════════════════════════════════════╗")
-	fmt.Println("  ║            Cloudflare Scanner v1.3                  ║")
+	fmt.Println("  ║            Cloudflare Scanner v1.5                  ║")
 	fmt.Println("  ║    Open your browser to the URL below               ║")
 	fmt.Println("  ╚══════════════════════════════════════════════════════╝")
 	fmt.Println()
@@ -56,29 +56,37 @@ func isTermux() bool {
 	return ok
 }
 
-func openBrowser(url string) {
-	var argv0 string
-	var args []string
-	if runtime.GOOS == "linux" && isTermux() {
-		argv0 = "termux-open-url"
-		args = []string{argv0, url}
-	} else {
-		switch runtime.GOOS {
-		case "windows":
-			argv0 = "rundll32"
-			args = []string{argv0, "url.dll,FileProtocolHandler", url}
-		case "darwin":
-			argv0 = "open"
-			args = []string{argv0, url}
-		default:
-			argv0 = "xdg-open"
-			args = []string{argv0, url}
-		}
-	}
+func openBrowserCmd(argv0 string, args []string) bool {
 	proc, err := os.StartProcess(argv0, args, &os.ProcAttr{
 		Files: []*os.File{os.Stdin, os.Stdout, os.Stderr},
 	})
-	if err == nil {
-		proc.Release()
+	if err != nil {
+		fmt.Printf("  (browser open skipped: %v)\n", err)
+		return false
+	}
+	proc.Release()
+	return true
+}
+
+func openBrowser(url string) {
+	if runtime.GOOS == "linux" && isTermux() {
+		if openBrowserCmd("sh", []string{"sh", "-c", "termux-open-url '" + url + "' 2>/dev/null"}) {
+			return
+		}
+		if openBrowserCmd("sh", []string{"sh", "-c", "am start --user 0 -a android.intent.action.VIEW -d '" + url + "' 2>/dev/null"}) {
+			return
+		}
+		fmt.Println("  Could not auto-open browser on Termux.")
+		fmt.Println("  Open the URL manually in your browser.")
+		return
+	}
+
+	switch runtime.GOOS {
+	case "windows":
+		openBrowserCmd("rundll32", []string{"rundll32", "url.dll,FileProtocolHandler", url})
+	case "darwin":
+		openBrowserCmd("open", []string{"open", url})
+	default:
+		openBrowserCmd("xdg-open", []string{"xdg-open", url})
 	}
 }

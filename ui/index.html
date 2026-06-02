@@ -2,39 +2,43 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Cloudflare Scanner</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#e6edf3;padding:20px;min-height:100vh}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#0d1117;color:#e6edf3;padding:12px;min-height:100dvh;-webkit-tap-highlight-color:transparent}
+@media(min-width:640px){body{padding:20px}}
 body[dir="rtl"]{font-family:'Vazirmatn',-apple-system,BlinkMacSystemFont,'Segoe UI',Tahoma,sans-serif}
 .container{max-width:800px;margin:0 auto}
-.header-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
-.header-row h1{font-size:24px;font-weight:600;color:#58a6ff}
-.subtitle{color:#8b949e;font-size:14px;margin-bottom:24px}
-.lang-btn{background:transparent;border:1px solid #30363d;color:#8b949e;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:.2s;white-space:nowrap}
+.header-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+.header-row h1{font-size:20px;font-weight:600;color:#58a6ff}@media(min-width:640px){.header-row h1{font-size:24px}}
+.subtitle{color:#8b949e;font-size:13px;margin-bottom:16px}@media(min-width:640px){.subtitle{font-size:14px;margin-bottom:24px}}
+.lang-btn{background:transparent;border:1px solid #30363d;color:#8b949e;padding:4px 12px;border-radius:6px;font-size:12px;cursor:pointer;transition:.2s;white-space:nowrap;min-height:32px;touch-action:manipulation}
 .lang-btn:hover{border-color:#58a6ff;color:#58a6ff}
-.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:16px}
-.card h2{font-size:16px;font-weight:600;margin-bottom:12px;color:#f0f6fc}
-.row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px;margin-bottom:12px}@media(min-width:640px){.card{padding:20px;margin-bottom:16px}}
+.card h2{font-size:14px;font-weight:600;margin-bottom:10px;color:#f0f6fc}@media(min-width:640px){.card h2{font-size:16px;margin-bottom:12px}}
+.row{display:flex;flex-direction:column;gap:8px;margin-bottom:6px}@media(min-width:480px){.row{flex-direction:row;gap:12px;margin-bottom:8px}}
 .row:last-child{margin-bottom:0}
-.col{flex:1;min-width:150px}
-label{display:block;font-size:12px;color:#8b949e;margin-bottom:4px;font-weight:500}
+.col{flex:1;min-width:0}
+label{display:block;font-size:11px;color:#8b949e;margin-bottom:3px;font-weight:500}@media(min-width:640px){label{font-size:12px;margin-bottom:4px}}
 .file-input-wrap{display:inline-flex;width:100%}
 .file-input-wrap input[type="file"]{display:none}
-.file-input-wrap .file-label{display:flex;align-items:center;gap:8px;padding:8px 16px;background:#21262d;border:1px solid #30363d;border-radius:6px;font-size:14px;color:#e6edf3;cursor:pointer;transition:.2s;width:100%}
+.file-input-wrap .file-label{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#21262d;border:1px solid #30363d;border-radius:6px;font-size:13px;color:#e6edf3;cursor:pointer;transition:.2s;width:100%;min-height:44px;touch-action:manipulation}
 .file-input-wrap .file-label:hover{border-color:#58a6ff}
 .file-input-wrap .file-label.selected{border-color:#3fb950;background:#1b2d1f}
-input[type="text"],select{padding:8px 12px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:14px;width:100%;outline:none;transition:.2s}
+input[type="text"],select{padding:10px 12px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:14px;width:100%;outline:none;transition:.2s;min-height:44px}
 input[type="text"]:focus,select:focus{border-color:#58a6ff}
-.toggle-wrap{display:flex;align-items:center;gap:8px;padding:8px 0}
-.toggle{position:relative;width:40px;height:22px;cursor:pointer}
+textarea{background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:13px;padding:10px;font-family:monospace;resize:vertical;width:100%;outline:none;transition:.2s}
+textarea:focus{border-color:#58a6ff}
+.toggle-wrap{display:flex;align-items:center;gap:8px;padding:10px 0}
+.toggle{position:relative;width:40px;height:24px;cursor:pointer;flex-shrink:0;touch-action:manipulation}
 .toggle input{opacity:0;width:0;height:0}
-.toggle .slider{position:absolute;inset:0;background-color:#30363d;border-radius:22px;transition:.3s}
-.toggle .slider::before{content:"";position:absolute;height:16px;width:16px;left:3px;bottom:3px;background-color:#8b949e;border-radius:50%;transition:.3s}
+.toggle .slider{position:absolute;inset:0;background-color:#30363d;border-radius:24px;transition:.3s}
+.toggle .slider::before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background-color:#8b949e;border-radius:50%;transition:.3s}
 .toggle input:checked+.slider{background-color:#1f6feb}
-.toggle input:checked+.slider::before{background-color:#fff;transform:translateX(18px)}
-.toggle-label{font-size:13px}
-.btn{padding:10px 24px;border:none;border-radius:6px;font-size:14px;font-weight:600;cursor:pointer;transition:.2s}
+.toggle input:checked+.slider::before{background-color:#fff;transform:translateX(16px)}
+.toggle-label{font-size:12px;line-height:1.3}@media(min-width:640px){.toggle-label{font-size:13px}}
+.btn{padding:10px 20px;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:.2s;min-height:44px;touch-action:manipulation;-webkit-user-select:none;user-select:none;display:inline-flex;align-items:center;justify-content:center;gap:4px}
 .btn-primary{background:#238636;color:#fff}
 .btn-primary:hover{background:#2ea043}
 .btn-primary:disabled{background:#23863644;color:#fff8;cursor:not-allowed}
@@ -47,44 +51,67 @@ input[type="text"]:focus,select:focus{border-color:#58a6ff}
 .btn-accent{background:#1f6feb;color:#fff}
 .btn-accent:hover{background:#388bfd}
 .btn-accent:disabled{background:#1f6feb44;color:#fff8;cursor:not-allowed}
-.method-btn.active{background:#1f6feb33 !important;color:#58a6ff !important}
-.btn-sm{padding:4px 12px;font-size:12px}
-.btn-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.btn-bar .btn{flex:1;min-width:100px;text-align:center}
-.progress-wrap{margin:16px 0;display:none}
+.btn-sm{padding:6px 12px;font-size:11px;min-height:32px}@media(min-width:640px){.btn-sm{padding:6px 14px;font-size:12px}}
+.btn-bar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.btn-bar .btn{flex:1;min-width:80px;text-align:center}@media(max-width:480px){.btn-bar .btn{min-width:60px;font-size:12px;padding:8px 10px}}
+.method-btn.active{background:#1f6feb33!important;color:#58a6ff!important}
+.progress-wrap{margin:12px 0;display:none}
 .progress-wrap.active{display:block}
-.progress-bar{height:8px;background:#21262d;border-radius:4px;overflow:hidden;margin-bottom:8px}
-.progress-fill{height:100%;width:0%;background:#238636;border-radius:4px;transition:width .3s}
+.progress-bar{height:6px;background:#21262d;border-radius:3px;overflow:hidden;margin-bottom:6px}
+.progress-fill{height:100%;width:0%;background:#238636;border-radius:3px;transition:width .3s}
 .progress-fill.cancelled{background:#da3633}
-.progress-text{font-size:13px;color:#8b949e}
-.results-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
-.results-table th{padding:8px 12px;text-align:left;color:#8b949e;font-weight:500;border-bottom:1px solid #30363d}
+.progress-text{font-size:12px;color:#8b949e}
+.results-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px}@media(min-width:640px){.results-table-wrap{margin:0;padding:0}}
+.results-table{width:100%;border-collapse:collapse;font-size:12px;min-width:420px}@media(min-width:640px){.results-table{font-size:13px}}
+.results-table th{padding:8px 8px;text-align:left;color:#8b949e;font-weight:500;border-bottom:1px solid #30363d;white-space:nowrap;-webkit-user-select:none;user-select:none}
 body[dir="rtl"] .results-table th{text-align:right}
-.results-table td{padding:8px 12px;border-bottom:1px solid #21262d}
+.results-table th.sortable{cursor:pointer;touch-action:manipulation}
+.results-table th.sortable:hover{color:#58a6ff}
+.results-table th .sort-icon{display:inline-block;width:16px;margin-left:2px;font-size:10px;color:#58a6ff}
+body[dir="rtl"] .results-table th .sort-icon{margin-left:0;margin-right:2px}
+.results-table td{padding:8px 8px;border-bottom:1px solid #21262d;vertical-align:middle}
 .results-table tr:last-child td{border-bottom:none}
+.results-table td .tag{display:inline-block;background:#21262d;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px;cursor:pointer;transition:.2s;touch-action:manipulation;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.results-table td .tag:hover{border-color:#58a6ff;background:#1f6feb22}
+.results-table td .tag.copied{background:#1b2d1f;border-color:#3fb950}
 .badge{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
 .badge-ok{background:#1b2d1f;color:#3fb950}
 .badge-fail{background:#2d1b1b;color:#f85149}
-.empty-state{text-align:center;padding:40px;color:#8b949e}
+.empty-state{text-align:center;padding:32px 16px;color:#8b949e;font-size:13px}
 body[dir="rtl"] .empty-state{text-align:center}
-.hidden{display:none}
-.error-msg{color:#f85149;font-size:13px;margin-top:8px}
-.success-msg{color:#3fb950;font-size:13px;margin-top:8px}
-.results-actions{display:flex;gap:8px;margin-top:12px}
-.tag{display:inline-block;background:#21262d;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:13px}
-.help-link{color:#58a6ff;text-decoration:none}
+.hidden{display:none!important}
+.error-msg{color:#f85149;font-size:12px;margin-top:6px}
+.success-msg{color:#3fb950;font-size:12px;margin-top:6px}
+.live-count{font-size:12px;color:#3fb950;margin-top:8px}
+.results-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.tag{display:inline-block;background:#21262d;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:12px}
+.help-link{color:#58a6ff;text-decoration:none;font-size:13px;word-break:break-all}
 .help-link:hover{text-decoration:underline}
-.app-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:8px}
-.app-card{background:#21262d;border:1px solid #30363d;border-radius:6px;padding:14px;transition:.2s}
+.app-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:8px}@media(min-width:480px){.app-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}}
+.app-card{background:#21262d;border:1px solid #30363d;border-radius:6px;padding:12px;transition:.2s}
 .app-card:hover{border-color:#58a6ff}
-.app-card h3{font-size:14px;color:#f0f6fc;margin-bottom:4px}
-.app-card p{font-size:12px;color:#8b949e;margin-bottom:8px}
-.app-card .os-tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;background:#1f6feb33;color:#58a6ff;margin-right:4px}
-.live-count{font-size:13px;color:#3fb950;margin-top:8px}
-.tab-bar{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid #21262d}
-.tab{padding:10px 24px;background:transparent;border:none;border-bottom:2px solid transparent;color:#8b949e;font-size:14px;font-weight:500;cursor:pointer;transition:.2s;margin-bottom:-2px}
+.app-card h3{font-size:13px;color:#f0f6fc;margin-bottom:3px}
+.app-card p{font-size:11px;color:#8b949e;margin-bottom:6px;line-height:1.4}
+.app-card .os-tag{display:inline-block;font-size:10px;padding:1px 5px;border-radius:3px;background:#1f6feb33;color:#58a6ff;margin-right:3px;margin-bottom:2px}
+.tab-bar{display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid #21262d}@media(min-width:640px){.tab-bar{margin-bottom:20px}}
+.tab{padding:10px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:#8b949e;font-size:12px;font-weight:500;cursor:pointer;transition:.2s;margin-bottom:-2px;min-height:44px;touch-action:manipulation;white-space:nowrap}@media(min-width:640px){.tab{padding:10px 24px;font-size:14px}}
 .tab:hover{color:#e6edf3}
 .tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.input-method-bar{display:flex;gap:0;margin-bottom:10px;border:1px solid #30363d;border-radius:6px;overflow:hidden}
+.input-method-bar button{flex:1;padding:10px 12px;background:#21262d;border:none;border-right:1px solid #30363d;color:#8b949e;font-size:12px;cursor:pointer;transition:.2s;min-height:44px;touch-action:manipulation}@media(min-width:640px){.input-method-bar button{font-size:13px;padding:10px 16px}}
+.input-method-bar button:last-child{border-right:none}
+.input-method-bar button:hover{color:#e6edf3}
+.toast-container{position:fixed;bottom:20px;left:12px;right:12px;display:flex;justify-content:center;pointer-events:none;z-index:999}
+.toast{background:#238636;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;opacity:0;transform:translateY(10px);transition:opacity .25s,transform .25s;pointer-events:auto;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.error{background:#da3633}
+.card h3{font-size:13px;color:#f0f6fc;margin-bottom:6px;margin-top:12px}@media(min-width:640px){.card h3{font-size:14px}}
+.card h3:first-child{margin-top:0}
+.card p.desc{font-size:12px;color:#8b949e;margin-bottom:10px;line-height:1.4}@media(min-width:640px){.card p.desc{font-size:13px}}
+.checkbox-cell{width:32px;text-align:center}
+.checkbox-cell input[type="checkbox"]{width:18px;height:18px;cursor:pointer;accent-color:#58a6ff}
+.results-table td.num{width:32px;text-align:center;color:#8b949e}
+.replacer-config-remark{font-size:11px;color:#8b949e;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(min-width:480px){.replacer-config-remark{font-size:12px;max-width:200px}}
 </style>
 </head>
 <body>
@@ -127,8 +154,8 @@ body[dir="rtl"] .empty-state{text-align:center}
           <option value="50000" data-t="settings.depth.absolutelyInsane">Absolutely Insane (50000 endpoints)</option>
           <option value="0" data-t="settings.depth.custom">Custom</option>
         </select>
-        <div id="customCountWrap" class="hidden" style="margin-top:8px">
-          <input type="text" id="customCount" data-t-placeholder="settings.customPlaceholder" data-t-title="settings.customTitle" placeholder="Enter count" value="">
+        <div id="customCountWrap" class="hidden" style="margin-top:6px">
+          <input type="text" id="customCount" data-t-placeholder="settings.customPlaceholder" data-t-title="settings.customTitle" placeholder="Enter count">
         </div>
       </div>
       <div class="col">
@@ -182,11 +209,11 @@ body[dir="rtl"] .empty-state{text-align:center}
 
   <div class="card" id="applyCard">
     <h2 data-t="apply.header">Apply Endpoint to Configs</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="apply.desc">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
+    <p class="desc" data-t="apply.desc">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
     <div class="row">
-      <div class="col" style="flex:2">
+      <div class="col">
         <label data-t="apply.endpointLabel" data-t-title="apply.endpointTitle">Endpoint to apply</label>
-        <input type="text" id="applyEndpoint" data-t-placeholder="apply.endpointPlaceholder" data-t-title="apply.endpointTitle" placeholder="e.g. 162.159.192.1:2408" value="">
+        <input type="text" id="applyEndpoint" data-t-placeholder="apply.endpointPlaceholder" data-t-title="apply.endpointTitle" placeholder="e.g. 162.159.192.1:2408">
       </div>
     </div>
     <div class="row">
@@ -201,46 +228,46 @@ body[dir="rtl"] .empty-state{text-align:center}
     <div class="row">
       <div class="col">
         <label data-t="apply.outputLabel" data-t-title="apply.outputTitle">Output folder path (leave empty to save next to .exe)</label>
-        <input type="text" id="outputDirPath" data-t-placeholder="apply.outputPlaceholder" data-t-title="apply.outputTitle" placeholder="e.g. E:\vpn\WG Configs\modified" value="">
+        <input type="text" id="outputDirPath" data-t-placeholder="apply.outputPlaceholder" data-t-title="apply.outputTitle" placeholder="e.g. E:\vpn\WG Configs\modified">
       </div>
     </div>
     <button class="btn btn-accent" id="applyBtn" onclick="handleApplyEndpoint()" disabled data-t="apply.generate" data-t-title="apply.generateTitle">Generate Configs</button>
-    <div id="applyStatus" style="margin-top:12px"></div>
+    <div id="applyStatus" style="margin-top:10px"></div>
   </div>
 
   <div class="card">
     <h2 data-t="help.header">Getting Warp Configs</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="help.desc">Where to get WireGuard configs for Cloudflare Warp:</p>
+    <p class="desc" data-t="help.desc">Where to get WireGuard configs for Cloudflare Warp:</p>
 
-    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px;margin-top:4px" data-t="help.onlineGen">Online Generators</h3>
-    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-      <div><a class="help-link" href="https://warp-generator.github.io/warp/" target="_blank" rel="noopener">&rarr; warp-generator.github.io/warp/</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen1">— configs with license key, multiple formats</span></div>
-      <div><a class="help-link" href="https://lanrat.github.io/wireguard-warp-generator/" target="_blank" rel="noopener">&rarr; lanrat.github.io/wireguard-warp-generator/</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen2">— browser-based, client-side, QR support</span></div>
-      <div><a class="help-link" href="https://warp-mirrors.vercel.app/" target="_blank" rel="noopener">&rarr; warp-mirrors.vercel.app</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen3">— multi-server generator (WG, AWG, WireSock, Clash)</span></div>
-      <div><a class="help-link" href="https://warp.llimonix.pw/" target="_blank" rel="noopener">&rarr; warp.llimonix.pw</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen4">— region-specific servers, Telegram auth for extras</span></div>
-      <div><a class="help-link" href="https://warpper.me/" target="_blank" rel="noopener">&rarr; warpper.me</a> <span style="font-size:12px;color:#8b949e" data-t="help.gen5">— clean UI, generates WG/AWG configs</span></div>
+    <h3 data-t="help.onlineGen">Online Generators</h3>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px">
+      <div><a class="help-link" href="https://warp-generator.github.io/warp/" target="_blank" rel="noopener">&rarr; warp-generator.github.io/warp/</a> <span style="font-size:11px;color:#8b949e" data-t="help.gen1">— configs with license key, multiple formats</span></div>
+      <div><a class="help-link" href="https://lanrat.github.io/wireguard-warp-generator/" target="_blank" rel="noopener">&rarr; lanrat.github.io/wireguard-warp-generator/</a> <span style="font-size:11px;color:#8b949e" data-t="help.gen2">— browser-based, client-side, QR support</span></div>
+      <div><a class="help-link" href="https://warp-mirrors.vercel.app/" target="_blank" rel="noopener">&rarr; warp-mirrors.vercel.app</a> <span style="font-size:11px;color:#8b949e" data-t="help.gen3">— multi-server generator (WG, AWG, WireSock, Clash)</span></div>
+      <div><a class="help-link" href="https://warp.llimonix.pw/" target="_blank" rel="noopener">&rarr; warp.llimonix.pw</a> <span style="font-size:11px;color:#8b949e" data-t="help.gen4">— region-specific servers, Telegram auth for extras</span></div>
+      <div><a class="help-link" href="https://warpper.me/" target="_blank" rel="noopener">&rarr; warpper.me</a> <span style="font-size:11px;color:#8b949e" data-t="help.gen5">— clean UI, generates WG/AWG configs</span></div>
     </div>
 
-    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px" data-t="help.telegram">Telegram</h3>
-    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-      <div><a class="help-link" href="https://t.me/warp_generator_bot" target="_blank" rel="noopener">&rarr; @warp_generator_bot</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg1">— 54k+ users, generates WG/AWG configs, region selection</span></div>
-      <div><a class="help-link" href="https://t.me/WarpGenerator_bot" target="_blank" rel="noopener">&rarr; @WarpGenerator_bot</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg2">— WireGuard + AmneziaWG config generator</span></div>
-      <div><a class="help-link" href="https://github.com/cat228608/Warp-Generator-Bot" target="_blank" rel="noopener">&rarr; Warp-Generator-Bot (GitHub)</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg3">— open-source bot, uses 3 API sources</span></div>
-      <div><a class="help-link" href="https://t.me/ConfigWireguard" target="_blank" rel="noopener">&rarr; @ConfigWireguard</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg4">— 20k+ subs, shares Warp/WireGuard configs daily</span></div>
-      <div><a class="help-link" href="https://t.me/str_bypass" target="_blank" rel="noopener">&rarr; str_bypass</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg5">— Warp config channel</span></div>
-      <div><a class="help-link" href="https://t.me/findllimonix" target="_blank" rel="noopener">&rarr; @findllimonix</a> <span style="font-size:12px;color:#8b949e" data-t="help.tg6">— llimonix/Warp updates channel</span></div>
+    <h3 data-t="help.telegram">Telegram</h3>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px">
+      <div><a class="help-link" href="https://t.me/warp_generator_bot" target="_blank" rel="noopener">&rarr; @warp_generator_bot</a> <span style="font-size:11px;color:#8b949e" data-t="help.tg1">— 54k+ users, generates WG/AWG configs, region selection</span></div>
+      <div><a class="help-link" href="https://t.me/WarpGenerator_bot" target="_blank" rel="noopener">&rarr; @WarpGenerator_bot</a> <span style="font-size:11px;color:#8b949e" data-t="help.tg2">— WireGuard + AmneziaWG config generator</span></div>
+      <div><a class="help-link" href="https://github.com/cat228608/Warp-Generator-Bot" target="_blank" rel="noopener">&rarr; Warp-Generator-Bot (GitHub)</a> <span style="font-size:11px;color:#8b949e" data-t="help.tg3">— open-source bot, uses 3 API sources</span></div>
+      <div><a class="help-link" href="https://t.me/ConfigWireguard" target="_blank" rel="noopener">&rarr; @ConfigWireguard</a> <span style="font-size:11px;color:#8b949e" data-t="help.tg4">— 20k+ subs, shares Warp/WireGuard configs daily</span></div>
+      <div><a class="help-link" href="https://t.me/str_bypass" target="_blank" rel="noopener">&rarr; str_bypass</a> <span style="font-size:11px;color:#8b949e" data-t="help.tg5">— Warp config channel</span></div>
+      <div><a class="help-link" href="https://t.me/findllimonix" target="_blank" rel="noopener">&rarr; @findllimonix</a> <span style="font-size:11px;color:#8b949e" data-t="help.tg6">— llimonix/Warp updates channel</span></div>
     </div>
 
-    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px" data-t="help.cliTools">CLI Tools</h3>
-    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-      <div><a class="help-link" href="https://github.com/ViRb3/wgcf" target="_blank" rel="noopener">&rarr; ViRb3/wgcf</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli1">— the classic CLI generator, register + generate from terminal</span></div>
-      <div><a class="help-link" href="https://github.com/lanrat/wireguard-warp-generator" target="_blank" rel="noopener">&rarr; lanrat/wireguard-warp-generator</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli2">— shell scripts, QR code for mobile</span></div>
-      <div><a class="help-link" href="https://github.com/AnimMouse/wgcf-connector" target="_blank" rel="noopener">&rarr; AnimMouse/wgcf-connector</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli3">— extracts WARP Connector configs for site-to-site VPN</span></div>
-      <div><a class="help-link" href="https://gitlab.com/ImMALWARE/bash-warp-generator" target="_blank" rel="noopener">&rarr; ImMALWARE/bash-warp-generator</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli4">— bash script for AmneziaWG Warp configs</span></div>
-      <div><a class="help-link" href="https://github.com/barry-far/V2ray-Config" target="_blank" rel="noopener">&rarr; barry-far/V2ray-Config</a> <span style="font-size:12px;color:#8b949e" data-t="help.cli5">— GitHub repo with free V2ray/Warp configs</span></div>
+    <h3 data-t="help.cliTools">CLI Tools</h3>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:12px">
+      <div><a class="help-link" href="https://github.com/ViRb3/wgcf" target="_blank" rel="noopener">&rarr; ViRb3/wgcf</a> <span style="font-size:11px;color:#8b949e" data-t="help.cli1">— the classic CLI generator, register + generate from terminal</span></div>
+      <div><a class="help-link" href="https://github.com/lanrat/wireguard-warp-generator" target="_blank" rel="noopener">&rarr; lanrat/wireguard-warp-generator</a> <span style="font-size:11px;color:#8b949e" data-t="help.cli2">— shell scripts, QR code for mobile</span></div>
+      <div><a class="help-link" href="https://github.com/AnimMouse/wgcf-connector" target="_blank" rel="noopener">&rarr; AnimMouse/wgcf-connector</a> <span style="font-size:11px;color:#8b949e" data-t="help.cli3">— extracts WARP Connector configs for site-to-site VPN</span></div>
+      <div><a class="help-link" href="https://gitlab.com/ImMALWARE/bash-warp-generator" target="_blank" rel="noopener">&rarr; ImMALWARE/bash-warp-generator</a> <span style="font-size:11px;color:#8b949e" data-t="help.cli4">— bash script for AmneziaWG Warp configs</span></div>
+      <div><a class="help-link" href="https://github.com/barry-far/V2ray-Config" target="_blank" rel="noopener">&rarr; barry-far/V2ray-Config</a> <span style="font-size:11px;color:#8b949e" data-t="help.cli5">— GitHub repo with free V2ray/Warp configs</span></div>
     </div>
 
-    <h3 style="font-size:14px;color:#f0f6fc;margin-bottom:8px" data-t="help.clientApps">Client Apps</h3>
+    <h3 data-t="help.clientApps">Client Apps</h3>
     <div class="app-grid">
       <div class="app-card">
         <h3>Amnezia VPN</h3>
@@ -260,7 +287,6 @@ body[dir="rtl"] .empty-state{text-align:center}
         <p data-t="help.app3">Minimal WireGuard client, battery-friendly, config import/export.</p>
         <a class="help-link" href="https://github.com/zaneschepke/wgtunnel" target="_blank" rel="noopener" data-t="help.visit3">github.com/zaneschepke/wgtunnel &rarr;</a>
       </div>
-
     </div>
   </div>
 </div>
@@ -268,7 +294,7 @@ body[dir="rtl"] .empty-state{text-align:center}
 <div id="cleanTab" class="hidden">
   <div class="card">
     <h2 data-t="clean.header">Clean IP Scanner</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="clean.desc">Scan Cloudflare IPs with your VLESS URL and find working proxies.</p>
+    <p class="desc" data-t="clean.desc">Scan Cloudflare IPs with your VLESS URL and find working proxies.</p>
     <div class="row">
       <div class="col">
         <label data-t="clean.vlessLabel" data-t-title="clean.vlessTitle">VLESS share URL</label>
@@ -316,7 +342,7 @@ body[dir="rtl"] .empty-state{text-align:center}
         </select>
       </div>
     </div>
-    <div class="btn-bar" style="margin-top:8px">
+    <div class="btn-bar" style="margin-top:6px">
       <button class="btn btn-primary" id="cleanStartBtn" onclick="startCleanScan()" data-t="clean.start" data-t-title="clean.startTitle">Start Clean Scan</button>
       <button class="btn btn-danger" id="cleanStopBtn" onclick="stopCleanScan()" disabled data-t="buttons.stop" data-t-title="clean.stopTitle">Stop</button>
     </div>
@@ -326,18 +352,18 @@ body[dir="rtl"] .empty-state{text-align:center}
       </div>
       <div class="progress-text" id="cleanProgressText" data-t="clean.progressPhase1">Phase 1: TCP probe — 0 / 0</div>
     </div>
-    <div id="cleanResultsContent" class="hidden" style="margin-top:12px"></div>
-    <div id="cleanStatusMsg" style="margin-top:8px"></div>
+    <div id="cleanResultsContent" class="hidden" style="margin-top:10px"></div>
+    <div id="cleanStatusMsg" style="margin-top:6px"></div>
   </div>
 </div>
 
 <div id="replacerTab" class="hidden">
   <div class="card">
     <h2 data-t="replacer.header">IP Replacer</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:12px" data-t="replacer.desc">Deduplicate configs and replace IP:port with clean endpoints.</p>
-    <div class="input-method-bar" style="display:flex;gap:0;margin-bottom:12px;border:1px solid #30363d;border-radius:6px;overflow:hidden">
-      <button class="method-btn" data-method="url" onclick="selectReplacerMethod('url')" style="flex:1;padding:8px 16px;background:#21262d;border:none;border-right:1px solid #30363d;color:#8b949e;font-size:13px;cursor:pointer;transition:.2s" data-t="replacer.methodURL">Subscription URL</button>
-      <button class="method-btn" data-method="paste" onclick="selectReplacerMethod('paste')" style="flex:1;padding:8px 16px;background:transparent;border:none;color:#8b949e;font-size:13px;cursor:pointer;transition:.2s" data-t="replacer.methodPaste">Paste Configs</button>
+    <p class="desc" data-t="replacer.desc">Deduplicate configs and replace IP:port with clean endpoints.</p>
+    <div class="input-method-bar">
+      <button class="method-btn" data-method="url" onclick="selectReplacerMethod('url')" data-t="replacer.methodURL">Subscription URL</button>
+      <button class="method-btn" data-method="paste" onclick="selectReplacerMethod('paste')" data-t="replacer.methodPaste">Paste Configs</button>
     </div>
 
     <div id="replacerURLWrap">
@@ -351,23 +377,23 @@ body[dir="rtl"] .empty-state{text-align:center}
           <button class="btn btn-primary" id="fetchBtn" onclick="replacerFetch()" data-t="replacer.fetch" data-t-title="replacer.fetchTitle">Fetch</button>
         </div>
       </div>
-      <div id="replacerFetchStatus" style="margin-top:8px"></div>
+      <div id="replacerFetchStatus" style="margin-top:6px"></div>
     </div>
 
     <div id="replacerPasteWrap" class="hidden">
-      <textarea id="replacerRawText" rows="4" style="width:100%;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:13px;padding:8px;font-family:monospace;resize:vertical" data-t-placeholder="replacer.pastePlaceholder" data-t-title="replacer.pasteTitle" placeholder="vless://uuid@ip:port?encryption=none&...&#10;trojan://password@ip:port?security=tls&..."></textarea>
-      <div style="margin-top:8px">
+      <textarea id="replacerRawText" rows="3" data-t-placeholder="replacer.pastePlaceholder" data-t-title="replacer.pasteTitle" placeholder="vless://uuid@ip:port?encryption=none&...&#10;trojan://password@ip:port?security=tls&..."></textarea>
+      <div style="margin-top:6px">
         <button class="btn btn-secondary" id="parseBtn" onclick="replacerParse()" data-t="replacer.parse" data-t-title="replacer.parseTitle">Parse</button>
-        <div id="replacerParseStatus" style="margin-top:8px"></div>
+        <div id="replacerParseStatus" style="margin-top:6px"></div>
       </div>
     </div>
   </div>
 
   <div class="card hidden" id="replacerConfigsCard">
     <h2 data-t="replacer.configsHeader">Unique Configs</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:8px" id="replacerConfigCount"></p>
-    <div id="replacerConfigsList"></div>
-    <div id="replacerConfigActions" class="hidden" style="margin-top:8px">
+    <p style="font-size:12px;color:#8b949e;margin-bottom:6px" id="replacerConfigCount"></p>
+    <div class="results-table-wrap" id="replacerConfigsWrap"></div>
+    <div id="replacerConfigActions" class="hidden" style="margin-top:6px">
       <button class="btn btn-secondary btn-sm" onclick="replacerSelectAll(true)" data-t-title="replacer.configsSelectTitle">Select All</button>
       <button class="btn btn-secondary btn-sm" onclick="replacerSelectAll(false)" data-t-title="replacer.configsSelectTitle">Deselect All</button>
     </div>
@@ -375,19 +401,19 @@ body[dir="rtl"] .empty-state{text-align:center}
 
   <div class="card hidden" id="replacerEndpointsCard">
     <h2 data-t="replacer.endpointsHeader">Endpoints</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:8px" data-t="replacer.endpointsDesc">Paste IP:port endpoints (one per line) from Clean IP scan results.</p>
-    <textarea id="replacerEndpoints" rows="6" style="width:100%;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:13px;padding:8px;font-family:monospace;resize:vertical" data-t-placeholder="replacer.endpointsPlaceholder" data-t-title="replacer.endpointsTitle" placeholder="162.159.90.249:443&#10;162.159.82.8:443&#10;..."></textarea>
-    <div style="margin-top:8px">
+    <p style="font-size:12px;color:#8b949e;margin-bottom:6px" data-t="replacer.endpointsDesc">Paste IP:port endpoints (one per line) from Clean IP scan results.</p>
+    <textarea id="replacerEndpoints" rows="4" data-t-placeholder="replacer.endpointsPlaceholder" data-t-title="replacer.endpointsTitle" placeholder="162.159.90.249:443&#10;162.159.82.8:443&#10;..."></textarea>
+    <div style="margin-top:6px">
       <button class="btn btn-accent" id="replacerGenerateBtn" onclick="replacerGenerate()" data-t="replacer.generate" data-t-title="replacer.generateTitle">Generate Configs</button>
     </div>
-    <div id="replacerGenStatus" style="margin-top:8px"></div>
+    <div id="replacerGenStatus" style="margin-top:6px"></div>
   </div>
 
   <div class="card hidden" id="replacerResultsCard">
     <h2 data-t="replacer.resultsHeader">Generated Configs</h2>
-    <p style="font-size:13px;color:#8b949e;margin-bottom:8px" id="replacerResultsCount"></p>
-    <div id="replacerResultsContent"></div>
-    <div class="results-actions" style="margin-top:12px" id="replacerResultsActions" class="hidden">
+    <p style="font-size:12px;color:#8b949e;margin-bottom:6px" id="replacerResultsCount"></p>
+    <div class="results-table-wrap" id="replacerResultsWrap"></div>
+    <div class="results-actions" style="margin-top:10px" id="replacerResultsActions" class="hidden">
       <button class="btn btn-secondary btn-sm" onclick="replacerCopyAll()" data-t="replacer.copyAll" data-t-title="replacer.copyAllTitle">Copy All</button>
       <button class="btn btn-secondary btn-sm" onclick="replacerDownload()" data-t="replacer.download" data-t-title="replacer.downloadTitle">Download</button>
     </div>
@@ -395,6 +421,8 @@ body[dir="rtl"] .empty-state{text-align:center}
 </div>
 
 </div>
+
+<div class="toast-container"><div class="toast hidden" id="toast"></div></div>
 
 <script>
 const TR = {
@@ -422,6 +450,10 @@ const TR = {
     'settings.ipv46': 'IPv4 + IPv6',
     'settings.outCount': 'Results to show',
     'settings.noise': 'UDP Noise (bypass ISP blocking)',
+    'sort.asc': '▲',
+    'sort.desc': '▼',
+    'sort.az': 'A→Z',
+    'sort.za': 'Z→A',
     'buttons.start': 'Start Scan',
     'buttons.stop': 'Stop',
     'buttons.rescan': 'Rescan',
@@ -441,6 +473,7 @@ const TR = {
     'results.copyAll': 'Copy All',
     'results.downloadRaw': 'Download Raw',
     'results.failed': 'Failed to load results',
+    'results.copied': 'Copied!',
     'scan.failed': 'Failed to start scan: {msg}',
     'apply.header': 'Apply Endpoint to Configs',
     'apply.desc': 'Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.',
@@ -580,6 +613,7 @@ const TR = {
     'replacer.generateTitle': 'Generate all config × endpoint combinations',
     'replacer.copyAllTitle': 'Copy all generated configs to clipboard',
     'replacer.downloadTitle': 'Download generated configs as a text file',
+    'copied.clipboard': 'Copied to clipboard',
     'langBtn': 'فارسی',
     langCode: 'en'
   },
@@ -607,6 +641,10 @@ const TR = {
     'settings.ipv46': 'IPv4 + IPv6',
     'settings.outCount': 'نتایج برای نمایش',
     'settings.noise': 'نویز UDP (عبور از مسدودسازی ISP)',
+    'sort.asc': '▲',
+    'sort.desc': '▼',
+    'sort.az': 'A→Z',
+    'sort.za': 'Z→A',
     'buttons.start': 'شروع اسکن',
     'buttons.stop': 'توقف',
     'buttons.rescan': 'اسکن مجدد',
@@ -626,6 +664,7 @@ const TR = {
     'results.copyAll': 'کپی همه',
     'results.downloadRaw': 'دانلود خام',
     'results.failed': 'بارگیری نتایج ناموفق بود',
+    'results.copied': 'کپی شد!',
     'scan.failed': 'شروع اسکن ناموفق بود: {msg}',
     'apply.header': 'اعمال اندپوینت به کانفیگ‌ها',
     'apply.desc': 'یک اندپوینت working انتخاب کنید، کانفیگ‌های خود را انتخاب کنید و کپی‌های تغییر یافته با اندپوینت جدید بسازید.',
@@ -765,6 +804,7 @@ const TR = {
     'replacer.generateTitle': 'ساخت تمام ترکیب‌های کانفیگ × اندپوینت',
     'replacer.copyAllTitle': 'کپی همه کانفیگ‌های ساخته شده در کلیپ‌بورد',
     'replacer.downloadTitle': 'دانلود کانفیگ‌های ساخته شده به صورت فایل متنی',
+    'copied.clipboard': 'در کلیپ‌بورد کپی شد',
     'langBtn': 'English',
     langCode: 'fa'
   }
@@ -792,11 +832,7 @@ function setLang(code) {
   document.querySelectorAll('[data-t]').forEach(el => {
     const key = el.getAttribute('data-t');
     if (key && lang[key] !== undefined) {
-      if (el.tagName === 'OPTION') {
-        el.textContent = lang[key];
-      } else {
-        el.textContent = lang[key];
-      }
+      el.textContent = lang[key];
     }
   });
   document.querySelectorAll('[data-t-placeholder]').forEach(el => {
@@ -812,7 +848,6 @@ function setLang(code) {
     }
   });
   document.getElementById('langBtn').textContent = lang.langBtn;
-  // update dynamic text if visible
   if (currentJobId) {
     const statusEl = document.getElementById('progressText');
     const m = statusEl.textContent.match(/(\d+) \/ (\d+)/);
@@ -826,10 +861,6 @@ function setLang(code) {
     if (m) {
       liveEl.textContent = t('results.working', { n: m[1] });
     }
-  }
-  const startBtn = document.getElementById('startBtn');
-  if (!startBtn.disabled || startBtn.textContent === t('scan.scanning')) {
-    // button text managed in JS functions
   }
 }
 
@@ -900,6 +931,103 @@ function updateApplyBtn() {
 document.getElementById('scanDepth').addEventListener('change', function() {
   document.getElementById('customCountWrap').classList.toggle('hidden', this.value !== '0');
 });
+
+// ── Toast ──
+let toastTimer = null;
+function showToast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast' + (isError ? ' error' : '');
+  el.classList.remove('hidden');
+  requestAnimationFrame(() => el.classList.add('show'));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.classList.add('hidden'), 250);
+  }, 2000);
+}
+
+// ── Sorting ──
+let endpointSort = { field: 'num', dir: 'asc' };
+let cleanSort = { field: 'latency', dir: 'asc' };
+let replacerSort = { field: 'num', dir: 'asc' };
+
+function parseLatency(s) {
+  if (!s) return Infinity;
+  const m = s.match(/^([\d.]+)\s*(ms|s|µs)?$/);
+  if (!m) return parseFloat(s) || Infinity;
+  const v = parseFloat(m[1]);
+  const unit = m[2] || 'ms';
+  if (unit === 's') return v * 1000;
+  if (unit === 'µs') return v / 1000;
+  return v;
+}
+
+function sortEntries(entries, field, dir) {
+  const sorted = [...entries];
+  sorted.sort((a, b) => {
+    let va, vb;
+    if (field === 'num') {
+      const idxA = entries.indexOf(a);
+      const idxB = entries.indexOf(b);
+      return dir === 'asc' ? idxA - idxB : idxB - idxA;
+    }
+    if (field === 'latency') {
+      va = parseLatency(a.latency);
+      vb = parseLatency(b.latency);
+    } else if (field === 'endpoint' || field === 'address') {
+      va = (a.endpoint || a.address || '').toLowerCase();
+      vb = (b.endpoint || b.address || '').toLowerCase();
+    } else if (field === 'port') {
+      va = a.port;
+      vb = b.port;
+    } else if (field === 'remark') {
+      va = (a.remark || '').toLowerCase();
+      vb = (b.remark || '').toLowerCase();
+    } else if (field === 'protocol') {
+      va = (a.protocol || '').toLowerCase();
+      vb = (b.protocol || '').toLowerCase();
+    } else {
+      va = a[field];
+      vb = b[field];
+    }
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return sorted;
+}
+
+function sortIcon(field, state) {
+  if (state.field !== field) return '';
+  return '<span class="sort-icon">' + (state.dir === 'asc' ? '▲' : '▼') + '</span>';
+}
+
+// ── Utility ──
+function escapeEp(ep) {
+  return ep.replace(/'/g, "\\'");
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (e) {
+      showToast('Copy failed', true);
+    }
+  }
+}
+
+// ── Endpoint Scanner ──
 
 async function startScan() {
   if (!fileInput.files.length) return;
@@ -1041,25 +1169,33 @@ async function pollResults(jobId) {
   }, 1500);
 }
 
-function escapeEp(ep) {
-  return ep.replace(/'/g, "\\'");
-}
+let cachedRawEndpointResults = [];
 
 function renderResultsTable(data, jobId, isLive) {
-  let html = '<table class="results-table">';
-  html += '<tr><th>' + t('results.tableNum') + '</th><th>' + t('results.tableEndpoint') + '</th><th>' + t('results.tableLatency') + '</th><th></th></tr>';
-  data.entries.forEach((e, i) => {
+  cachedRawEndpointResults = data.raw || [];
+
+  const sorted = sortEntries(data.entries, endpointSort.field, endpointSort.dir);
+
+  let html = '<div class="results-table-wrap"><table class="results-table">';
+  html += '<tr>';
+  html += '<th class="sortable" onclick="sortEndpoint(\'num\')">' + t('results.tableNum') + sortIcon('num', endpointSort) + '</th>';
+  html += '<th class="sortable" onclick="sortEndpoint(\'endpoint\')">' + t('results.tableEndpoint') + sortIcon('endpoint', endpointSort) + '</th>';
+  html += '<th class="sortable" onclick="sortEndpoint(\'latency\')">' + t('results.tableLatency') + sortIcon('latency', endpointSort) + '</th>';
+  html += '<th></th></tr>';
+  sorted.forEach((e, i) => {
     const ep = e.endpoint;
-    html += '<tr><td>' + (i+1) + '</td><td><span class="tag">' + ep + '</span></td><td>' + e.latency + '</td>';
-    html += '<td><button class="btn btn-secondary btn-sm" onclick="useEndpoint(\'' + escapeEp(ep) + '\')" title="Use this endpoint">' + t('results.tableUse') + '</button></td>';
+    html += '<tr><td class="num">' + (i+1) + '</td>';
+    html += '<td><span class="tag" onclick="copyToClipboard(\'' + escapeEp(ep) + '\')" title="' + t('results.tableEndpoint') + '">' + ep + '</span></td>';
+    html += '<td>' + e.latency + '</td>';
+    html += '<td><button class="btn btn-secondary btn-sm" onclick="useEndpoint(\'' + escapeEp(ep) + '\')" title="' + t('results.tableUse') + '">' + t('results.tableUse') + '</button></td>';
     html += '</tr>';
   });
-  html += '</table>';
+  html += '</table></div>';
 
   if (!isLive) {
     html += '<div class="results-actions">';
-    html += '<button class="btn btn-secondary btn-sm" onclick="copyAllEndpoints(\'' + jobId + '\')" title="Copy all endpoints to clipboard">' + t('results.copyAll') + '</button>';
-    html += '<button class="btn btn-secondary btn-sm" onclick="downloadRaw(\'' + jobId + '\')" title="Download endpoints as text file">' + t('results.downloadRaw') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="copyAllEndpoints(\'' + jobId + '\')" title="' + t('results.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="downloadRaw(\'' + jobId + '\')" title="' + t('results.downloadTitle') + '">' + t('results.downloadRaw') + '</button>';
     html += '</div>';
     const label = data.status === 'cancelled' ? t('results.scanCancelled') : t('results.found', { n: data.total, s: data.scanned });
     html += '<div class="' + (data.status === 'cancelled' ? 'error-msg' : 'success-msg') + '">' + label + '</div>';
@@ -1067,6 +1203,18 @@ function renderResultsTable(data, jobId, isLive) {
 
   resultsContent.innerHTML = html;
   resultsContent.classList.remove('hidden');
+}
+
+function sortEndpoint(field) {
+  if (endpointSort.field === field) {
+    endpointSort.dir = endpointSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    endpointSort.field = field;
+    endpointSort.dir = field === 'latency' ? 'asc' : 'asc';
+  }
+  if (currentJobId) {
+    fetchResults(currentJobId);
+  }
 }
 
 async function fetchResults(jobId) {
@@ -1094,16 +1242,8 @@ function useEndpoint(ep) {
 async function copyAllEndpoints(jobId) {
   const data = await apiJSON('/api/results/' + jobId);
   const text = data.raw.map(r => r.endpoint).join('\n');
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  }
+  copyToClipboard(text);
+  showToast(t('copied.clipboard'));
 }
 
 async function downloadRaw(jobId) {
@@ -1137,7 +1277,7 @@ async function handleApplyEndpoint() {
   try {
     const data = await apiJSON('/api/apply-endpoint', { method: 'POST', body: formData });
     let html = '<div class="success-msg">' + t('apply.generated', { s: data.saved, t: data.total }) + '</div>';
-    html += '<table class="results-table" style="margin-top:8px">';
+    html += '<div class="results-table-wrap" style="margin-top:6px"><table class="results-table">';
     html += '<tr><th>' + t('results.tableEndpoint') + '</th><th>' + t('results.tableNum') + '</th></tr>';
     data.results.forEach(r => {
       if (r.error) {
@@ -1146,7 +1286,7 @@ async function handleApplyEndpoint() {
         html += '<tr><td>' + r.name + '</td><td style="color:#3fb950">&#10003; ' + r.path + '</td></tr>';
       }
     });
-    html += '</table>';
+    html += '</table></div>';
     applyStatus.innerHTML = html;
   } catch (e) {
     applyStatus.innerHTML = '<div class="error-msg">' + e.message + '</div>';
@@ -1166,6 +1306,8 @@ function showError(msg) {
 let cleanJobId = null;
 let cleanStatusInterval = null;
 let cleanResultsInterval = null;
+let cleanPhase2Entries = [];
+let lastCleanData = null;
 
 async function startCleanScan() {
   const onePhase = document.getElementById('onePhaseClean').checked;
@@ -1272,18 +1414,81 @@ function pollCleanStatus(jobId) {
 }
 
 document.getElementById('onePhaseClean').addEventListener('change', function() {
-  const phase2Col = document.getElementById('cleanPhase2Col');
-  phase2Col.classList.toggle('hidden', this.checked);
+  document.getElementById('cleanPhase2Col').classList.toggle('hidden', this.checked);
 });
 
 function renderCleanResultsTable(data) {
-  let html = '<table class="results-table">';
-  html += '<tr><th>' + t('results.tableNum') + '</th><th>' + t('results.tableEndpoint') + '</th><th>' + t('results.tableLatency') + '</th></tr>';
-  data.entries.forEach((e, i) => {
-    html += '<tr><td>' + (i+1) + '</td><td><span class="tag">' + e.endpoint + '</span></td><td>' + e.latency + '</td></tr>';
+  const sorted = sortEntries(data.entries, cleanSort.field, cleanSort.dir);
+  let html = '<div class="results-table-wrap"><table class="results-table">';
+  html += '<tr>';
+  html += '<th class="sortable" onclick="sortClean(\'num\')">' + t('results.tableNum') + sortIcon('num', cleanSort) + '</th>';
+  html += '<th class="sortable" onclick="sortClean(\'endpoint\')">' + t('results.tableEndpoint') + sortIcon('endpoint', cleanSort) + '</th>';
+  html += '<th class="sortable" onclick="sortClean(\'latency\')">' + t('results.tableLatency') + sortIcon('latency', cleanSort) + '</th>';
+  if (data.phase === 'phase2') {
+    html += '<th></th>';
+  }
+  html += '</tr>';
+  sorted.forEach((e, i) => {
+    html += '<tr><td class="num">' + (i+1) + '</td>';
+    html += '<td><span class="tag" onclick="copyToClipboard(\'' + escapeEp(e.endpoint) + '\')" title="' + t('results.tableEndpoint') + '">' + e.endpoint + '</span></td>';
+    html += '<td>' + e.latency + '</td>';
+    if (data.phase === 'phase2') {
+      html += '<td class="checkbox-cell"><input type="checkbox" class="clean-select" value="' + escapeEp(e.endpoint) + '"></td>';
+    }
+    html += '</tr>';
   });
-  html += '</table>';
+  html += '</table></div>';
   return html;
+}
+
+function sortClean(field) {
+  if (cleanSort.field === field) {
+    cleanSort.dir = cleanSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    cleanSort.field = field;
+    cleanSort.dir = field === 'latency' ? 'asc' : 'asc';
+  }
+  if (lastCleanData) {
+    renderCleanResultsComplete(lastCleanData);
+  }
+}
+
+function renderCleanResultsComplete(data) {
+  const container = document.getElementById('cleanResultsContent');
+  const statusMsg = document.getElementById('cleanStatusMsg');
+  if (!data.entries || data.entries.length === 0) {
+    if (data.phase === 'phase2' && data.status === 'done') {
+      container.innerHTML = '<div class="empty-state"><p>' + t('clean.noResults') + '</p></div>';
+      container.classList.remove('hidden');
+    }
+    return;
+  }
+
+  let html = '';
+  if (data.phase === 'phase1') {
+    html = renderCleanResultsTable(data);
+    if (data.status === 'done' || data.status === 'cancelled') {
+      const isCancelled = data.status === 'cancelled';
+      html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + '" style="margin-top:6px">' +
+        (isCancelled ? t('clean.progressCancelled') : t('clean.foundPhase1', { n: data.total, t: data.phase1_total })) +
+        '</div>';
+      html += '<div class="results-actions">';
+      html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanPhase1IPs(\'' + (cleanJobId || '') + '\')">' + t('results.copyAll') + '</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="downloadCleanPhase1IPs(\'' + (cleanJobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
+      html += '</div>';
+    }
+  } else {
+    html = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundPhase2', { n: data.total, s: data.scanned }) + '</div>';
+    html += renderCleanResultsTable(data);
+    html += '<div class="results-actions">';
+    html += '<button class="btn btn-accent btn-sm" onclick="exportCleanIPs()">' + t('clean.export') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(true)">' + t('clean.selectAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+  container.classList.remove('hidden');
 }
 
 function pollCleanResults(jobId) {
@@ -1297,63 +1502,18 @@ function pollCleanResults(jobId) {
       if (data.status === 'done' || data.status === 'cancelled') {
         clearInterval(cleanResultsInterval);
         cleanResultsInterval = null;
-
         if (data.status === 'cancelled') {
           document.getElementById('cleanProgressFill').classList.add('cancelled');
         }
       }
 
-      if (data.phase === 'phase1') {
-        if (data.entries && data.entries.length > 0) {
-          let html = renderCleanResultsTable(data);
-
-          if (data.status === 'done' || data.status === 'cancelled') {
-            const isCancelled = data.status === 'cancelled';
-            html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + '" style="margin-top:8px">' +
-              (isCancelled ? t('clean.progressCancelled') : t('clean.foundPhase1', { n: data.total, t: data.phase1_total })) +
-              '</div>';
-            html += '<div class="results-actions" style="margin-top:12px">';
-            html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanPhase1IPs(\'' + jobId + '\')" title="Copy all endpoints to clipboard">' + t('results.copyAll') + '</button>';
-            html += '<button class="btn btn-secondary btn-sm" onclick="downloadCleanPhase1IPs(\'' + jobId + '\')" title="Download endpoints as text file">' + t('results.downloadRaw') + '</button>';
-            html += '</div>';
-          } else {
-            statusMsg.innerHTML = '<div class="live-count" style="color:#58a6ff">' + t('clean.foundPhase1', { n: data.total, t: data.phase1_total }) + '</div>';
-          }
-
-          container.innerHTML = html;
-          container.classList.remove('hidden');
-        } else {
-          statusMsg.innerHTML = '<div class="live-count" style="color:#58a6ff">' + t('clean.foundPhase1', { n: 0, t: data.phase1_total || 0 }) + '</div>';
-        }
-        return;
+      lastCleanData = data;
+      renderCleanResultsComplete(data);
+      if (data.phase === 'phase1' && (!data.entries || data.entries.length === 0)) {
+        statusMsg.innerHTML = '<div class="live-count" style="color:#58a6ff">' + t('clean.foundPhase1', { n: 0, t: data.phase1_total || 0 }) + '</div>';
       }
-
-      if (data.entries && data.entries.length > 0) {
-        let html = '<div class="success-msg" style="margin-bottom:8px">' + t('clean.foundPhase2', { n: data.total, s: data.scanned }) + '</div>';
-        html += '<table class="results-table">';
-        html += '<tr><th>' + t('results.tableNum') + '</th><th>' + t('results.tableEndpoint') + '</th><th>' + t('results.tableLatency') + '</th><th></th></tr>';
-        data.entries.forEach((e, i) => {
-          html += '<tr><td>' + (i+1) + '</td><td><span class="tag">' + e.endpoint + '</span></td><td>' + e.latency + '</td>';
-          html += '<td><input type="checkbox" class="clean-select" value="' + e.endpoint.replace(/'/g, "\\'") + '"></td></tr>';
-        });
-        html += '</table>';
-
-        html += '<div class="results-actions" style="margin-top:12px">';
-        html += '<button class="btn btn-accent btn-sm" onclick="exportCleanIPs()" title="Generate VLESS URLs with selected endpoints">' + t('clean.export') + '</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(true)" title="Select all endpoints for export">' + t('clean.selectAll') + '</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(false)" title="Deselect all endpoints">' + t('clean.deselectAll') + '</button>';
-        html += '</div>';
-
-        container.innerHTML = html;
-        container.classList.remove('hidden');
-        statusMsg.innerHTML = '';
-
-        if (data.status === 'done') {
-          document.getElementById('cleanProgressText').textContent = t('clean.progressDone');
-        }
-      } else if (data.phase === 'phase2' && data.status === 'done') {
-        container.innerHTML = '<div class="empty-state"><p>' + t('clean.noResults') + '</p></div>';
-        container.classList.remove('hidden');
+      if (data.phase === 'phase2' && data.status === 'done' && data.entries && data.entries.length > 0) {
+        document.getElementById('cleanProgressText').textContent = t('clean.progressDone');
       }
     } catch (e) {
       clearInterval(cleanResultsInterval);
@@ -1365,16 +1525,8 @@ function pollCleanResults(jobId) {
 async function copyCleanPhase1IPs(jobId) {
   const data = await apiJSON('/api/clean-results/' + jobId);
   const text = data.entries.map(r => r.endpoint).join('\n');
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  }
+  copyToClipboard(text);
+  showToast(t('copied.clipboard'));
 }
 
 async function downloadCleanPhase1IPs(jobId) {
@@ -1440,7 +1592,7 @@ let replacerMethod = 'url';
 
 function selectReplacerMethod(method) {
   replacerMethod = method;
-  document.querySelectorAll('.input-method-bar .method-btn').forEach(b => {
+  document.querySelectorAll('.input-method-bar button').forEach(b => {
     b.classList.toggle('active', b.dataset.method === method);
     b.style.background = b.dataset.method === method ? '#1f6feb33' : 'transparent';
     b.style.color = b.dataset.method === method ? '#58a6ff' : '#8b949e';
@@ -1525,26 +1677,45 @@ async function replacerFetch() {
 }
 
 function renderReplacerConfigs(configs) {
-  const container = document.getElementById('replacerConfigsList');
+  const container = document.getElementById('replacerConfigsWrap');
   document.getElementById('replacerConfigCount').textContent = t('replacer.configCount', { n: configs.length });
 
-  let html = '<table class="results-table">';
-  html += '<tr><th><input type="checkbox" id="replacerSelectAllCb" onchange="replacerToggleAll()" checked></th>';
-  html += '<th>#</th><th>' + t('results.tableEndpoint') + '</th><th>' + t('replacer.tablePort') + '</th><th>' + t('replacer.tableConfig') + '</th></tr>';
+  const sorted = sortEntries(configs, replacerSort.field, replacerSort.dir);
 
-  configs.forEach((c, i) => {
+  let html = '<table class="results-table">';
+  html += '<tr>';
+  html += '<th class="checkbox-cell"><input type="checkbox" id="replacerSelectAllCb" onchange="replacerToggleAll()" checked></th>';
+  html += '<th class="sortable" onclick="sortReplacer(\'num\')">' + t('results.tableNum') + sortIcon('num', replacerSort) + '</th>';
+  html += '<th class="sortable" onclick="sortReplacer(\'address\')">' + t('results.tableEndpoint') + sortIcon('address', replacerSort) + '</th>';
+  html += '<th class="sortable" onclick="sortReplacer(\'port\')">' + t('replacer.tablePort') + sortIcon('port', replacerSort) + '</th>';
+  html += '<th class="sortable" onclick="sortReplacer(\'remark\')">' + t('replacer.tableConfig') + sortIcon('remark', replacerSort) + '</th>';
+  html += '</tr>';
+
+  sorted.forEach((c, i) => {
+    const origIdx = configs.indexOf(c);
+    const idx = origIdx >= 0 ? origIdx : i;
     html += '<tr>';
-    html += '<td><input type="checkbox" class="replacer-cfg-cb" value="' + i + '" checked></td>';
-    html += '<td>' + (i+1) + '</td>';
-    html += '<td><span class="tag">' + c.address + '</span></td>';
+    html += '<td class="checkbox-cell"><input type="checkbox" class="replacer-cfg-cb" value="' + idx + '" checked></td>';
+    html += '<td class="num">' + (i+1) + '</td>';
+    html += '<td><span class="tag" onclick="copyToClipboard(\'' + escapeEp(c.address) + '\')">' + c.address + '</span></td>';
     html += '<td>' + c.port + '</td>';
-    html += '<td style="font-size:12px;color:#8b949e">' + c.remark + ' (' + c.protocol + '://' + c.uuid.substring(0,8) + '…)</td>';
+    html += '<td><span class="replacer-config-remark" title="' + (c.remark || '') + '">' + (c.remark || c.protocol + '://' + c.uuid.substring(0,8) + '…') + '</span></td>';
     html += '</tr>';
   });
   html += '</table>';
 
   container.innerHTML = html;
   document.getElementById('replacerConfigActions').classList.remove('hidden');
+}
+
+function sortReplacer(field) {
+  if (replacerSort.field === field) {
+    replacerSort.dir = replacerSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    replacerSort.field = field;
+    replacerSort.dir = 'asc';
+  }
+  renderReplacerConfigs(replacerConfigs);
 }
 
 function replacerToggleAll() {
@@ -1603,13 +1774,13 @@ async function replacerGenerate() {
 }
 
 function renderReplacerResults(urls, numConfigs, numEndpoints) {
-  const container = document.getElementById('replacerResultsContent');
+  const container = document.getElementById('replacerResultsWrap');
   document.getElementById('replacerResultsCount').textContent = t('replacer.resultsCount', { n: urls.length, c: numConfigs, e: numEndpoints });
 
   let html = '<table class="results-table"><tr><th>#</th><th>' + t('replacer.tableConfig') + '</th></tr>';
   urls.forEach((u, i) => {
     const display = u.length > 100 ? u.substring(0, 100) + '…' : u;
-    html += '<tr><td>' + (i+1) + '</td><td style="font-size:12px;font-family:monospace;word-break:break-all">' + display + '</td></tr>';
+    html += '<tr><td class="num">' + (i+1) + '</td><td style="font-size:11px;font-family:monospace;word-break:break-all">' + display + '</td></tr>';
   });
   html += '</table>';
   container.innerHTML = html;
@@ -1619,16 +1790,8 @@ function renderReplacerResults(urls, numConfigs, numEndpoints) {
 
 async function replacerCopyAll() {
   const text = replacerGeneratedURLs.join('\n');
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-  }
+  copyToClipboard(text);
+  showToast(t('copied.clipboard'));
 }
 
 function replacerDownload() {
