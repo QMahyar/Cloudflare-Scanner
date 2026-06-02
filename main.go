@@ -83,7 +83,8 @@ func openBrowser(url string) {
 
 	switch runtime.GOOS {
 	case "windows":
-		openBrowserCmd("rundll32", []string{"rundll32", "url.dll,FileProtocolHandler", url})
+		cmdPath := filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe")
+		openBrowserCmd(cmdPath, []string{cmdPath, "/c", "start", "", url})
 	case "darwin":
 		openBrowserCmd("open", []string{"open", url})
 	default:
