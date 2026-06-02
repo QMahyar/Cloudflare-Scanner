@@ -250,6 +250,76 @@ func pickWeighted(rng *rand.Rand, items []cidrInfo, totalWeight int) int {
 	return len(items) - 1
 }
 
+func generateNearbyIPs(working []CleanIPResult, countPerIP int, port int) []string {
+	rng := rand.New(rand.NewSource(rand.Int63()))
+	seen := make(map[string]bool)
+	var result []string
+
+	for _, wr := range working {
+		ep := wr.Endpoint
+		// strip port to get IP
+		host := ep
+		if strings.Contains(ep, ":") {
+			// handle IPv6 [::1]:port vs IPv4 x.x.x.x:port
+			if ep[0] == '[' {
+				idx := strings.LastIndex(ep, "]:")
+				if idx > 0 {
+					host = ep[1:idx]
+				}
+			} else {
+				idx := strings.LastIndex(ep, ":")
+				if idx > 0 {
+					host = ep[:idx]
+				}
+			}
+		}
+
+		ip := net.ParseIP(host)
+		if ip == nil {
+			continue
+		}
+
+		if 		ip4 := ip.To4(); ip4 != nil {
+			// /24 subnet: x.y.z.0
+			base := uint32(ip4[0])<<24 | uint32(ip4[1])<<16 | uint32(ip4[2])<<8
+			for attempts := 0; len(result) < len(working)*countPerIP && attempts < countPerIP*50; attempts++ {
+				offset := uint32(rng.Intn(256))
+				ipU32 := base | offset
+				s := fmt.Sprintf("%d.%d.%d.%d", byte(ipU32>>24), byte(ipU32>>16), byte(ipU32>>8), byte(ipU32))
+				if seen[s] {
+					continue
+				}
+				seen[s] = true
+				result = append(result, fmt.Sprintf("%s:%d", s, port))
+				if len(result) >= len(working)*countPerIP {
+					return result
+				}
+			}
+		} else {
+			// IPv6 /64 subnet: randomize last 64 bits
+			for attempts := 0; len(result) < len(working)*countPerIP && attempts < countPerIP*50; attempts++ {
+				out := make(net.IP, 16)
+				copy(out, ip)
+				// randomize bytes 8-15 (last 64 bits)
+				for i := 8; i < 16; i++ {
+					out[i] = byte(rng.Intn(256))
+				}
+				s := out.String()
+				if seen[s] {
+					continue
+				}
+				seen[s] = true
+				result = append(result, fmt.Sprintf("[%s]:%d", s, port))
+				if len(result) >= len(working)*countPerIP {
+					return result
+				}
+			}
+		}
+	}
+
+	return result
+}
+
 func randomIPv6InCIDR(cidr string, rng *rand.Rand) string {
 	_, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
@@ -273,28 +343,37 @@ type CleanIPResult struct {
 }
 
 type CleanIPJob struct {
-	ID              string
-	Status          string
-	Progress        int
-	Total           int
-	Phase1Progress  int
-	Phase1Total     int
-	Phase2Progress  int
-	Phase2Total     int
-	Config          *ProxyConfig
-	Endpoints       []string
-	Phase1Results   []CleanIPResult
-	Phase2Results   []CleanIPResult
-	Phase2Count     int
-	SkipPhase2      bool
-	Cancel          chan struct{}
-	mu              sync.Mutex
+	ID                string
+	Status            string
+	Progress          int
+	Total             int
+	Phase1Progress    int
+	Phase1Total       int
+	Phase2Progress    int
+	Phase2Total       int
+	Config            *ProxyConfig
+	Endpoints         []string
+	Phase1Results     []CleanIPResult
+	Phase2Results     []CleanIPResult
+	Phase2Count       int
+	SkipPhase2        bool
+	NearbyScan        bool
+	NearbyCount       int
+	Phase1Probes      int
+	Phase2Probes      int
+	NearbyPhase1Results []CleanIPResult
+	NearbyPhase2Results []CleanIPResult
+	Cancel            chan struct{}
+	mu                sync.Mutex
 }
 
-func runCleanPhase1TCP(endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob) []CleanIPResult {
+func runCleanPhase1TCP(endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob, concurrency int) []CleanIPResult {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 500)
+	if concurrency <= 0 {
+		concurrency = 500
+	}
+	sem := make(chan struct{}, concurrency)
 	results := make([]CleanIPResult, 0, len(endpoints))
 
 	for i, ep := range endpoints {
@@ -457,6 +536,15 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	phase1Timeout := 3 * time.Second
 	phase2Timeout := 5 * time.Second
 
+	p1Probes := job.Phase1Probes
+	if p1Probes <= 0 {
+		p1Probes = 500
+	}
+	p2Probes := job.Phase2Probes
+	if p2Probes <= 0 {
+		p2Probes = 12
+	}
+
 	job.mu.Lock()
 	job.Status = "running-phase1"
 	job.Phase1Total = len(job.Endpoints)
@@ -465,7 +553,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	job.Phase2Progress = 0
 	job.mu.Unlock()
 
-	phase1Results := runCleanPhase1TCP(job.Endpoints, phase1Timeout, job.Cancel, job)
+	phase1Results := runCleanPhase1TCP(job.Endpoints, phase1Timeout, job.Cancel, job, p1Probes)
 
 	select {
 	case <-job.Cancel:
@@ -479,6 +567,43 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	job.mu.Lock()
 	job.Phase1Results = phase1Results
 	job.mu.Unlock()
+
+	// Nearby scan: expand around working phase 1 results
+	var nearbyPhase1Results []CleanIPResult
+	if job.NearbyScan && len(phase1Results) > 0 {
+		nearbyCount := job.NearbyCount
+		if nearbyCount <= 0 {
+			nearbyCount = 10
+		}
+		// take top 10 working IPs to expand around
+		topForNearby := phase1Results
+		if len(topForNearby) > 10 {
+			topForNearby = topForNearby[:10]
+		}
+		// determine port from first working result
+		port := 443
+		if len(topForNearby) > 0 {
+			if cfg := job.Config; cfg != nil {
+				port = cfg.Port
+			}
+		}
+		nearbyIPs := generateNearbyIPs(topForNearby, nearbyCount, port)
+		if len(nearbyIPs) > 0 {
+			job.mu.Lock()
+			savedPhase1Total := job.Phase1Total
+			savedPhase1Progress := job.Phase1Progress
+			job.mu.Unlock()
+
+			nearbyPhase1Results = runCleanPhase1TCP(nearbyIPs, phase1Timeout, job.Cancel, nil, p1Probes)
+
+			// restore job progress to original (nearby is extra)
+			job.mu.Lock()
+			job.Phase1Total = savedPhase1Total
+			job.Phase1Progress = savedPhase1Progress
+			job.NearbyPhase1Results = nearbyPhase1Results
+			job.mu.Unlock()
+		}
+	}
 
 	if job.SkipPhase2 {
 		job.mu.Lock()
@@ -494,6 +619,15 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	tcpResults := phase1Results
 	if len(tcpResults) > topN {
 		tcpResults = tcpResults[:topN]
+	}
+
+	// also run phase 2 on nearby results if present
+	var nearbyTcpResults []CleanIPResult
+	if len(nearbyPhase1Results) > 0 {
+		nearbyTcpResults = nearbyPhase1Results
+		if len(nearbyTcpResults) > topN {
+			nearbyTcpResults = nearbyTcpResults[:topN]
+		}
 	}
 
 	job.mu.Lock()
@@ -512,8 +646,12 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	var portCounter atomic.Int32
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, 12)
+	sem := make(chan struct{}, p2Probes)
 	phase2Results := make([]CleanIPResult, 0, len(tcpResults))
+	var nearbyPhase2Results []CleanIPResult
+	if len(nearbyTcpResults) > 0 {
+		nearbyPhase2Results = make([]CleanIPResult, 0, len(nearbyTcpResults))
+	}
 
 	for _, pr := range tcpResults {
 		select {
@@ -558,6 +696,40 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 
 	wg.Wait()
 
+	// Phase 2 for nearby results
+	if len(nearbyTcpResults) > 0 {
+		var nearbyWg sync.WaitGroup
+		for _, pr := range nearbyTcpResults {
+			select {
+			case <-job.Cancel:
+				job.mu.Lock()
+				job.Status = "cancelled"
+				job.mu.Unlock()
+				return
+			default:
+			}
+
+			nearbyWg.Add(1)
+			go func(ep string) {
+				defer nearbyWg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				socksPort := int(portCounter.Add(1)) + 20799
+				result := validateWithXray(job.Config, ep, xrayPath, socksPort, phase2Timeout)
+
+				mu.Lock()
+				nearbyPhase2Results = append(nearbyPhase2Results, result)
+				mu.Unlock()
+			}(pr.Endpoint)
+		}
+		nearbyWg.Wait()
+
+		sort.Slice(nearbyPhase2Results, func(i, j int) bool {
+			return nearbyPhase2Results[i].Latency < nearbyPhase2Results[j].Latency
+		})
+	}
+
 	select {
 	case <-job.Cancel:
 		job.mu.Lock()
@@ -573,6 +745,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 
 	job.mu.Lock()
 	job.Phase2Results = phase2Results
+	job.NearbyPhase2Results = nearbyPhase2Results
 	job.Phase2Progress = len(phase2Results)
 	job.Status = "done"
 	job.mu.Unlock()

@@ -461,12 +461,16 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 type cleanScanRequest struct {
-	VLESSURL    string `json:"vless_url"`
-	Count       int    `json:"count"`
-	IPv4        bool   `json:"ipv4"`
-	IPv6        bool   `json:"ipv6"`
-	Phase2Count int    `json:"phase2_count"`
-	OnePhase    bool   `json:"one_phase"`
+	VLESSURL     string `json:"vless_url"`
+	Count        int    `json:"count"`
+	IPv4         bool   `json:"ipv4"`
+	IPv6         bool   `json:"ipv6"`
+	Phase2Count  int    `json:"phase2_count"`
+	OnePhase     bool   `json:"one_phase"`
+	NearbyScan   bool   `json:"nearby_scan"`
+	NearbyCount  int    `json:"nearby_count"`
+	Phase1Probes int    `json:"phase1_probes"`
+	Phase2Probes int    `json:"phase2_probes"`
 }
 
 func handleCleanScanStart(xrayPath string) http.HandlerFunc {
@@ -516,14 +520,18 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 		jobID := fmt.Sprintf("clean_%d", cleanJobCounter)
 
 		job := &CleanIPJob{
-			ID:          jobID,
-			Status:      "pending",
-			Total:       len(endpoints),
-			Config:      cfg,
-			Endpoints:   endpoints,
-			Phase2Count: req.Phase2Count,
-			SkipPhase2:  req.OnePhase,
-			Cancel:      make(chan struct{}),
+			ID:           jobID,
+			Status:       "pending",
+			Total:        len(endpoints),
+			Config:       cfg,
+			Endpoints:    endpoints,
+			Phase2Count:  req.Phase2Count,
+			SkipPhase2:   req.OnePhase,
+			NearbyScan:   req.NearbyScan,
+			NearbyCount:  req.NearbyCount,
+			Phase1Probes: req.Phase1Probes,
+			Phase2Probes: req.Phase2Probes,
+			Cancel:       make(chan struct{}),
 		}
 
 		cleanJobsMu.Lock()
@@ -610,6 +618,8 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 	status := job.Status
 	phase1Results := job.Phase1Results
 	phase2Results := job.Phase2Results
+	nearbyPhase1Results := job.NearbyPhase1Results
+	nearbyPhase2Results := job.NearbyPhase2Results
 	phase1Progress := job.Phase1Progress
 	phase1Total := job.Phase1Total
 	skipPhase2 := job.SkipPhase2
@@ -642,15 +652,27 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 				raw = append(raw, resultEntry{Endpoint: r.Endpoint, Latency: r.Latency.Round(time.Millisecond).String(), Success: true})
 			}
 		}
+		nearbyEntries := make([]resultEntry, 0, len(nearbyPhase2Results))
+		for _, r := range nearbyPhase2Results {
+			if !r.Success {
+				continue
+			}
+			nearbyEntries = append(nearbyEntries, resultEntry{
+				Endpoint: r.Endpoint,
+				Latency:  r.Latency.Round(time.Millisecond).String(),
+				Success:  true,
+			})
+		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"entries": entries,
-			"raw":     raw,
-			"total":   len(entries),
-			"scanned": len(phase2Results),
-			"status":  status,
-			"phase":   "phase2",
-			"phase1":  phase1Progress,
+			"entries":        entries,
+			"raw":            raw,
+			"total":          len(entries),
+			"scanned":        len(phase2Results),
+			"status":         status,
+			"phase":          "phase2",
+			"phase1":         phase1Progress,
+			"nearby_entries": nearbyEntries,
 		})
 		return
 	}
@@ -666,16 +688,28 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 			Success:  true,
 		})
 	}
+	nearbyEntries := make([]resultEntry, 0, len(nearbyPhase1Results))
+	for _, r := range nearbyPhase1Results {
+		if !r.Success {
+			continue
+		}
+		nearbyEntries = append(nearbyEntries, resultEntry{
+			Endpoint: r.Endpoint,
+			Latency:  r.Latency.Round(time.Millisecond).String(),
+			Success:  true,
+		})
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"entries":     entries,
-		"total":       len(entries),
-		"scanned":     phase1Progress,
-		"phase1_total": phase1Total,
-		"status":      status,
-		"phase":       "phase1",
-		"phase1":      phase1Progress,
+		"entries":        entries,
+		"total":          len(entries),
+		"scanned":        phase1Progress,
+		"phase1_total":   phase1Total,
+		"status":         status,
+		"phase":          "phase1",
+		"phase1":         phase1Progress,
+		"nearby_entries": nearbyEntries,
 	})
 }
 

@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 :root{--ease:cubic-bezier(.16,1,.3,1)}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -67,6 +68,23 @@ textarea:focus{border-color:#58a6ff;box-shadow:inset 0 1px 0 rgba(255,255,255,.0
 .progress-fill{height:100%;width:0%;border-radius:3px;background:linear-gradient(90deg,#1f6feb,#238636);box-shadow:0 0 12px rgba(31,111,235,.3);transition:width .4s var(--ease)}
 .progress-fill.cancelled{background:#da3633}
 .progress-text{font-size:12px;color:#8b949e}
+.latency-fast{color:#3fb950;font-weight:600}
+.latency-medium{color:#d29922;font-weight:600}
+.latency-slow{color:#f85149;font-weight:600}
+.preset-bar{display:flex;gap:4px;flex-wrap:wrap}
+.preset-btn{padding:6px 12px;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#8b949e;font-size:11px;font-weight:500;cursor:pointer;transition:.15s var(--ease);min-height:32px;touch-action:manipulation;white-space:nowrap}
+.preset-btn:hover{border-color:#58a6ff;color:#e6edf3}
+.preset-btn.active{background:#1f6feb33;border-color:#1f6feb;color:#58a6ff}
+.preset-btn.active:hover{background:#1f6feb44}
+.tab-badge{display:none;margin-left:4px;padding:1px 5px;border-radius:8px;font-size:9px;font-weight:600;background:#1f6feb33;color:#58a6ff;vertical-align:middle}
+.tab-badge.show{display:inline-block}
+.qr-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s var(--ease)}
+.qr-overlay.open{opacity:1;pointer-events:auto}
+.qr-modal{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:24px;max-width:320px;width:90%;text-align:center}
+.qr-modal h3{font-size:14px;color:#f0f6fc;margin-bottom:12px}
+#qrCode{display:flex;justify-content:center;margin-bottom:12px}
+#qrCode img,#qrCode canvas{border-radius:4px}
+.qr-close{margin-top:8px}
 .results-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -14px;padding:0 14px}@media(min-width:640px){.results-table-wrap{margin:0;padding:0}}
 .scrollable-list{max-height:360px;overflow-y:auto;-webkit-overflow-scrolling:touch;mask-image:linear-gradient(to bottom,#000 calc(100%-48px),transparent);-webkit-mask-image:linear-gradient(to bottom,#000 calc(100%-48px),transparent)}
 .scrollable-list::-webkit-scrollbar{width:5px}
@@ -137,9 +155,9 @@ details summary{list-style:none}details summary::-webkit-details-marker{display:
     <button class="lang-btn" id="langBtn" onclick="toggleLang()">فارسی</button>
   </div>
   <div class="tab-bar">
-    <button class="tab active" id="tabEndpoint" onclick="switchTab('endpoint')" data-t="tab.endpoint">Endpoint Scanner</button>
-    <button class="tab" id="tabClean" onclick="switchTab('clean')" data-t="tab.clean">IP Scanner</button>
-    <button class="tab" id="tabReplacer" onclick="switchTab('replacer')" data-t="tab.replacer">IP Replacer</button>
+    <button class="tab active" id="tabEndpoint" onclick="switchTab('endpoint')" data-t="tab.endpoint">Endpoint Scanner<span class="tab-badge" id="badgeEndpoint"></span></button>
+    <button class="tab" id="tabClean" onclick="switchTab('clean')" data-t="tab.clean">IP Scanner<span class="tab-badge" id="badgeClean"></span></button>
+    <button class="tab" id="tabReplacer" onclick="switchTab('replacer')" data-t="tab.replacer">IP Replacer<span class="tab-badge" id="badgeReplacer"></span></button>
   </div>
 
   <div id="endpointTab">
@@ -161,15 +179,15 @@ details summary{list-style:none}details summary::-webkit-details-marker{display:
     <div class="row">
       <div class="col">
         <label data-t="settings.scanDepth" data-t-title="settings.depthTitle">Scan depth</label>
-        <select id="scanDepth" data-t-title="settings.depthTitle">
-          <option value="100" data-t="settings.depth.quick">Quick (100 endpoints)</option>
-          <option value="500" data-t="settings.depth.normal" selected>Normal (500 endpoints)</option>
-          <option value="1000" data-t="settings.depth.deep">Deep (1000 endpoints)</option>
-          <option value="5000" data-t="settings.depth.insane">Insane (5000 endpoints)</option>
-          <option value="10000" data-t="settings.depth.massive">Massive (10000 endpoints)</option>
-          <option value="50000" data-t="settings.depth.absolutelyInsane">Absolutely Insane (50000 endpoints)</option>
-          <option value="0" data-t="settings.depth.custom">Custom</option>
-        </select>
+        <input type="hidden" id="scanDepth" value="500">
+        <div class="preset-bar" data-group="endpoint">
+          <button class="preset-btn" data-value="100" onclick="selectPreset(this)" data-t="settings.depth.quick">Quick (100)</button>
+          <button class="preset-btn active" data-value="500" onclick="selectPreset(this)" data-t="settings.depth.normal">Normal (500)</button>
+          <button class="preset-btn" data-value="1000" onclick="selectPreset(this)" data-t="settings.depth.deep">Deep (1K)</button>
+          <button class="preset-btn" data-value="5000" onclick="selectPreset(this)" data-t="settings.depth.insane">Insane (5K)</button>
+          <button class="preset-btn" data-value="10000" onclick="selectPreset(this)" data-t="settings.depth.massive">Massive (10K)</button>
+          <button class="preset-btn" data-value="0" onclick="selectPreset(this)" data-t="settings.depth.custom">Custom</button>
+        </div>
         <div id="customCountWrap" class="hidden" style="margin-top:6px">
           <input type="text" id="customCount" data-t-placeholder="settings.customPlaceholder" data-t-title="settings.customTitle" placeholder="Enter count">
         </div>
@@ -326,12 +344,17 @@ details summary{list-style:none}details summary::-webkit-details-marker{display:
     <div class="row">
       <div class="col">
         <label data-t="settings.scanDepth" data-t-title="clean.depthTitle">Scan depth</label>
-        <select id="cleanDepth" data-t-title="clean.depthTitle">
-          <option value="500" data-t="clean.depth.fast">Fast (500 IPs)</option>
-          <option value="1000" selected data-t="clean.depth.normal">Normal (1000 IPs)</option>
-          <option value="2000" data-t="clean.depth.deep">Deep (2000 IPs)</option>
-          <option value="5000" data-t="clean.depth.max">Max (5000 IPs)</option>
-        </select>
+        <input type="hidden" id="cleanDepth" value="1000">
+        <div class="preset-bar" data-group="clean">
+          <button class="preset-btn" data-value="500" onclick="selectPreset(this)" data-t="clean.depth.fast">Fast (500)</button>
+          <button class="preset-btn active" data-value="1000" onclick="selectPreset(this)" data-t="clean.depth.normal">Normal (1K)</button>
+          <button class="preset-btn" data-value="2000" onclick="selectPreset(this)" data-t="clean.depth.deep">Deep (2K)</button>
+          <button class="preset-btn" data-value="10000" onclick="selectPreset(this)" data-t="clean.depth.massive">Massive (10K)</button>
+          <button class="preset-btn" data-value="0" onclick="selectPreset(this)" data-t="settings.depth.custom">Custom</button>
+        </div>
+        <div id="cleanCustomCountWrap" class="hidden" style="margin-top:6px">
+          <input type="text" id="cleanCustomCount" data-t-placeholder="settings.customPlaceholder" placeholder="Enter count">
+        </div>
       </div>
       <div class="col">
         <label data-t="settings.ipVersion" data-t-title="clean.ipTitle">IP version</label>
@@ -362,6 +385,37 @@ details summary{list-style:none}details summary::-webkit-details-marker{display:
         </div>
       </div>
     </div>
+    <div class="row">
+      <div class="col">
+        <div class="toggle-wrap">
+          <label class="toggle" data-t-title="clean.nearbyTitle">
+            <input type="checkbox" id="nearbyScan">
+            <span class="slider"></span>
+          </label>
+          <span class="toggle-label" data-t="clean.nearby" data-t-title="clean.nearbyTitle">Scan nearby ranges</span>
+        </div>
+      </div>
+      <div class="col">
+        <label data-t="clean.probesLabel" data-t-title="clean.probesTitle">Phase 1 probes</label>
+        <select id="phase1Probes" data-t-title="clean.probesTitle">
+          <option value="100">100</option>
+          <option value="250">250</option>
+          <option value="500" selected>500</option>
+          <option value="1000">1000</option>
+          <option value="2000">2000</option>
+        </select>
+      </div>
+      <div class="col">
+        <label data-t="clean.phase2ProbesLabel" data-t-title="clean.phase2Title">Phase 2 probes</label>
+        <select id="phase2Probes" data-t-title="clean.phase2Title">
+          <option value="5">5</option>
+          <option value="12" selected>12</option>
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
     <div class="btn-bar" style="margin-top:6px">
       <button class="btn btn-primary" id="cleanStartBtn" onclick="startCleanScan()" data-t="clean.start" data-t-title="clean.startTitle">Start Clean Scan</button>
       <button class="btn btn-danger" id="cleanStopBtn" onclick="stopCleanScan()" disabled data-t="buttons.stop" data-t-title="clean.stopTitle">Stop</button>
@@ -372,7 +426,12 @@ details summary{list-style:none}details summary::-webkit-details-marker{display:
       </div>
       <div class="progress-text" id="cleanProgressText" data-t="clean.progressPhase1">Phase 1: TCP probe - 0 / 0</div>
     </div>
-    <div id="cleanResultsContent" class="hidden" style="margin-top:10px"></div>
+    <div id="cleanListBar" class="btn-bar hidden" style="margin-top:10px;margin-bottom:4px">
+      <button class="btn btn-sm method-btn active" id="cleanListDirect" onclick="switchCleanList('direct')" data-t="clean.listDirect">Direct</button>
+      <button class="btn btn-sm method-btn" id="cleanListNearby" onclick="switchCleanList('nearby')" data-t="clean.listNearby">Nearby <span id="nearbyCount" style="color:#8b949e;font-size:10px"></span></button>
+    </div>
+    <div id="cleanResultsContent" class="hidden" style="margin-top:4px"></div>
+    <div id="cleanResultsNearby" class="hidden" style="margin-top:4px"></div>
     <div id="cleanStatusMsg" style="margin-top:6px"></div>
   </div>
 </div>
@@ -436,12 +495,21 @@ details summary{list-style:none}details summary::-webkit-details-marker{display:
     <div class="results-actions" style="margin-top:10px" id="replacerResultsActions" class="hidden">
       <button class="btn btn-secondary btn-sm" onclick="replacerCopyAll()" data-t="replacer.copyAll" data-t-title="replacer.copyAllTitle">Copy All</button>
       <button class="btn btn-secondary btn-sm" onclick="replacerDownload()" data-t="replacer.download" data-t-title="replacer.downloadTitle">Download</button>
+      <button class="btn btn-secondary btn-sm" onclick="showReplacerQR()">QR</button>
     </div>
   </div>
 </div>
 
 </div>
 
+<div class="qr-overlay" id="qrOverlay" onclick="closeQR(event)">
+  <div class="qr-modal">
+    <h3 data-t="qr.title">QR Code</h3>
+    <div id="qrCode"></div>
+    <p style="font-size:11px;color:#8b949e;word-break:break-all;margin-bottom:8px;font-family:'JetBrains Mono',monospace" id="qrText"></p>
+    <button class="btn btn-secondary btn-sm qr-close" onclick="closeQR()" data-t="buttons.close">Close</button>
+  </div>
+</div>
 <div class="toast-container"><div class="toast hidden" id="toast"></div></div>
 
 <script>
@@ -543,7 +611,15 @@ const TR = {
     'clean.depth.normal': 'Normal (1000 IPs)',
     'clean.depth.deep': 'Deep (2000 IPs)',
     'clean.depth.max': 'Max (5000 IPs)',
-    'clean.phase2Label': 'Phase 2 probes',
+    'clean.depth.massive': 'Massive (10000 IPs)',
+    'clean.phase2Label': 'Phase 2 count',
+    'clean.nearby': 'Scan nearby ranges',
+    'clean.probesLabel': 'Phase 1 probes',
+    'clean.phase2ProbesLabel': 'Phase 2 probes',
+    'clean.listDirect': 'Direct',
+    'clean.listNearby': 'Nearby',
+    'clean.foundNearby': 'Nearby scan: {n} additional IPs responded',
+    'clean.foundNearbyPhase2': 'Nearby Phase 2: Found {n} working',
     'clean.start': 'Start Clean Scan',
     'clean.scanning': 'Scanning...',
     'clean.progressPhase1': 'Phase 1: TCP probe - {p} / {t}',
@@ -622,6 +698,8 @@ const TR = {
     'clean.onePhaseTitle': 'Skip xray validation - TCP probe only',
     'clean.depthTitle': 'Number of Cloudflare IPs to probe',
     'clean.phase2Title': 'Number of best Phase 1 results to validate through xray',
+    'clean.nearbyTitle': 'After phase 1, scan adjacent IPs near working endpoints',
+    'clean.probesTitle': 'Concurrent TCP connections during phase 1',
     'clean.ipTitle': 'IPv4 only, IPv6 only, or both',
     'clean.startTitle': 'Begin scanning Cloudflare IPs',
     'clean.stopTitle': 'Stop the running clean IP scan',
@@ -738,7 +816,15 @@ const TR = {
     'clean.depth.normal': 'معمولی (۱۰۰۰ آی‌پی)',
     'clean.depth.deep': 'عمیق (۲۰۰۰ آی‌پی)',
     'clean.depth.max': 'حداکثر (۵۰۰۰ آی‌پی)',
-    'clean.phase2Label': 'تست‌های فاز ۲',
+    'clean.depth.massive': 'عظیم (۱۰۰۰۰ آی‌پی)',
+    'clean.phase2Label': 'تعداد فاز ۲',
+    'clean.nearby': 'اسکن محدوده‌های مجاور',
+    'clean.probesLabel': 'پروب‌های فاز ۱',
+    'clean.phase2ProbesLabel': 'پروب‌های فاز ۲',
+    'clean.listDirect': 'مستقیم',
+    'clean.listNearby': 'مجاور',
+    'clean.foundNearby': 'اسکن مجاور: {n} آی‌پی اضافی پاسخ دادند',
+    'clean.foundNearbyPhase2': 'فاز ۲ مجاور: {n} آی‌پی working پیدا شد',
     'clean.start': 'شروع اسکن تمیز',
     'clean.scanning': 'در حال اسکن...',
     'clean.progressPhase1': 'فاز ۱: پروب TCP - {p} / {t}',
@@ -817,6 +903,8 @@ const TR = {
     'clean.onePhaseTitle': 'رد شدن از اعتبارسنجی xray - فقط پروب TCP',
     'clean.depthTitle': 'تعداد آی‌پی‌های کلاودفلر برای پروب',
     'clean.phase2Title': 'تعداد بهترین نتایج فاز ۱ برای اعتبارسنجی با xray',
+    'clean.nearbyTitle': 'بعد از فاز ۱، آی‌پی‌های مجاور اندپوینت‌های working را اسکن کن',
+    'clean.probesTitle': 'اتصالات همزمان TCP در فاز ۱',
     'clean.ipTitle': 'فقط IPv4، فقط IPv6، یا هر دو',
     'clean.startTitle': 'شروع اسکن آی‌پی‌های کلاودفلر',
     'clean.stopTitle': 'توقف اسکن آی‌پی تمیز در حال اجرا',
@@ -896,6 +984,64 @@ function toggleLang() {
   setLang(currentLang === 'en' ? 'fa' : 'en');
 }
 
+let qrCodeInstance = null;
+function showQR(text) {
+  document.getElementById('qrText').textContent = text;
+  const container = document.getElementById('qrCode');
+  container.innerHTML = '';
+  if (qrCodeInstance) { qrCodeInstance.clear(); qrCodeInstance = null; }
+  qrCodeInstance = new QRCode(container, { text, width: 220, height: 220, colorDark: '#e6edf3', colorLight: '#0d1117', correctLevel: QRCode.CorrectLevel.M });
+  document.getElementById('qrOverlay').classList.add('open');
+}
+function closeQR(e) { if (e && e.target !== e.currentTarget) return; document.getElementById('qrOverlay').classList.remove('open'); }
+
+function showReplacerQR() {
+  const txt = replacerGeneratedURLs[0];
+  if (txt) showQR(txt);
+}
+function showEndpointQR() {
+  const allText = cachedRawEndpointResults.map(r => r.endpoint).join('\n');
+  if (!allText) return;
+  showQR(allText);
+}
+function pushCleanToReplacer() {
+  const selected = [];
+  document.querySelectorAll('.clean-select:checked').forEach(cb => selected.push(cb.value));
+  if (selected.length === 0) { showToast(t('clean.errNoSelection')); return; }
+  const ta = document.getElementById('replacerEndpoints');
+  const existing = ta.value.trim();
+  ta.value = existing ? existing + '\n' + selected.join('\n') : selected.join('\n');
+  ta.dispatchEvent(new Event('input'));
+  switchTab('replacer');
+  showToast('Pushed ' + selected.length + ' endpoints to IP Replacer');
+}
+
+function selectPreset(btn) {
+  const bar = btn.parentElement;
+  bar.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const group = bar.dataset.group;
+  const hid = group === 'endpoint' ? 'scanDepth' : 'cleanDepth';
+  document.getElementById(hid).value = btn.dataset.value;
+  const wrapId = group === 'endpoint' ? 'customCountWrap' : 'cleanCustomCountWrap';
+  document.getElementById(wrapId).classList.toggle('hidden', btn.dataset.value !== '0');
+}
+
+function updateTabBadges() {
+  const e = document.getElementById('resultsContent');
+  const epCount = e.classList.contains('hidden') ? 0 : (cachedRawEndpointResults ? cachedRawEndpointResults.length : 0);
+  document.getElementById('badgeEndpoint').textContent = epCount ? epCount : '';
+  document.getElementById('badgeEndpoint').classList.toggle('show', epCount > 0);
+  const c = document.getElementById('cleanResultsContent');
+  const cleanCount = c.classList.contains('hidden') ? 0 : (lastCleanData && lastCleanData.entries ? lastCleanData.entries.length : 0);
+  document.getElementById('badgeClean').textContent = cleanCount ? cleanCount : '';
+  document.getElementById('badgeClean').classList.toggle('show', cleanCount > 0);
+  const r = document.getElementById('replacerResultsCard');
+  const repCount = !r.classList.contains('hidden') ? (replacerGeneratedURLs ? replacerGeneratedURLs.length : 0) : 0;
+  document.getElementById('badgeReplacer').textContent = repCount ? repCount : '';
+  document.getElementById('badgeReplacer').classList.toggle('show', repCount > 0);
+}
+
 function switchTab(tab) {
   document.getElementById('endpointTab').classList.toggle('hidden', tab !== 'endpoint');
   document.getElementById('cleanTab').classList.toggle('hidden', tab !== 'clean');
@@ -903,6 +1049,7 @@ function switchTab(tab) {
   document.getElementById('tabEndpoint').classList.toggle('active', tab === 'endpoint');
   document.getElementById('tabClean').classList.toggle('active', tab === 'clean');
   document.getElementById('tabReplacer').classList.toggle('active', tab === 'replacer');
+  updateTabBadges();
 }
 
 const fileInput = document.getElementById('configFile');
@@ -955,10 +1102,6 @@ document.getElementById('outputDirPath').addEventListener('input', updateApplyBt
 function updateApplyBtn() {
   applyBtn.disabled = !(applyEndpoint.value.trim() && applyConfigs.files.length > 0);
 }
-
-document.getElementById('scanDepth').addEventListener('change', function() {
-  document.getElementById('customCountWrap').classList.toggle('hidden', this.value !== '0');
-});
 
 // ── Toast ──
 let toastTimer = null;
@@ -1130,6 +1273,7 @@ function resetAll() {
   progressText.textContent = t('scan.progressTemplate', { p: '0', t: '0' });
   setButtonsIdle();
   startBtn.disabled = !(fileInput.files.length > 0);
+  updateTabBadges();
 }
 
 async function apiJSON(url, opts) {
@@ -1210,11 +1354,16 @@ function renderResultsTable(data, jobId, isLive) {
   html += '<th class="sortable" onclick="sortEndpoint(\'endpoint\')">' + t('results.tableEndpoint') + sortIcon('endpoint', endpointSort) + '</th>';
   html += '<th class="sortable" onclick="sortEndpoint(\'latency\')">' + t('results.tableLatency') + sortIcon('latency', endpointSort) + '</th>';
   html += '<th></th></tr>';
+  function latClass(ms) {
+    const v = parseLatency(ms);
+    if (v === Infinity) return '';
+    return v < 100 ? 'latency-fast' : v < 200 ? 'latency-medium' : 'latency-slow';
+  }
   sorted.forEach((e, i) => {
     const ep = e.endpoint;
     html += '<tr><td class="num">' + (i+1) + '</td>';
     html += '<td><span class="tag" onclick="copyToClipboard(\'' + escapeEp(ep) + '\')" title="' + t('results.tableEndpoint') + '">' + ep + '</span></td>';
-    html += '<td>' + e.latency + '</td>';
+    html += '<td class="' + latClass(e.latency) + '">' + e.latency + '</td>';
     html += '<td><button class="btn btn-secondary btn-sm" onclick="useEndpoint(\'' + escapeEp(ep) + '\')" title="' + t('results.tableUse') + '">' + t('results.tableUse') + '</button></td>';
     html += '</tr>';
   });
@@ -1224,6 +1373,7 @@ function renderResultsTable(data, jobId, isLive) {
     html += '<div class="results-actions">';
     html += '<button class="btn btn-secondary btn-sm" onclick="copyAllEndpoints(\'' + jobId + '\')" title="' + t('results.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
     html += '<button class="btn btn-secondary btn-sm" onclick="downloadRaw(\'' + jobId + '\')" title="' + t('results.downloadTitle') + '">' + t('results.downloadRaw') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="showEndpointQR()" title="QR">QR</button>';
     html += '</div>';
     const label = data.status === 'cancelled' ? t('results.scanCancelled') : t('results.found', { n: data.total, s: data.scanned });
     html += '<div class="' + (data.status === 'cancelled' ? 'error-msg' : 'success-msg') + '">' + label + '</div>';
@@ -1231,6 +1381,7 @@ function renderResultsTable(data, jobId, isLive) {
 
   resultsContent.innerHTML = html;
   resultsContent.classList.remove('hidden');
+  updateTabBadges();
 }
 
 function sortEndpoint(field) {
@@ -1337,6 +1488,16 @@ let cleanResultsInterval = null;
 let cleanPhase2Entries = [];
 let lastCleanData = null;
 
+let cleanCurrentList = 'direct';
+
+function switchCleanList(list) {
+  cleanCurrentList = list;
+  document.getElementById('cleanListDirect').classList.toggle('active', list === 'direct');
+  document.getElementById('cleanListNearby').classList.toggle('active', list === 'nearby');
+  document.getElementById('cleanResultsContent').classList.toggle('hidden', list !== 'direct');
+  document.getElementById('cleanResultsNearby').classList.toggle('hidden', list !== 'nearby');
+}
+
 async function startCleanScan() {
   const onePhase = document.getElementById('onePhaseClean').checked;
   const vlessURL = document.getElementById('vlessURL').value.trim();
@@ -1346,9 +1507,11 @@ async function startCleanScan() {
   }
 
   cleanJobId = null;
-  const cleanResults = document.getElementById('cleanResultsContent');
-  cleanResults.classList.add('hidden');
-  cleanResults.innerHTML = '';
+  document.getElementById('cleanResultsContent').classList.add('hidden');
+  document.getElementById('cleanResultsContent').innerHTML = '';
+  document.getElementById('cleanResultsNearby').classList.add('hidden');
+  document.getElementById('cleanResultsNearby').innerHTML = '';
+  document.getElementById('cleanListBar').classList.add('hidden');
   document.getElementById('cleanStatusMsg').innerHTML = '';
 
   const startBtn = document.getElementById('cleanStartBtn');
@@ -1363,9 +1526,18 @@ async function startCleanScan() {
   document.getElementById('cleanProgressFill').classList.remove('cancelled');
   document.getElementById('cleanProgressText').textContent = t('clean.progressPhase1', { p: '0', t: '0' });
 
-  const depth = parseInt(document.getElementById('cleanDepth').value);
+  const depthEl = document.getElementById('cleanDepth');
+  let depth = parseInt(depthEl.value);
+  if (depthEl.value === '0') {
+    depth = parseInt(document.getElementById('cleanCustomCount').value) || 500;
+    if (depth < 1) depth = 500;
+  }
+
   const phase2 = parseInt(document.getElementById('cleanPhase2').value);
   const ipVer = document.getElementById('cleanIPVersion').value;
+  const nearby = document.getElementById('nearbyScan').checked;
+  const p1Probes = parseInt(document.getElementById('phase1Probes').value);
+  const p2Probes = parseInt(document.getElementById('phase2Probes').value);
 
   try {
     const data = await apiJSON('/api/clean-scan', {
@@ -1377,7 +1549,11 @@ async function startCleanScan() {
         ipv4: ipVer === '4' || ipVer === '46',
         ipv6: ipVer === '6' || ipVer === '46',
         phase2_count: phase2,
-        one_phase: onePhase
+        one_phase: onePhase,
+        nearby_scan: nearby,
+        nearby_count: 10,
+        phase1_probes: p1Probes,
+        phase2_probes: p2Probes
       })
     });
     cleanJobId = data.id;
@@ -1447,6 +1623,11 @@ document.getElementById('onePhaseClean').addEventListener('change', function() {
 
 function renderCleanResultsTable(data) {
   const sorted = sortEntries(data.entries, cleanSort.field, cleanSort.dir);
+  function latClass(ms) {
+    const v = parseLatency(ms);
+    if (v === Infinity) return '';
+    return v < 100 ? 'latency-fast' : v < 200 ? 'latency-medium' : 'latency-slow';
+  }
   let html = '<div class="results-table-wrap"><table class="results-table">';
   html += '<tr>';
   html += '<th class="sortable" onclick="sortClean(\'num\')">' + t('results.tableNum') + sortIcon('num', cleanSort) + '</th>';
@@ -1459,7 +1640,7 @@ function renderCleanResultsTable(data) {
   sorted.forEach((e, i) => {
     html += '<tr><td class="num">' + (i+1) + '</td>';
     html += '<td><span class="tag" onclick="copyToClipboard(\'' + escapeEp(e.endpoint) + '\')" title="' + t('results.tableEndpoint') + '">' + e.endpoint + '</span></td>';
-    html += '<td>' + e.latency + '</td>';
+    html += '<td class="' + latClass(e.latency) + '">' + e.latency + '</td>';
     if (data.phase === 'phase2') {
       html += '<td class="checkbox-cell"><input type="checkbox" class="clean-select" value="' + escapeEp(e.endpoint) + '"></td>';
     }
@@ -1483,8 +1664,47 @@ function sortClean(field) {
 
 function renderCleanResultsComplete(data) {
   const container = document.getElementById('cleanResultsContent');
+  const nearbyContainer = document.getElementById('cleanResultsNearby');
+  const listBar = document.getElementById('cleanListBar');
   const statusMsg = document.getElementById('cleanStatusMsg');
-  if (!data.entries || data.entries.length === 0) {
+  const nearbyEntries = data.nearby_entries || [];
+
+  // Show/hide list switching bar
+  if (nearbyEntries.length > 0) {
+    listBar.classList.remove('hidden');
+    document.getElementById('nearbyCount').textContent = '(' + nearbyEntries.length + ')';
+  } else {
+    listBar.classList.add('hidden');
+  }
+
+  let hasDirect = data.entries && data.entries.length > 0;
+
+  // Render nearby results if present (before early return so nearby can show even if direct is empty)
+  if (nearbyEntries.length > 0) {
+    const nearbyData = { ...data, entries: nearbyEntries };
+    let nearbyHtml = '';
+    if (data.phase === 'phase1') {
+      nearbyHtml = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundNearby', { n: nearbyEntries.length }) + '</div>';
+      nearbyHtml += renderCleanResultsTable(nearbyData);
+      nearbyHtml += '<div class="results-actions">';
+      nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="copyNearbyIPs()">' + t('results.copyAll') + '</button>';
+      nearbyHtml += '</div>';
+    } else {
+      nearbyHtml = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundNearbyPhase2', { n: nearbyEntries.length, s: data.scanned }) + '</div>';
+      nearbyHtml += renderCleanResultsTable(nearbyData);
+      nearbyHtml += '<div class="results-actions">';
+      nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="exportNearbyIPs()">' + t('clean.export') + '</button>';
+      nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="pushNearbyToReplacer()">Push to Replacer</button>';
+      nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="copyNearbyIPs()" title="' + t('clean.copyAllTitle') + '">' + t('clean.copyAll') + '</button>';
+      nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(true)">' + t('clean.selectAll') + '</button>';
+      nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
+      nearbyHtml += '</div>';
+    }
+    nearbyContainer.innerHTML = nearbyHtml;
+    nearbyContainer.classList.remove('hidden');
+  }
+
+  if (!hasDirect) {
     if (data.phase === 'phase2' && data.status === 'done') {
       container.innerHTML = '<div class="empty-state"><p>' + t('clean.noResults') + '</p></div>';
       container.classList.remove('hidden');
@@ -1510,6 +1730,7 @@ function renderCleanResultsComplete(data) {
     html += renderCleanResultsTable(data);
     html += '<div class="results-actions">';
     html += '<button class="btn btn-accent btn-sm" onclick="exportCleanIPs()">' + t('clean.export') + '</button>';
+    html += '<button class="btn btn-accent btn-sm" onclick="pushCleanToReplacer()">Push to Replacer</button>';
     html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanPhase2IPs()" title="' + t('clean.copyAllTitle') + '">' + t('clean.copyAll') + '</button>';
     html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
     html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(true)">' + t('clean.selectAll') + '</button>';
@@ -1519,6 +1740,53 @@ function renderCleanResultsComplete(data) {
 
   container.innerHTML = html;
   container.classList.remove('hidden');
+  switchCleanList(cleanCurrentList);
+
+  updateTabBadges();
+}
+
+function copyNearbyIPs() {
+  if (!lastCleanData || !lastCleanData.nearby_entries) return;
+  const text = lastCleanData.nearby_entries.map(e => e.endpoint).join('\n');
+  copyToClipboard(text);
+  showToast(t('copied.clipboard'));
+}
+
+async function exportNearbyIPs() {
+  const vlessURL = document.getElementById('vlessURL').value.trim();
+  if (!lastCleanData || !lastCleanData.nearby_entries) return;
+  const selected = lastCleanData.nearby_entries.map(e => e.endpoint);
+  if (selected.length === 0) return;
+  try {
+    const resp = await fetch('/api/clean-export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vless_url: vlessURL, endpoints: selected })
+    });
+    if (!resp.ok) { const err = await resp.json(); throw new Error(err.error || resp.statusText); }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'nearby_ips_vless.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    document.getElementById('cleanStatusMsg').innerHTML = '<div class="success-msg">' + t('clean.exported', { n: selected.length }) + '</div>';
+  } catch (e) {
+    document.getElementById('cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errExport', { msg: e.message }) + '</div>';
+  }
+}
+
+function pushNearbyToReplacer() {
+  if (!lastCleanData || !lastCleanData.nearby_entries) return;
+  const selected = lastCleanData.nearby_entries.map(e => e.endpoint);
+  if (selected.length === 0) { showToast(t('clean.errNoSelection')); return; }
+  const ta = document.getElementById('replacerEndpoints');
+  const existing = ta.value.trim();
+  ta.value = existing ? existing + '\n' + selected.join('\n') : selected.join('\n');
+  ta.dispatchEvent(new Event('input'));
+  switchTab('replacer');
+  showToast('Pushed ' + selected.length + ' endpoints to IP Replacer');
 }
 
 function pollCleanResults(jobId) {
@@ -1836,6 +2104,7 @@ function renderReplacerResults(urls, numConfigs, numEndpoints) {
   container.innerHTML = html;
 
   document.getElementById('replacerResultsActions').classList.remove('hidden');
+  updateTabBadges();
 }
 
 async function replacerCopyAll() {
