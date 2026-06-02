@@ -29,6 +29,14 @@ jobs:
             xray_in: xray.exe
             platform: windows-amd64
 
+          - os: windows-latest
+            goos: windows
+            goarch: arm64
+            ext: .exe
+            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-windows-arm64-v8a.zip
+            xray_in: xray.exe
+            platform: windows-arm64
+
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
@@ -143,6 +151,7 @@ jobs:
             Downloads by platform:
 
             - **Windows (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-windows-amd64.tar.gz`
+            - **Windows (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-windows-arm64.tar.gz`
             - **Linux (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-linux-amd64.tar.gz`
             - **Linux (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-linux-arm64.tar.gz`
             - **macOS (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-darwin-amd64.tar.gz`

@@ -232,8 +232,14 @@ None required. Everything is configured through the web UI at runtime.
 ## Platform-specific notes
 
 ### Linux
-- After extracting, make `xray` executable: `chmod +x xray`
-- The app opens the browser via `xdg-open` (install `xdg-utils` if missing)
+
+After extracting, make `xray` executable: `chmod +x xray`. The app opens the browser via `xdg-open` — install `xdg-utils` if missing:
+
+| Distro | Command |
+|---|---|
+| Debian / Ubuntu / Mint | `sudo apt install xdg-utils` |
+| Fedora / RHEL / CentOS | `sudo dnf install xdg-utils` |
+| Arch / Manjaro | `sudo pacman -S xdg-utils` |
 
 ### macOS
 - After extracting, make `xray` executable: `chmod +x xray`
