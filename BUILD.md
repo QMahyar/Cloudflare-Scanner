@@ -241,6 +241,20 @@ After extracting, make `xray` executable: `chmod +x xray`. The app opens the bro
 | Fedora / RHEL / CentOS | `sudo dnf install xdg-utils` |
 | Arch / Manjaro | `sudo pacman -S xdg-utils` |
 
+### Termux / Android
+
+The `termux-arm64` release archive bundles the Android xray-core build and the same `linux/arm64` app binary.
+
+1. Download `Cloudflare-Scanner-*-termux-arm64.tar.gz` and extract:
+   ```bash
+   tar -xzf Cloudflare-Scanner-*-termux-arm64.tar.gz
+   ```
+2. Make both files executable: `chmod +x Cloudflare-Scanner xray`
+3. The app auto-detects Termux via `$PREFIX` and opens the browser with `termux-open-url`
+4. Run: `./Cloudflare-Scanner`
+
+> Install `termux-open-url` if missing: `pkg install termux-open-url`
+
 ### macOS
 - After extracting, make `xray` executable: `chmod +x xray`
 - The app opens the browser via `open` (built-in)

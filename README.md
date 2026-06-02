@@ -1,58 +1,77 @@
 # Cloudflare Scanner
 
-**Cloudflare Warp endpoint + Clean IP scanner** — a cross-platform desktop tool (Windows, Linux, macOS) with a web GUI. Three tools in one: finds working Warp WireGuard endpoints when your ISP blocks standard Warp traffic, scans Cloudflare IP ranges for clean proxies using a VLESS URL, and replaces IP:port in subscription configs with discovered clean endpoints.
+**Cloudflare Warp endpoint + Clean IP scanner** — a cross-platform desktop tool (Windows, Linux, macOS, Termux/Android) with a web GUI. Three tools in one: finds working Warp WireGuard endpoints when your ISP blocks standard Warp traffic, scans Cloudflare IP ranges for clean proxies using a VLESS URL, and replaces IP:port in subscription configs with discovered clean endpoints.
 
 > [نسخه فارسی](README.fa.md)
 
 ## Quick Start
 
-1. Download the latest `Cloudflare-Scanner-*.zip` from [releases](https://github.com/QMahyar/Cloudflare-Scanner/releases)
-2. Extract both files, run `Cloudflare-Scanner.exe`
+1. Download the latest archive for your platform from [releases](https://github.com/QMahyar/Cloudflare-Scanner/releases)
+2. Extract, then run:
+
+   | Platform | Extract & Run |
+   |---|---|
+   | Windows | Extract `.tar.gz` (use 7-Zip or `tar.exe`), double-click `Cloudflare-Scanner.exe` |
+   | Linux | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
+   | macOS | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
+   | Termux | `tar -xzf *-termux-*.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
+
 3. A browser tab opens at `http://127.0.0.1:XXXXX`
 4. Close the terminal window to stop the server
 
-xray-core v1.8.24 is bundled — no extra downloads needed.
+xray-core v1.8.24 is bundled in every archive — no extra downloads needed.
 
 ---
 
-## Tabs
+## How to Use
+
+The app has three tools (tabs). Here's how they work together:
+
+```
+Scan Warp Endpoints  ──>  Pick the fastest endpoint
+                                   │
+Scan Clean IPs       ──>  Find working Cloudflare proxy IPs
+                                   │
+IP Replacer          ──>  Replace IP:port in configs with clean endpoints
+```
 
 ### Endpoint Scanner
 
-Scans Cloudflare's Warp IP range to find endpoints where your WireGuard config works. Uses xray-core behind a SOCKS5 proxy, with optional UDP noise to bypass DPI-based ISP blocking.
+Finds Cloudflare Warp endpoints where your WireGuard config works. Uses xray-core behind a SOCKS5 proxy, with optional UDP noise to bypass DPI-based ISP blocking.
 
-**How to use:**
-1. Select a WireGuard `.conf` file (standard Warp or Hogwarts-style)
-2. Set scan depth and IP version (IPv4 / IPv6 / both)
-3. Toggle UDP Noise if your ISP blocks Warp
-4. Click **Start Scan** — results appear live
-5. Click an endpoint to copy it, then use **Apply Endpoint** to batch-update config files
-6. Modified configs are saved to your chosen output folder
+1. **Select config** — Pick a WireGuard `.conf` file (standard Warp or Hogwarts-style with S1-S4, Jc, Jmin, H1-H4, I1, I2)
+2. **Set scan depth** — Quick (100), Normal (500), Deep (1000), Insane (5000), Massive (10000), or custom
+3. **Choose IP version** — IPv4 only (default), IPv6 only, or both
+4. **Toggle UDP Noise** — Enable if your ISP blocks Warp traffic on port 2408
+5. **Start Scan** — Results appear live. Each endpoint is tested through xray-core
+6. **Apply endpoint** — Click an endpoint to copy it, then use **Apply Endpoint** to batch-update config files in your output folder
 
-### IP Scanner
+### IP Scanner (Clean IP)
 
-Finds Cloudflare IPs that respond to TCP (Phase 1) and optionally validates them against your VLESS URL through xray-core (Phase 2). Useful for finding clean Cloudflare proxy IPs for tools like v2ray, Nekobox, Sing-box, etc.
+Generates Cloudflare IPs from official CIDR ranges (25 IPv4 + 91 IPv6), TCP-probes them in Phase 1, then optionally validates the fastest ones against your VLESS URL through xray-core in Phase 2.
 
-**How to use:**
-1. Paste a VLESS share URL (for Phase 2 validation) or leave empty for Phase 1 only
-2. Toggle **1-phase mode** to skip xray validation and only TCP-probe
-3. Set scan depth and Phase 2 probe count
-4. Click **Start Clean Scan**
-5. **Phase 1** — TCP probes against generated Cloudflare IPs, results update live
-6. **Phase 2** — best Phase 1 results are validated through xray-core with your VLESS config
-7. Export working IPs as VLESS share URLs or download raw IP list
+1. **Enter VLESS URL** — Paste a `vless://...` or `trojan://...` URL for Phase 2 validation. Leave empty for TCP probe only
+2. **1-phase mode** — Check to skip xray validation and only TCP-probe. Default port is 443
+3. **Set scan depth** — Number of IPs to test
+4. **Phase 2 probe count** — How many Phase 1 winners get validated through xray
+5. **Start Clean Scan**
+6. **Phase 1** (live) — TCP `net.DialTimeout` to each IP:port with 500 concurrent workers. Results stream in real time
+7. **Phase 2** — Sorted by latency, top N are validated through xray-core via SOCKS5 with your VLESS config. 12 concurrent workers
+8. **Export** — Download working IPs as VLESS share URLs (`GenerateExport`) or raw IP:port list
 
 ### IP Replacer
 
-Fetches a subscription link (like `https://example.com/sub?token=...`), deduplicates configs that differ only by IP:port, then generates all combinations of your unique configs with a list of clean endpoints. Perfect for refreshing a stale subscription with fresh IPs from the IP Scanner.
+Takes configs (from a subscription URL or pasted directly), deduplicates them by fingerprint (ignoring IP:port and remark), then generates every combination with a list of endpoints.
 
-**How to use:**
-1. Enter a subscription URL and click **Fetch**
-2. Unique configs (with IP:port removed from identity) are shown with checkboxes
-3. Keep, select, or deselect configs to use
-4. Paste endpoints from Clean IP scan results (or any IP:port list, one per line)
-5. Click **Generate Configs** — produces every combination
-6. Copy all to clipboard or download as a text file
+1. **Choose input method** — Pick **Subscription URL** or **Paste Configs** (mutually exclusive)
+   - Subscription URL: Enter `https://example.com/sub?token=...`, click **Fetch**
+   - Paste Configs: Paste raw `vless://` and `trojan://` lines, click **Parse**. Non-config lines are ignored
+2. **Review unique configs** — Deduplicated templates shown with checkboxes. Select/deselect as needed
+3. **Paste endpoints** — One `ip:port` per line, from Clean IP results or anywhere
+4. **Generate Configs** — Produces every config × endpoint combination. Remark gets ` @ endpoint` appended
+5. **Copy All** or **Download** the output
+
+**Parse behavior:** Configs can be separated by newlines, spaces, commas, semicolons, or pipes — all work. Valid `vless://` and `trojan://` URLs are extracted; everything else is ignored.
 
 ---
 

@@ -53,6 +53,14 @@ jobs:
             xray_in: xray
             platform: linux-arm64
 
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+            ext: ""
+            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-android-arm64-v8a.zip
+            xray_in: xray
+            platform: termux-arm64
+
           - os: macos-latest
             goos: darwin
             goarch: amd64
@@ -154,6 +162,7 @@ jobs:
             - **Windows (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-windows-arm64.tar.gz`
             - **Linux (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-linux-amd64.tar.gz`
             - **Linux (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-linux-arm64.tar.gz`
+            - **Termux / Android (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-termux-arm64.tar.gz`
             - **macOS (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-darwin-amd64.tar.gz`
             - **macOS (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-darwin-arm64.tar.gz`
 
