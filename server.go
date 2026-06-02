@@ -71,6 +71,7 @@ func startServer(xrayPath string) (int, error) {
 	mux.HandleFunc("/api/clean-stop/", handleCleanScanStop)
 	mux.HandleFunc("/api/clean-export", handleCleanExport)
 	mux.HandleFunc("/api/replacer/fetch", handleReplacerFetch)
+	mux.HandleFunc("/api/replacer/parse", handleReplacerParse)
 	mux.HandleFunc("/api/replacer/apply", handleReplacerApply)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -769,6 +770,64 @@ func handleReplacerFetch(w http.ResponseWriter, r *http.Request) {
 
 	if len(configs) == 0 {
 		jsonError(w, "no valid configs found in subscription", 400)
+		return
+	}
+
+	unique := DeduplicateConfigs(configs)
+
+	entries := make([]replacerConfigEntry, 0, len(unique))
+	for _, c := range unique {
+		entries = append(entries, replacerConfigEntry{
+			Fingerprint:   ConfigFingerprint(c),
+			Protocol:      c.Protocol,
+			UUID:          c.UUID,
+			Address:       c.Address,
+			Port:          c.Port,
+			Encryption:    c.Encryption,
+			Security:      c.Security,
+			SNI:           c.SNI,
+			FingerprintFP: c.Fingerprint,
+			Network:       c.Network,
+			Host:          c.Host,
+			Path:          c.Path,
+			PacketEnc:     c.PacketEncoding,
+			Remark:        c.Remark,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"configs": entries,
+		"total":   len(configs),
+		"unique":  len(unique),
+	})
+}
+
+type replacerParseRequest struct {
+	Raw string `json:"raw"`
+}
+
+func handleReplacerParse(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		jsonError(w, "POST required", 405)
+		return
+	}
+
+	var req replacerParseRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		jsonError(w, err.Error(), 400)
+		return
+	}
+
+	if req.Raw == "" {
+		jsonError(w, "raw text required", 400)
+		return
+	}
+
+	configs := ParseRawConfigs(req.Raw)
+
+	if len(configs) == 0 {
+		jsonError(w, "no valid configs found in text", 400)
 		return
 	}
 

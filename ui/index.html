@@ -345,6 +345,15 @@ body[dir="rtl"] .empty-state{text-align:center}
       </div>
     </div>
     <div id="replacerFetchStatus" style="margin-top:8px"></div>
+
+    <div style="border-top:1px solid #30363d;margin:16px 0 12px"></div>
+
+    <p style="font-size:13px;color:#8b949e;margin-bottom:8px" data-t="replacer.pasteDesc">Or paste configs directly (vless://, trojan:// — one per line, extra lines ignored):</p>
+    <textarea id="replacerRawText" rows="4" style="width:100%;background:#21262d;border:1px solid #30363d;border-radius:6px;color:#e6edf3;font-size:13px;padding:8px;font-family:monospace;resize:vertical" data-t-placeholder="replacer.pastePlaceholder" data-t-title="replacer.pasteTitle" placeholder="vless://uuid@ip:port?encryption=none&...&#10;trojan://password@ip:port?security=tls&..."></textarea>
+    <div style="margin-top:8px">
+      <button class="btn btn-secondary" id="parseBtn" onclick="replacerParse()" data-t="replacer.parse" data-t-title="replacer.parseTitle">Parse</button>
+    </div>
+    <div id="replacerParseStatus" style="margin-top:8px"></div>
   </div>
 
   <div class="card hidden" id="replacerConfigsCard">
@@ -496,6 +505,13 @@ const TR = {
     'tab.replacer': 'IP Replacer',
     'replacer.header': 'IP Replacer',
     'replacer.desc': 'Fetch a subscription, deduplicate configs, and replace IP:port with clean endpoints.',
+    'replacer.pasteDesc': 'Or paste configs directly (vless://, trojan:// — one per line, extra lines ignored):',
+    'replacer.pastePlaceholder': 'vless://uuid@ip:port?encryption=none&...\ntrojan://password@ip:port?security=tls&...',
+    'replacer.parse': 'Parse',
+    'replacer.parsing': 'Parsing...',
+    'replacer.parsed': 'Parsed {t} configs, {u} unique',
+    'replacer.errNoRaw': 'Paste some configs first',
+    'replacer.errParse': 'Parse failed: {msg}',
     'replacer.subLabel': 'Subscription URL',
     'replacer.subPlaceholder': 'https://example.com/sub?token=...',
     'replacer.fetch': 'Fetch',
@@ -549,6 +565,8 @@ const TR = {
     'clean.exportTitle': 'Generate VLESS URLs with selected endpoints',
     'replacer.urlTitle': 'Enter a subscription URL to fetch configs from',
     'replacer.fetchTitle': 'Fetch, parse, and deduplicate the subscription',
+    'replacer.pasteTitle': 'Paste vless:// or trojan:// URLs directly, one per line',
+    'replacer.parseTitle': 'Parse pasted configs and deduplicate',
     'replacer.configsSelectTitle': 'Select configs to use for replacement',
     'replacer.endpointsTitle': 'Paste IP:port endpoints, one per line',
     'replacer.generateTitle': 'Generate all config × endpoint combinations',
@@ -671,6 +689,13 @@ const TR = {
     'tab.replacer': 'جایگزین آی‌پی',
     'replacer.header': 'جایگزین آی‌پی',
     'replacer.desc': 'یک اشترک را دریافت کنید، کانفیگ‌ها را یکتا کنید و آی‌پی:پورت را با اندپوینت‌های تمیز جایگزین کنید.',
+    'replacer.pasteDesc': 'یا کانفیگ‌ها را مستقیم بچسبانید (vless://, trojan:// — یک خط در هر، خطوط اضافی نادیده گرفته می‌شوند):',
+    'replacer.pastePlaceholder': 'vless://uuid@ip:port?encryption=none&...\ntrojan://password@ip:port?security=tls&...',
+    'replacer.parse': 'تجزیه',
+    'replacer.parsing': 'در حال تجزیه...',
+    'replacer.parsed': '{t} کانفیگ تجزیه شد، {u} تا یکتا',
+    'replacer.errNoRaw': 'ابتدا کانفیگ‌ها را بچسبانید',
+    'replacer.errParse': 'تجزیه ناموفق: {msg}',
     'replacer.subLabel': 'لینک اشتراک',
     'replacer.subPlaceholder': 'https://example.com/sub?token=...',
     'replacer.fetch': 'دریافت',
@@ -724,6 +749,8 @@ const TR = {
     'clean.exportTitle': 'ساخت لینک‌های VLESS با اندپوینت‌های انتخاب شده',
     'replacer.urlTitle': 'لینک اشتراک را برای دریافت کانفیگ‌ها وارد کنید',
     'replacer.fetchTitle': 'دریافت، تجزیه و یکتا کردن اشتراک',
+    'replacer.pasteTitle': 'لینک‌های vless:// یا trojan:// را مستقیم و یک خط در هر خط وارد کنید',
+    'replacer.parseTitle': 'تجزیه کانفیگ‌های چسبانده شده و یکتا کردن',
     'replacer.configsSelectTitle': 'کانفیگ‌های مورد نظر برای جایگزینی را انتخاب کنید',
     'replacer.endpointsTitle': 'اندپوینت‌های IP:port را یک خط در یک خط وارد کنید',
     'replacer.generateTitle': 'ساخت تمام ترکیب‌های کانفیگ × اندپوینت',
@@ -1400,6 +1427,41 @@ async function exportCleanIPs() {
 
 let replacerConfigs = [];
 let replacerGeneratedURLs = [];
+
+async function replacerParse() {
+  const raw = document.getElementById('replacerRawText').value.trim();
+  const statusEl = document.getElementById('replacerParseStatus');
+  const parseBtn = document.getElementById('parseBtn');
+  if (!raw) {
+    statusEl.innerHTML = '<div class="error-msg">' + t('replacer.errNoRaw') + '</div>';
+    return;
+  }
+
+  parseBtn.disabled = true;
+  parseBtn.textContent = t('replacer.parsing');
+  statusEl.innerHTML = '';
+
+  try {
+    const data = await apiJSON('/api/replacer/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw: raw })
+    });
+
+    replacerConfigs = data.configs;
+
+    statusEl.innerHTML = '<div class="success-msg">' + t('replacer.parsed', { t: data.total, u: data.unique }) + '</div>';
+
+    renderReplacerConfigs(data.configs);
+    document.getElementById('replacerConfigsCard').classList.remove('hidden');
+    document.getElementById('replacerEndpointsCard').classList.remove('hidden');
+  } catch (e) {
+    statusEl.innerHTML = '<div class="error-msg">' + t('replacer.errParse', { msg: e.message }) + '</div>';
+  }
+
+  parseBtn.disabled = false;
+  parseBtn.textContent = t('replacer.parse');
+}
 
 async function replacerFetch() {
   const url = document.getElementById('replacerURL').value.trim();

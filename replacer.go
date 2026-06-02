@@ -11,6 +11,26 @@ import (
 	"time"
 )
 
+func ParseRawConfigs(rawText string) []*ProxyConfig {
+	tokens := strings.Fields(rawText)
+	configs := make([]*ProxyConfig, 0, len(tokens))
+	for _, token := range tokens {
+		token = strings.TrimSpace(token)
+		if token == "" {
+			continue
+		}
+		if !strings.HasPrefix(token, "vless://") && !strings.HasPrefix(token, "trojan://") {
+			continue
+		}
+		cfg, err := ParseProxyURL(token)
+		if err != nil {
+			continue
+		}
+		configs = append(configs, cfg)
+	}
+	return configs
+}
+
 func FetchSubscription(rawURL string) (string, error) {
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(rawURL)
