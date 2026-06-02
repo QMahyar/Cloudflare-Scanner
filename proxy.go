@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -37,7 +38,107 @@ type ProxyConfig struct {
 	ServiceName    string
 }
 
+func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
+	if !strings.HasPrefix(rawURL, "vmess://") {
+		return nil, fmt.Errorf("not a vmess URL")
+	}
+
+	b64 := strings.TrimPrefix(rawURL, "vmess://")
+	decoded, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		decoded, err = base64.RawStdEncoding.DecodeString(b64)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("vmess base64 decode: %w", err)
+	}
+
+	var vmess struct {
+		V            string `json:"v"`
+		Remark       string `json:"ps"`
+		Address      string `json:"add"`
+		Port         string `json:"port"`
+		ID           string `json:"id"`
+		Aid          string `json:"aid"`
+		Security     string `json:"scy"`
+		Network      string `json:"net"`
+		Type         string `json:"type"`
+		Host         string `json:"host"`
+		Path         string `json:"path"`
+		TLS          string `json:"tls"`
+		SNI          string `json:"sni"`
+		ALPN         string `json:"alpn"`
+		Fingerprint  string `json:"fp"`
+		AllowInsecure string `json:"allowInsecure"`
+		Flow         string `json:"flow"`
+	}
+
+	if err := json.Unmarshal(decoded, &vmess); err != nil {
+		return nil, fmt.Errorf("vmess json decode: %w", err)
+	}
+
+	if vmess.Address == "" {
+		return nil, fmt.Errorf("vmess: empty address")
+	}
+
+	port, _ := strconv.Atoi(vmess.Port)
+	if port == 0 {
+		port = 443
+	}
+
+	security := "none"
+	if vmess.TLS == "tls" {
+		security = "tls"
+	}
+
+	sni := vmess.SNI
+	if sni == "" {
+		sni = vmess.Host
+	}
+	if sni == "" {
+		sni = vmess.Address
+	}
+
+	netType := vmess.Network
+	if netType == "" {
+		netType = "tcp"
+	}
+
+	path := vmess.Path
+	if path == "" {
+		path = "/"
+	}
+
+	cfg := &ProxyConfig{
+		Protocol:      "vmess",
+		UUID:          vmess.ID,
+		Address:       vmess.Address,
+		Port:          port,
+		Encryption:    vmess.Security,
+		Security:      security,
+		SNI:           sni,
+		Fingerprint:   vmess.Fingerprint,
+		Network:       netType,
+		Host:          vmess.Host,
+		Path:          path,
+		Flow:          vmess.Flow,
+		Remark:        vmess.Remark,
+		HeaderType:    vmess.Type,
+		ALPN:          vmess.ALPN,
+		RawURL:        rawURL,
+	}
+
+	if vmess.AllowInsecure == "1" || vmess.AllowInsecure == "true" {
+		cfg.AllowInsecure = true
+	}
+
+	return cfg, nil
+}
+
 func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
+	if strings.HasPrefix(rawURL, "vmess://") {
+		return ParseVMessURL(rawURL)
+	}
+
 	if !strings.Contains(rawURL, "://") {
 		return nil, fmt.Errorf("invalid URL: missing scheme")
 	}
@@ -49,7 +150,7 @@ func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
 
 	proto := parsed.Scheme
 	if proto != "vless" && proto != "trojan" {
-		return nil, fmt.Errorf("unsupported protocol: %s (only vless/trojan)", proto)
+		return nil, fmt.Errorf("unsupported protocol: %s (only vless/trojan/vmess)", proto)
 	}
 
 	cfg := &ProxyConfig{
@@ -176,6 +277,10 @@ func (c *ProxyConfig) WithEndpoint(endpoint string) *ProxyConfig {
 }
 
 func (c *ProxyConfig) GenerateShareURL() string {
+	if c.Protocol == "vmess" {
+		return c.generateVMessShareURL()
+	}
+
 	addr := c.Address
 	if strings.Contains(addr, ":") {
 		addr = "[" + addr + "]"
@@ -250,6 +355,41 @@ func (c *ProxyConfig) GenerateShareURL() string {
 	return u.String()
 }
 
+func (c *ProxyConfig) generateVMessShareURL() string {
+	vmess := map[string]interface{}{
+		"v":   "2",
+		"ps":  c.Remark,
+		"add": c.Address,
+		"port": fmt.Sprintf("%d", c.Port),
+		"id":  c.UUID,
+		"aid": "0",
+		"scy": c.Encryption,
+		"net": c.Network,
+		"type": c.HeaderType,
+		"host": c.Host,
+		"path": c.Path,
+	}
+
+	if c.Security == "tls" {
+		vmess["tls"] = "tls"
+	}
+	if c.SNI != "" {
+		vmess["sni"] = c.SNI
+	}
+	if c.ALPN != "" {
+		vmess["alpn"] = c.ALPN
+	}
+	if c.Fingerprint != "" {
+		vmess["fp"] = c.Fingerprint
+	}
+	if c.AllowInsecure {
+		vmess["allowInsecure"] = "1"
+	}
+
+	b, _ := json.Marshal(vmess)
+	return "vmess://" + base64.StdEncoding.EncodeToString(b)
+}
+
 type VLESSOutboundSettings struct {
 	VNext []VNextServer `json:"vnext"`
 }
@@ -266,13 +406,33 @@ type VLessUser struct {
 	Flow       string `json:"flow,omitempty"`
 }
 
+type TrojanOutboundSettings struct {
+	Address  string `json:"address"`
+	Port     int    `json:"port"`
+	Password string `json:"password"`
+	Email    string `json:"email,omitempty"`
+	Level    int    `json:"level,omitempty"`
+}
+
+type VMessOutboundSettings struct {
+	Address     string `json:"address"`
+	Port        int    `json:"port"`
+	ID          string `json:"id"`
+	Security    string `json:"security"`
+	Level       int    `json:"level,omitempty"`
+	Experiments string `json:"experiments,omitempty"`
+}
+
 type StreamSettings struct {
-	Network         string           `json:"network"`
-	Security        string           `json:"security"`
-	TLSSettings     json.RawMessage  `json:"tlsSettings,omitempty"`
-	RealitySettings json.RawMessage  `json:"realitySettings,omitempty"`
-	WSSettings      json.RawMessage  `json:"wsSettings,omitempty"`
-	GRPCSettings    json.RawMessage  `json:"grpcSettings,omitempty"`
+	Network            string           `json:"network"`
+	Security           string           `json:"security"`
+	TLSSettings        json.RawMessage  `json:"tlsSettings,omitempty"`
+	RealitySettings    json.RawMessage  `json:"realitySettings,omitempty"`
+	WSSettings         json.RawMessage  `json:"wsSettings,omitempty"`
+	GRPCSettings       json.RawMessage  `json:"grpcSettings,omitempty"`
+	KCPSettings        json.RawMessage  `json:"kcpSettings,omitempty"`
+	RawSettings        json.RawMessage  `json:"rawSettings,omitempty"`
+	HTTPUpgradeSettings json.RawMessage `json:"httpupgradeSettings,omitempty"`
 }
 
 type TLSSettings struct {
@@ -300,12 +460,197 @@ type GRPCSettings struct {
 	MultiMode   bool   `json:"multiMode,omitempty"`
 }
 
+type KCPSettings struct {
+	MTU              int  `json:"mtu,omitempty"`
+	TTI              int  `json:"tti,omitempty"`
+	UplinkCapacity   int  `json:"uplinkCapacity,omitempty"`
+	DownlinkCapacity int  `json:"downlinkCapacity,omitempty"`
+	Congestion       bool `json:"congestion,omitempty"`
+	ReadBufferSize   int  `json:"readBufferSize,omitempty"`
+	WriteBufferSize  int  `json:"writeBufferSize,omitempty"`
+}
+
+type HTTPUpgradeSettings struct {
+	Path    string            `json:"path"`
+	Host    string            `json:"host,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+}
+
+type RawSettings struct {
+	Header json.RawMessage `json:"header,omitempty"`
+}
+
+func (c *ProxyConfig) buildOutboundSettings() json.RawMessage {
+	switch c.Protocol {
+	case "vless":
+		settings, _ := json.Marshal(VLESSOutboundSettings{
+			VNext: []VNextServer{
+				{
+					Address: c.Address,
+					Port:    c.Port,
+					Users: []VLessUser{
+						{
+							ID:         c.UUID,
+							Encryption: c.Encryption,
+							Flow:       c.Flow,
+						},
+					},
+				},
+			},
+		})
+		return settings
+	case "trojan":
+		settings, _ := json.Marshal(TrojanOutboundSettings{
+			Address:  c.Address,
+			Port:     c.Port,
+			Password: c.UUID,
+		})
+		return settings
+	case "vmess":
+		sec := c.Encryption
+		if sec == "" || sec == "none" {
+			sec = "auto"
+		}
+		settings, _ := json.Marshal(VMessOutboundSettings{
+			Address:  c.Address,
+			Port:     c.Port,
+			ID:       c.UUID,
+			Security: sec,
+		})
+		return settings
+	default:
+		settings, _ := json.Marshal(VLESSOutboundSettings{
+			VNext: []VNextServer{
+				{
+					Address: c.Address,
+					Port:    c.Port,
+					Users: []VLessUser{
+						{
+							ID:         c.UUID,
+							Encryption: c.Encryption,
+						},
+					},
+				},
+			},
+		})
+		return settings
+	}
+}
+
+func (c *ProxyConfig) buildStreamSettings() json.RawMessage {
+	hasSecurity := c.Security == "tls" || c.Security == "xtls" || c.Security == "reality"
+	hasNetwork := c.Network != "" && c.Network != "tcp" && c.Network != "raw"
+
+	if !hasSecurity && !hasNetwork {
+		return nil
+	}
+
+	ss := StreamSettings{
+		Network:  c.Network,
+		Security: c.Security,
+	}
+
+	if c.Security == "tls" || c.Security == "xtls" {
+		tlsCfg := TLSSettings{
+			ServerName:    c.SNI,
+			Fingerprint:   c.Fingerprint,
+			AllowInsecure: c.AllowInsecure,
+		}
+		if c.Fingerprint == "" {
+			tlsCfg.Fingerprint = "random"
+		}
+		if c.ALPN != "" {
+			tlsCfg.ALPN = strings.Split(c.ALPN, ",")
+		}
+		tlsJSON, _ := json.Marshal(tlsCfg)
+		ss.TLSSettings = tlsJSON
+	}
+
+	if c.Security == "reality" {
+		realityCfg := RealitySettings{
+			ServerName:  c.SNI,
+			Fingerprint: c.Fingerprint,
+			PublicKey:   c.PublicKey,
+			ShortId:     c.ShortId,
+			SpiderX:     c.SpiderX,
+		}
+		if c.Fingerprint == "" {
+			realityCfg.Fingerprint = "random"
+		}
+		if realityCfg.ShortId == "" {
+			realityCfg.ShortId = "0"
+		}
+		realityJSON, _ := json.Marshal(realityCfg)
+		ss.RealitySettings = realityJSON
+	}
+
+	switch c.Network {
+	case "ws", "websocket":
+		wsCfg := WSSettings{
+			Path: c.Path,
+		}
+		if c.Host != "" {
+			wsCfg.Headers = map[string]string{
+				"Host": c.Host,
+			}
+		}
+		wsJSON, _ := json.Marshal(wsCfg)
+		ss.WSSettings = wsJSON
+
+	case "grpc":
+		grpcCfg := GRPCSettings{
+			ServiceName: c.ServiceName,
+			MultiMode:   c.Mode == "multi",
+		}
+		if grpcCfg.ServiceName == "" {
+			grpcCfg.ServiceName = strings.TrimPrefix(c.Path, "/")
+		}
+		grpcJSON, _ := json.Marshal(grpcCfg)
+		ss.GRPCSettings = grpcJSON
+
+	case "kcp", "mkcp":
+		kcpCfg := KCPSettings{}
+		kcpJSON, _ := json.Marshal(kcpCfg)
+		ss.KCPSettings = kcpJSON
+
+	case "httpupgrade":
+		hugCfg := HTTPUpgradeSettings{
+			Path: c.Path,
+			Host: c.Host,
+		}
+		hugJSON, _ := json.Marshal(hugCfg)
+		ss.HTTPUpgradeSettings = hugJSON
+
+	case "tcp", "raw":
+		if c.HeaderType == "http" {
+			rawCfg := RawSettings{
+				Header: json.RawMessage(`{"type": "http"}`),
+			}
+			rawJSON, _ := json.Marshal(rawCfg)
+			ss.RawSettings = rawJSON
+		}
+	}
+
+	ssJSON, _ := json.Marshal(ss)
+	return ssJSON
+}
+
 func (c *ProxyConfig) BuildXrayJSON(endpoint string, socksPort int) (configPath string, err error) {
 	cfg := &ProxyConfig{}
 	if endpoint != "" {
 		cfg = c.WithEndpoint(endpoint)
 	} else {
 		cfg = c
+	}
+
+	if cfg.Address == "" {
+		return "", fmt.Errorf("empty address")
+	}
+	if cfg.Port == 0 {
+		return "", fmt.Errorf("invalid port: 0")
+	}
+	if cfg.UUID == "" {
+		return "", fmt.Errorf("empty UUID/password")
 	}
 
 	tag := fmt.Sprintf("vless_%d", socksPort)
@@ -317,98 +662,14 @@ func (c *ProxyConfig) BuildXrayJSON(endpoint string, socksPort int) (configPath 
 	logFile := filepath.Join(configDir, "xray.log")
 	os.WriteFile(logFile, []byte{}, 0644)
 
-	vnextSettings := VLESSOutboundSettings{
-		VNext: []VNextServer{
-			{
-				Address: cfg.Address,
-				Port:    cfg.Port,
-				Users: []VLessUser{
-					{
-						ID:         cfg.UUID,
-						Encryption: cfg.Encryption,
-						Flow:       cfg.Flow,
-					},
-				},
-			},
-		},
-	}
-
-	vnextJSON, _ := json.Marshal(vnextSettings)
+	outboundSettings := cfg.buildOutboundSettings()
 
 	socksSettings, _ := json.Marshal(map[string]interface{}{
 		"auth": "noauth",
 		"udp":  true,
 	})
 
-	var streamSettings json.RawMessage
-	if cfg.Security == "tls" || cfg.Security == "reality" || cfg.Network != "tcp" {
-		ss := StreamSettings{
-			Network:  cfg.Network,
-			Security: cfg.Security,
-		}
-
-		if cfg.Security == "tls" {
-			tlsCfg := TLSSettings{
-				ServerName:    cfg.SNI,
-				Fingerprint:   cfg.Fingerprint,
-				AllowInsecure: cfg.AllowInsecure,
-			}
-			if cfg.Fingerprint == "" {
-				tlsCfg.Fingerprint = "random"
-			}
-			if cfg.ALPN != "" {
-				tlsCfg.ALPN = strings.Split(cfg.ALPN, ",")
-			}
-			tlsJSON, _ := json.Marshal(tlsCfg)
-			ss.TLSSettings = tlsJSON
-		}
-
-		if cfg.Security == "reality" {
-			realityCfg := RealitySettings{
-				ServerName:  cfg.SNI,
-				Fingerprint: cfg.Fingerprint,
-				PublicKey:   cfg.PublicKey,
-				ShortId:     cfg.ShortId,
-				SpiderX:     cfg.SpiderX,
-			}
-			if cfg.Fingerprint == "" {
-				realityCfg.Fingerprint = "random"
-			}
-			if realityCfg.ShortId == "" {
-				realityCfg.ShortId = "0"
-			}
-			realityJSON, _ := json.Marshal(realityCfg)
-			ss.RealitySettings = realityJSON
-		}
-
-		if cfg.Network == "ws" || cfg.Network == "websocket" {
-			wsCfg := WSSettings{
-				Path: cfg.Path,
-			}
-			if cfg.Host != "" {
-				wsCfg.Headers = map[string]string{
-					"Host": cfg.Host,
-				}
-			}
-			wsJSON, _ := json.Marshal(wsCfg)
-			ss.WSSettings = wsJSON
-		}
-
-		if cfg.Network == "grpc" {
-			grpcCfg := GRPCSettings{
-				ServiceName: cfg.ServiceName,
-				MultiMode:   cfg.Mode == "multi",
-			}
-			if grpcCfg.ServiceName == "" {
-				grpcCfg.ServiceName = strings.TrimPrefix(cfg.Path, "/")
-			}
-			grpcJSON, _ := json.Marshal(grpcCfg)
-			ss.GRPCSettings = grpcJSON
-		}
-
-		ssJSON, _ := json.Marshal(ss)
-		streamSettings = ssJSON
-	}
+	streamSettings := cfg.buildStreamSettings()
 
 	var mux json.RawMessage
 	if cfg.PacketEncoding != "" {
@@ -438,7 +699,7 @@ func (c *ProxyConfig) BuildXrayJSON(endpoint string, socksPort int) (configPath 
 			{
 				Tag:      "proxy",
 				Protocol: cfg.Protocol,
-				Settings: vnextJSON,
+				Settings: outboundSettings,
 			},
 			{
 				Tag:      "direct",

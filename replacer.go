@@ -21,7 +21,7 @@ func ParseRawConfigs(rawText string) []*ProxyConfig {
 		if token == "" {
 			continue
 		}
-		if !strings.HasPrefix(token, "vless://") && !strings.HasPrefix(token, "trojan://") {
+		if !strings.HasPrefix(token, "vless://") && !strings.HasPrefix(token, "trojan://") && !strings.HasPrefix(token, "vmess://") {
 			continue
 		}
 		cfg, err := ParseProxyURL(token)
@@ -67,7 +67,7 @@ func ParseSubscription(content string) ([]*ProxyConfig, error) {
 		if line == "" {
 			continue
 		}
-		if !strings.HasPrefix(line, "vless://") && !strings.HasPrefix(line, "trojan://") {
+		if !strings.HasPrefix(line, "vless://") && !strings.HasPrefix(line, "trojan://") && !strings.HasPrefix(line, "vmess://") {
 			continue
 		}
 		cfg, err := ParseProxyURL(line)
