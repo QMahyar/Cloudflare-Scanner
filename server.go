@@ -108,7 +108,11 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		}
 		defer file.Close()
 
-		tmpFile, _ := os.CreateTemp("", "warp-*.conf")
+		tmpFile, err := os.CreateTemp("", "warp-*.conf")
+		if err != nil {
+			jsonError(w, fmt.Sprintf("temp file: %v", err), 500)
+			return
+		}
 		defer os.Remove(tmpFile.Name())
 		io.Copy(tmpFile, file)
 		tmpFile.Close()
@@ -723,20 +727,29 @@ type replacerFetchRequest struct {
 }
 
 type replacerConfigEntry struct {
-	Fingerprint string `json:"fingerprint"`
-	Protocol    string `json:"protocol"`
-	UUID        string `json:"uuid"`
-	Address     string `json:"address"`
-	Port        int    `json:"port"`
-	Encryption  string `json:"encryption"`
-	Security    string `json:"security"`
-	SNI         string `json:"sni"`
+	Fingerprint   string `json:"fingerprint"`
+	Protocol      string `json:"protocol"`
+	UUID          string `json:"uuid"`
+	Address       string `json:"address"`
+	Port          int    `json:"port"`
+	Encryption    string `json:"encryption"`
+	Security      string `json:"security"`
+	SNI           string `json:"sni"`
 	FingerprintFP string `json:"fingerprint_fp"`
-	Network     string `json:"network"`
-	Host        string `json:"host"`
-	Path        string `json:"path"`
-	PacketEnc   string `json:"packet_enc"`
-	Remark      string `json:"remark"`
+	Network       string `json:"network"`
+	Host          string `json:"host"`
+	Path          string `json:"path"`
+	PacketEnc     string `json:"packet_enc"`
+	Remark        string `json:"remark"`
+	Flow          string `json:"flow,omitempty"`
+	PublicKey     string `json:"pbk,omitempty"`
+	ShortId       string `json:"sid,omitempty"`
+	SpiderX       string `json:"spx,omitempty"`
+	AllowInsecure bool   `json:"allow_insecure,omitempty"`
+	ALPN          string `json:"alpn,omitempty"`
+	HeaderType    string `json:"header_type,omitempty"`
+	Mode          string `json:"mode,omitempty"`
+	ServiceName   string `json:"service_name,omitempty"`
 }
 
 func handleReplacerFetch(w http.ResponseWriter, r *http.Request) {
@@ -792,6 +805,15 @@ func handleReplacerFetch(w http.ResponseWriter, r *http.Request) {
 			Path:          c.Path,
 			PacketEnc:     c.PacketEncoding,
 			Remark:        c.Remark,
+			Flow:          c.Flow,
+			PublicKey:     c.PublicKey,
+			ShortId:       c.ShortId,
+			SpiderX:       c.SpiderX,
+			AllowInsecure: c.AllowInsecure,
+			ALPN:          c.ALPN,
+			HeaderType:    c.HeaderType,
+			Mode:          c.Mode,
+			ServiceName:   c.ServiceName,
 		})
 	}
 
@@ -850,6 +872,15 @@ func handleReplacerParse(w http.ResponseWriter, r *http.Request) {
 			Path:          c.Path,
 			PacketEnc:     c.PacketEncoding,
 			Remark:        c.Remark,
+			Flow:          c.Flow,
+			PublicKey:     c.PublicKey,
+			ShortId:       c.ShortId,
+			SpiderX:       c.SpiderX,
+			AllowInsecure: c.AllowInsecure,
+			ALPN:          c.ALPN,
+			HeaderType:    c.HeaderType,
+			Mode:          c.Mode,
+			ServiceName:   c.ServiceName,
 		})
 	}
 
@@ -903,6 +934,15 @@ func handleReplacerApply(w http.ResponseWriter, r *http.Request) {
 			Path:           e.Path,
 			PacketEncoding: e.PacketEnc,
 			Remark:         e.Remark,
+			Flow:           e.Flow,
+			PublicKey:      e.PublicKey,
+			ShortId:        e.ShortId,
+			SpiderX:        e.SpiderX,
+			AllowInsecure:  e.AllowInsecure,
+			ALPN:           e.ALPN,
+			HeaderType:     e.HeaderType,
+			Mode:           e.Mode,
+			ServiceName:    e.ServiceName,
 		})
 	}
 

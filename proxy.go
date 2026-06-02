@@ -26,6 +26,15 @@ type ProxyConfig struct {
 	PacketEncoding string
 	Remark         string
 	RawURL         string
+	Flow           string
+	PublicKey      string
+	ShortId        string
+	SpiderX        string
+	AllowInsecure  bool
+	ALPN           string
+	HeaderType     string
+	Mode           string
+	ServiceName    string
 }
 
 func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
@@ -99,12 +108,49 @@ func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
 	if v := q.Get("packetEncoding"); v != "" {
 		cfg.PacketEncoding = v
 	}
+	if v := q.Get("flow"); v != "" {
+		cfg.Flow = v
+	}
+	if v := q.Get("pbk"); v != "" {
+		cfg.PublicKey = v
+	}
+	if v := q.Get("sid"); v != "" {
+		cfg.ShortId = v
+	}
+	if v := q.Get("spx"); v != "" {
+		cfg.SpiderX = v
+	}
+	if v := q.Get("allowInsecure"); v == "1" {
+		cfg.AllowInsecure = true
+	}
+	if v := q.Get("allow_insecure"); v == "1" {
+		cfg.AllowInsecure = true
+	}
+	if v := q.Get("insecure"); v == "1" {
+		cfg.AllowInsecure = true
+	}
+	if v := q.Get("alpn"); v != "" {
+		cfg.ALPN = v
+	}
+	if v := q.Get("headerType"); v != "" {
+		cfg.HeaderType = v
+	}
+	if v := q.Get("mode"); v != "" {
+		cfg.Mode = v
+	}
+	if v := q.Get("serviceName"); v != "" {
+		cfg.ServiceName = v
+	}
 
 	if cfg.SNI == "" {
 		cfg.SNI = cfg.Host
 	}
 	if cfg.SNI == "" {
 		cfg.SNI = cfg.Address
+	}
+
+	if cfg.ServiceName == "" && cfg.Path != "" && cfg.Path != "/" {
+		cfg.ServiceName = strings.TrimPrefix(cfg.Path, "/")
 	}
 
 	if frag := parsed.Fragment; frag != "" {
@@ -130,10 +176,6 @@ func (c *ProxyConfig) WithEndpoint(endpoint string) *ProxyConfig {
 }
 
 func (c *ProxyConfig) GenerateShareURL() string {
-	if c.Protocol != "vless" {
-		return c.RawURL
-	}
-
 	addr := c.Address
 	if strings.Contains(addr, ":") {
 		addr = "[" + addr + "]"
@@ -142,7 +184,7 @@ func (c *ProxyConfig) GenerateShareURL() string {
 	hostPort := fmt.Sprintf("%s:%d", addr, c.Port)
 
 	u := url.URL{
-		Scheme:   "vless",
+		Scheme:   c.Protocol,
 		User:     url.User(c.UUID),
 		Host:     hostPort,
 		Fragment: c.Remark,
@@ -176,6 +218,33 @@ func (c *ProxyConfig) GenerateShareURL() string {
 	if c.PacketEncoding == "xudp" {
 		q.Set("packetEncoding", "xudp")
 	}
+	if c.Flow != "" {
+		q.Set("flow", c.Flow)
+	}
+	if c.PublicKey != "" {
+		q.Set("pbk", c.PublicKey)
+	}
+	if c.ShortId != "" {
+		q.Set("sid", c.ShortId)
+	}
+	if c.SpiderX != "" {
+		q.Set("spx", c.SpiderX)
+	}
+	if c.AllowInsecure {
+		q.Set("allowInsecure", "1")
+	}
+	if c.ALPN != "" {
+		q.Set("alpn", c.ALPN)
+	}
+	if c.HeaderType != "" {
+		q.Set("headerType", c.HeaderType)
+	}
+	if c.Mode != "" {
+		q.Set("mode", c.Mode)
+	}
+	if c.ServiceName != "" {
+		q.Set("serviceName", c.ServiceName)
+	}
 
 	u.RawQuery = q.Encode()
 	return u.String()
@@ -198,17 +267,27 @@ type VLessUser struct {
 }
 
 type StreamSettings struct {
-	Network     string           `json:"network"`
-	Security    string           `json:"security"`
-	TLSSettings json.RawMessage  `json:"tlsSettings,omitempty"`
-	WSSettings  json.RawMessage  `json:"wsSettings,omitempty"`
-	GRPCSettings json.RawMessage `json:"grpcSettings,omitempty"`
+	Network         string           `json:"network"`
+	Security        string           `json:"security"`
+	TLSSettings     json.RawMessage  `json:"tlsSettings,omitempty"`
+	RealitySettings json.RawMessage  `json:"realitySettings,omitempty"`
+	WSSettings      json.RawMessage  `json:"wsSettings,omitempty"`
+	GRPCSettings    json.RawMessage  `json:"grpcSettings,omitempty"`
 }
 
 type TLSSettings struct {
-	ServerName    string `json:"serverName"`
-	Fingerprint   string `json:"fingerprint,omitempty"`
-	AllowInsecure bool   `json:"allowInsecure"`
+	ServerName    string   `json:"serverName"`
+	Fingerprint   string   `json:"fingerprint,omitempty"`
+	AllowInsecure bool     `json:"allowInsecure"`
+	ALPN          []string `json:"alpn,omitempty"`
+}
+
+type RealitySettings struct {
+	ServerName  string `json:"serverName"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+	PublicKey   string `json:"publicKey,omitempty"`
+	ShortId     string `json:"shortId,omitempty"`
+	SpiderX     string `json:"spiderX,omitempty"`
 }
 
 type WSSettings struct {
@@ -218,6 +297,7 @@ type WSSettings struct {
 
 type GRPCSettings struct {
 	ServiceName string `json:"serviceName"`
+	MultiMode   bool   `json:"multiMode,omitempty"`
 }
 
 func (c *ProxyConfig) BuildXrayJSON(endpoint string, socksPort int) (configPath string, err error) {
@@ -237,7 +317,6 @@ func (c *ProxyConfig) BuildXrayJSON(endpoint string, socksPort int) (configPath 
 	logFile := filepath.Join(configDir, "xray.log")
 	os.WriteFile(logFile, []byte{}, 0644)
 
-	flow := ""
 	vnextSettings := VLESSOutboundSettings{
 		VNext: []VNextServer{
 			{
@@ -247,7 +326,7 @@ func (c *ProxyConfig) BuildXrayJSON(endpoint string, socksPort int) (configPath 
 					{
 						ID:         cfg.UUID,
 						Encryption: cfg.Encryption,
-						Flow:       flow,
+						Flow:       cfg.Flow,
 					},
 				},
 			},
@@ -272,13 +351,34 @@ func (c *ProxyConfig) BuildXrayJSON(endpoint string, socksPort int) (configPath 
 			tlsCfg := TLSSettings{
 				ServerName:    cfg.SNI,
 				Fingerprint:   cfg.Fingerprint,
-				AllowInsecure: false,
+				AllowInsecure: cfg.AllowInsecure,
 			}
 			if cfg.Fingerprint == "" {
 				tlsCfg.Fingerprint = "random"
 			}
+			if cfg.ALPN != "" {
+				tlsCfg.ALPN = strings.Split(cfg.ALPN, ",")
+			}
 			tlsJSON, _ := json.Marshal(tlsCfg)
 			ss.TLSSettings = tlsJSON
+		}
+
+		if cfg.Security == "reality" {
+			realityCfg := RealitySettings{
+				ServerName:  cfg.SNI,
+				Fingerprint: cfg.Fingerprint,
+				PublicKey:   cfg.PublicKey,
+				ShortId:     cfg.ShortId,
+				SpiderX:     cfg.SpiderX,
+			}
+			if cfg.Fingerprint == "" {
+				realityCfg.Fingerprint = "random"
+			}
+			if realityCfg.ShortId == "" {
+				realityCfg.ShortId = "0"
+			}
+			realityJSON, _ := json.Marshal(realityCfg)
+			ss.RealitySettings = realityJSON
 		}
 
 		if cfg.Network == "ws" || cfg.Network == "websocket" {
@@ -296,7 +396,11 @@ func (c *ProxyConfig) BuildXrayJSON(endpoint string, socksPort int) (configPath 
 
 		if cfg.Network == "grpc" {
 			grpcCfg := GRPCSettings{
-				ServiceName: strings.TrimPrefix(cfg.Path, "/"),
+				ServiceName: cfg.ServiceName,
+				MultiMode:   cfg.Mode == "multi",
+			}
+			if grpcCfg.ServiceName == "" {
+				grpcCfg.ServiceName = strings.TrimPrefix(cfg.Path, "/")
 			}
 			grpcJSON, _ := json.Marshal(grpcCfg)
 			ss.GRPCSettings = grpcJSON
