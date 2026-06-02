@@ -15,12 +15,17 @@
 1. Download the [latest release](https://github.com/QMahyar/Cloudflare-Scanner/releases) for your platform
 2. Extract and run:
 
-   | Platform | Command |
+   | Platform | Run command |
    |---|---|
    | Windows | Extract `.tar.gz`, double-click `Cloudflare-Scanner.exe` |
-   | Linux | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
-   | macOS | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
-   | Termux | `tar -xzf *-termux-*.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
+   | Linux / macOS | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
+
+   For **Termux**, one-liner install:
+
+   ```bash
+   curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh
+   ```
+   Then type `scan` to run.
 
 3. A browser tab opens at `http://127.0.0.1:XXXXX`
 4. Close the terminal or press Ctrl+C to stop

@@ -41,11 +41,10 @@ chmod +x Cloudflare-Scanner xray
 ### Termux (Android)
 
 ```bash
-tar -xzf Cloudflare-Scanner-*-termux-arm64.tar.gz
-cd Cloudflare-Scanner-*-termux-arm64
-chmod +x Cloudflare-Scanner xray
-./Cloudflare-Scanner
+curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh
 ```
+
+This downloads the latest Termux release, extracts it, and creates a `scan` command. Just type `scan` to run later.
 
 No extra packages needed — the app uses `termux-open-url` to open the browser.
 

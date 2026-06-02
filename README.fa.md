@@ -15,12 +15,17 @@
 1. آخرین [ریلیز](https://github.com/QMahyar/Cloudflare-Scanner/releases) مخصوص پلتفرم خود را دانلود کنید
 2. extract و اجرا کنید:
 
-   | پلتفرم | دستور |
+   | پلتفرم | دستور اجرا |
    |---|---|
    | ویندوز | فایل `.tar.gz` را extract کنید، روی `Cloudflare-Scanner.exe` دوبار کلیک کنید |
-   | لینوکس | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
-   | مک | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
-   | Termux | `tar -xzf *-termux-*.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
+   | لینوکس / مک | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
+
+   برای **Termux**، نصب با یک خط:
+
+   ```bash
+   curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh
+   ```
+   سپس تایپ کنید `scan` برای اجرا.
 
 3. یک برگه مرورگر در `http://127.0.0.1:XXXXX` باز می‌شود
 4. برای بستن، پنجره ترمینال را ببندید یا Ctrl+C بزنید

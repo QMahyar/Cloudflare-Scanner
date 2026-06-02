@@ -41,11 +41,10 @@ chmod +x Cloudflare-Scanner xray
 ### Termux (اندروید)
 
 ```bash
-tar -xzf Cloudflare-Scanner-*-termux-arm64.tar.gz
-cd Cloudflare-Scanner-*-termux-arm64
-chmod +x Cloudflare-Scanner xray
-./Cloudflare-Scanner
+curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh
 ```
+
+این دستور آخرین ریلیز Termux را دانلود می‌کند، extract می‌کند و یک دستور `scan` می‌سازد. بعداً فقط کافی است تایپ کنید `scan`.
 
 نیازی به بسته اضافی نیست — برنامه از `termux-open-url` برای باز کردن مرورگر استفاده می‌کند.
 
