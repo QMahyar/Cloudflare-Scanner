@@ -363,8 +363,13 @@ type CleanIPJob struct {
 	Phase2Probes      int
 	NearbyPhase1Results []CleanIPResult
 	NearbyPhase2Results []CleanIPResult
-	Cancel            chan struct{}
-	mu                sync.Mutex
+	Cancel              chan struct{}
+	cancelOnce          sync.Once
+	mu                  sync.Mutex
+}
+
+func (j *CleanIPJob) stop() {
+	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
 func runCleanPhase1TCP(endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob, concurrency int) []CleanIPResult {
@@ -444,14 +449,17 @@ func validateWithXray(cfg *ProxyConfig, endpoint string, xrayPath string, socksP
 	cmd.Dir = filepath.Dir(configPath)
 
 	stderrPath := filepath.Join(filepath.Dir(configPath), "stderr.log")
-	f, _ := os.Create(stderrPath)
-	if f != nil {
-		cmd.Stderr = f
+	f, err := os.Create(stderrPath)
+	if err != nil {
+		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("create stderr log: %v", err)}
 	}
+	cmd.Stderr = f
 
 	if err := cmd.Start(); err != nil {
+		f.Close()
 		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("start xray: %v", err)}
 	}
+	f.Close() // child process holds its own handle; release ours
 	defer func() {
 		if cmd != nil && cmd.Process != nil {
 			cmd.Process.Kill()

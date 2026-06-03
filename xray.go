@@ -182,14 +182,18 @@ func (xm *XrayManager) StartXray(configPath string) (*exec.Cmd, error) {
 
 	stderrPath := filepath.Join(filepath.Dir(configPath), "stderr.log")
 	f, err := os.Create(stderrPath)
-	if err == nil {
-		cmd.Stderr = f
+	if err != nil {
+		return nil, fmt.Errorf("create stderr log: %w", err)
 	}
+	cmd.Stderr = f
 
 	if err := cmd.Start(); err != nil {
+		f.Close()
 		return nil, fmt.Errorf("start xray: %w", err)
 	}
 
+	// Close our handle; the OS keeps the file open via the child process.
+	f.Close()
 	return cmd, nil
 }
 

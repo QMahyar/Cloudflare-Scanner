@@ -1716,7 +1716,28 @@ const App = (function() {
     return v < 100 ? 'latency-fast' : v < 200 ? 'latency-medium' : 'latency-slow';
   }
 
-  function escapeEp(ep) { return ep.replace(/'/g, "\\'"); }
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // escapeEp — safe for a value placed in a JS single-quoted string that is
+  // itself inside a double-quoted HTML attribute (e.g. onclick="f('...')").
+  // HTML-escapes first (handles &, <, >, "), then escapes ' for the JS layer.
+  // Note: &#39; is decoded back to ' by the HTML parser before JS runs, so
+  // we use the JS backslash form for single quotes only.
+  function escapeEp(ep) {
+    return String(ep)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, "\\'");
+  }
 
   // ─── Tab Switching ───
   function switchTab(tab) {
@@ -1891,7 +1912,7 @@ const App = (function() {
       pollStatus(data.id, total);
       pollResults(data.id);
     } catch (e) {
-      showError(t('scan.failed', { msg: e.message }));
+      showError(t('scan.failed', { msg: escapeHtml(e.message) }));
       setButtonsIdle();
     }
   }
@@ -1972,8 +1993,8 @@ const App = (function() {
     sorted.forEach((e, i) => {
       const ep = e.endpoint;
       html += '<tr><td class="num">' + (i+1) + '</td>';
-      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(ep) + '\')" title="' + t('results.tableEndpoint') + '">' + ep + '</span></td>';
-      html += '<td class="' + latClass(e.latency) + '">' + e.latency + '</td>';
+      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(ep) + '\')" title="' + t('results.tableEndpoint') + '">' + escapeHtml(ep) + '</span></td>';
+      html += '<td class="' + latClass(e.latency) + '">' + escapeHtml(e.latency) + '</td>';
       html += '<td><button class="btn btn-secondary btn-sm" onclick="App.useEndpoint(\'' + escapeEp(ep) + '\')" title="' + t('results.tableUse') + '">' + t('results.tableUse') + '</button></td>';
       if (!isLive) html += '<td class="checkbox-cell"><input type="checkbox" class="endpoint-select" value="' + escapeEp(ep) + '"></td>';
       html += '</tr>';
@@ -2099,7 +2120,7 @@ const App = (function() {
       const failed = state.apply.results.filter(r => r.error);
       if (failed.length > 0) {
         html += '<div style="margin-top:6px">';
-        failed.forEach(r => html += '<div class="error-msg" style="margin-top:4px">' + r.name + ': ' + r.error + '</div>');
+        failed.forEach(r => html += '<div class="error-msg" style="margin-top:4px">' + escapeHtml(r.name) + ': ' + escapeHtml(r.error) + '</div>');
         html += '</div>';
       }
       applyStatus.innerHTML = html;
@@ -2114,7 +2135,7 @@ const App = (function() {
         }
       }
     } catch (e) {
-      applyStatus.innerHTML = '<div class="error-msg">' + e.message + '</div>';
+      applyStatus.innerHTML = '<div class="error-msg">' + escapeHtml(e.message) + '</div>';
     }
     applyBtn.disabled = false;
     applyBtn.textContent = t('apply.generate');
@@ -2147,7 +2168,7 @@ const App = (function() {
   }
 
   function showError(msg) {
-    resultsContent.innerHTML = '<div class="error-msg">' + msg + '</div>';
+    resultsContent.innerHTML = '<div class="error-msg">' + escapeHtml(msg) + '</div>';
     resultsContent.classList.remove('hidden');
   }
 
@@ -2216,7 +2237,7 @@ const App = (function() {
       pollCleanStatus(data.id);
       pollCleanResults(data.id);
     } catch (e) {
-      $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errStart', { msg: e.message }) + '</div>';
+      $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errStart', { msg: escapeHtml(e.message) }) + '</div>';
       cleanStartBtn.disabled = false;
       cleanStartBtn.textContent = t('clean.start');
       cleanStopBtn.disabled = true;
@@ -2306,8 +2327,8 @@ const App = (function() {
     html += '</tr></thead><tbody>';
     sorted.forEach((e, i) => {
       html += '<tr><td class="num">' + (i+1) + '</td>';
-      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(e.endpoint) + '\')" title="' + t('results.tableEndpoint') + '">' + e.endpoint + '</span></td>';
-      html += '<td class="' + latClass(e.latency) + '">' + e.latency + '</td>';
+      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(e.endpoint) + '\')" title="' + t('results.tableEndpoint') + '">' + escapeHtml(e.endpoint) + '</span></td>';
+      html += '<td class="' + latClass(e.latency) + '">' + escapeHtml(e.latency) + '</td>';
       if (data.phase === 'phase2') html += '<td class="checkbox-cell"><input type="checkbox" class="clean-select" value="' + escapeEp(e.endpoint) + '"></td>';
       html += '</tr>';
     });
@@ -2457,7 +2478,7 @@ const App = (function() {
       URL.revokeObjectURL(url);
       $('#cleanStatusMsg').innerHTML = '<div class="success-msg">' + t('clean.exported', { n: selected.length }) + '</div>';
     } catch (e) {
-      $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errExport', { msg: e.message }) + '</div>';
+      $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errExport', { msg: escapeHtml(e.message) }) + '</div>';
     }
   }
 
@@ -2527,7 +2548,7 @@ const App = (function() {
       URL.revokeObjectURL(url);
       $('#cleanStatusMsg').innerHTML = '<div class="success-msg">' + t('clean.exported', { n: selected.length }) + '</div>';
     } catch (e) {
-      $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errExport', { msg: e.message }) + '</div>';
+      $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errExport', { msg: escapeHtml(e.message) }) + '</div>';
     }
   }
 
@@ -2569,7 +2590,7 @@ const App = (function() {
       $('#replacerConfigsCard').classList.remove('hidden');
       $('#replacerEndpointsCard').classList.remove('hidden');
     } catch (e) {
-      statusEl.innerHTML = '<div class="error-msg">' + t('replacer.errParse', { msg: e.message }) + '</div>';
+      statusEl.innerHTML = '<div class="error-msg">' + t('replacer.errParse', { msg: escapeHtml(e.message) }) + '</div>';
     }
     parseBtn.disabled = false;
     parseBtn.textContent = t('replacer.parse');
@@ -2594,7 +2615,7 @@ const App = (function() {
       $('#replacerConfigsCard').classList.remove('hidden');
       $('#replacerEndpointsCard').classList.remove('hidden');
     } catch (e) {
-      statusEl.innerHTML = '<div class="error-msg">' + t('replacer.errFetch', { msg: e.message }) + '</div>';
+      statusEl.innerHTML = '<div class="error-msg">' + t('replacer.errFetch', { msg: escapeHtml(e.message) }) + '</div>';
     }
     fetchBtn.disabled = false;
     fetchBtn.textContent = t('replacer.fetch');
@@ -2617,9 +2638,9 @@ const App = (function() {
       html += '<tr>';
       html += '<td class="checkbox-cell"><input type="checkbox" class="replacer-cfg-cb" value="' + idx + '" checked></td>';
       html += '<td class="num">' + (i+1) + '</td>';
-      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(c.address) + '\')">' + c.address + '</span></td>';
-      html += '<td>' + c.port + '</td>';
-      html += '<td><span class="replacer-config-remark" title="' + (c.remark || '') + '">' + (c.remark || c.protocol + '://' + c.uuid.substring(0,8) + '…') + '</span></td>';
+      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(c.address) + '\')">' + escapeHtml(c.address) + '</span></td>';
+      html += '<td>' + escapeHtml(c.port) + '</td>';
+      html += '<td><span class="replacer-config-remark" title="' + escapeHtml(c.remark || '') + '">' + escapeHtml(c.remark || c.protocol + '://' + c.uuid.substring(0,8) + '…') + '</span></td>';
       html += '</tr>';
     });
     html += '</tbody></table>';
@@ -2666,7 +2687,7 @@ const App = (function() {
       $('#replacerResultsCard').classList.remove('hidden');
       genStatus.innerHTML = '<div class="success-msg">' + t('replacer.generated', { n: data.count }) + '</div>';
     } catch (e) {
-      genStatus.innerHTML = '<div class="error-msg">' + t('replacer.errGenerate', { msg: e.message }) + '</div>';
+      genStatus.innerHTML = '<div class="error-msg">' + t('replacer.errGenerate', { msg: escapeHtml(e.message) }) + '</div>';
     }
     genBtn.disabled = false;
     genBtn.textContent = t('replacer.generate');
@@ -2678,7 +2699,7 @@ const App = (function() {
     let html = '<table class="results-table"><thead><tr><th>#</th><th>' + t('replacer.tableConfig') + '</th></tr></thead><tbody>';
     urls.forEach((u, i) => {
       const display = u.length > 100 ? u.substring(0, 100) + '…' : u;
-      html += '<tr><td class="num">' + (i+1) + '</td><td style="font-size:0.6875rem;font-family:var(--font-mono);word-break:break-all">' + display + '</td></tr>';
+      html += '<tr><td class="num">' + (i+1) + '</td><td style="font-size:0.6875rem;font-family:var(--font-mono);word-break:break-all">' + escapeHtml(display) + '</td></tr>';
     });
     html += '</tbody></table>';
     container.innerHTML = html;

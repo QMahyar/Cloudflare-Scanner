@@ -19,17 +19,24 @@ import (
 var uiFS embed.FS
 
 type ScanJob struct {
-	ID        string
-	Status    string
-	Progress  int
-	Total     int
-	Results   []ScanResult
-	Config    *WarpConfig
-	Endpoints []string
-	Noise     NoiseConfig
-	OutCount  int
-	Cancel    chan struct{}
-	mu        sync.Mutex
+	ID         string
+	Status     string
+	Progress   int
+	Total      int
+	Results    []ScanResult
+	Config     *WarpConfig
+	Endpoints  []string
+	Noise      NoiseConfig
+	OutCount   int
+	Cancel     chan struct{}
+	cancelOnce sync.Once
+	mu         sync.Mutex
+}
+
+// stop closes the Cancel channel at most once, so concurrent stop requests
+// cannot panic with "close of closed channel".
+func (j *ScanJob) stop() {
+	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
 var (
@@ -144,8 +151,10 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		gen := NewEndpointGenerator()
 		endpoints := gen.Generate(req.Count, req.IPv4, req.IPv6)
 
+		scanJobsMu.Lock()
 		jobCounter++
 		jobID := fmt.Sprintf("job_%d", jobCounter)
+		scanJobsMu.Unlock()
 
 		exePath, _ := os.Executable()
 		workDir := filepath.Dir(exePath)
@@ -256,7 +265,7 @@ func handleScanStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	close(job.Cancel)
+	job.stop()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
@@ -372,14 +381,28 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	exePath, err := os.Executable()
+	if err != nil {
+		jsonError(w, fmt.Sprintf("cannot get exe path: %v", err), 500)
+		return
+	}
+	exeDir := filepath.Dir(exePath)
+
 	outputDir := r.FormValue("output_dir")
 	if outputDir == "" {
-		exePath, err := os.Executable()
-		if err != nil {
-			jsonError(w, fmt.Sprintf("cannot get exe path: %v", err), 500)
-			return
-		}
-		outputDir = filepath.Dir(exePath)
+		outputDir = exeDir
+	}
+
+	// Resolve to absolute path and ensure it stays within the executable's
+	// directory or one of its subdirectories (prevents path traversal).
+	outputDir = filepath.Clean(outputDir)
+	if !filepath.IsAbs(outputDir) {
+		outputDir = filepath.Join(exeDir, outputDir)
+	}
+	rel, err := filepath.Rel(exeDir, outputDir)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		jsonError(w, "output_dir must be inside the application directory", 400)
+		return
 	}
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -441,7 +464,8 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		outPath := filepath.Join(outputDir, fh.Filename)
+		// filepath.Base strips any directory components the browser may include.
+		outPath := filepath.Join(outputDir, filepath.Base(fh.Filename))
 		modified := strings.Join(newLines, "\n")
 		if err := os.WriteFile(outPath, []byte(modified), 0644); err != nil {
 			results = append(results, fileResult{Name: fh.Filename, Error: err.Error()})
@@ -516,8 +540,10 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 		gen := NewCleanIPGenerator()
 		endpoints := gen.GenerateIPs(req.Count, req.IPv4, req.IPv6, port)
 
+		cleanJobsMu.Lock()
 		cleanJobCounter++
 		jobID := fmt.Sprintf("clean_%d", cleanJobCounter)
+		cleanJobsMu.Unlock()
 
 		job := &CleanIPJob{
 			ID:           jobID,
@@ -566,7 +592,7 @@ func handleCleanScanStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	close(job.Cancel)
+	job.stop()
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})

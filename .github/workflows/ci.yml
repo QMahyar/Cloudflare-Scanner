@@ -27,6 +27,12 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
 
+      - name: Test
+        # Tests only run on the host architecture; cross-compiled tests
+        # would require the target runtime to be available.
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: go test ./...
+
       - name: Build
         run: go build -ldflags="-s -w" -o /dev/null .
         env:
