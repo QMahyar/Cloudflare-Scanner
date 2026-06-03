@@ -1978,6 +1978,7 @@ const App = (function() {
     if (!state.endpoint.jobId) return;
     stopBtn.disabled = true;
     try { await fetch('/api/stop/' + state.endpoint.jobId, { method: 'POST' }); } catch {}
+    setScanDone();
   }
 
   function rescan() { startScan(); }
@@ -1995,7 +1996,6 @@ const App = (function() {
     progressFill.classList.remove('cancelled');
     progressText.textContent = t('scan.progressTemplate', { p: '0', t: '0' });
     setButtonsIdle();
-    startBtn.disabled = !fileInput.files.length;
     updateTabBadges();
   }
 
@@ -2308,6 +2308,9 @@ const App = (function() {
     if (!state.clean.jobId) return;
     cleanStopBtn.disabled = true;
     try { await fetch('/api/clean-stop/' + state.clean.jobId, { method: 'POST' }); } catch {}
+    cleanStartBtn.disabled = false;
+    cleanStartBtn.textContent = t('clean.start');
+    cleanRescanBtn.disabled = false;
   }
 
   function cleanRescan() { startCleanScan(); }
@@ -2343,13 +2346,13 @@ const App = (function() {
         const data = await apiJSON('/api/clean-status/' + jobId);
         const fill = cleanProgressFill, text = cleanProgressText;
         if (data.status === 'running-phase1') {
-          const p = data.phase1_progress || 0, t = data.phase1_total || 1;
-          fill.style.width = Math.round((p / t) * 50) + '%';
-          text.textContent = t('clean.progressPhase1', { p, t });
+          const p = data.phase1_progress || 0, tot = data.phase1_total || 1;
+          fill.style.width = Math.round((p / tot) * 50) + '%';
+          text.textContent = t('clean.progressPhase1', { p, t: tot });
         } else if (data.status === 'running-phase2') {
-          const p = data.phase2_progress || 0, t = data.phase2_total || 1;
-          fill.style.width = Math.min(50 + Math.round((p / t) * 50), 99) + '%';
-          text.textContent = t('clean.progressPhase2', { p, t });
+          const p = data.phase2_progress || 0, tot = data.phase2_total || 1;
+          fill.style.width = Math.min(50 + Math.round((p / tot) * 50), 99) + '%';
+          text.textContent = t('clean.progressPhase2', { p, t: tot });
         } else if (data.status === 'done') {
           fill.style.width = '100%';
           text.textContent = t('clean.progressDone');
