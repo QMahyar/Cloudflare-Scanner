@@ -8,7 +8,7 @@ import (
 
 func TestGenerateCleanIPs(t *testing.T) {
 	gen := NewCleanIPGenerator()
-	ips := gen.GenerateIPs(100, true, false, 443)
+	ips := gen.GenerateIPs(100, true, false, []int{443})
 
 	if len(ips) != 100 {
 		t.Fatalf("expected 100 IPs, got %d", len(ips))
@@ -92,7 +92,7 @@ func TestWeightCalculation(t *testing.T) {
 
 func TestIPv6Generation(t *testing.T) {
 	gen := NewCleanIPGenerator()
-	ips := gen.GenerateIPs(10, false, true, 443)
+	ips := gen.GenerateIPs(10, false, true, []int{443})
 
 	if len(ips) != 10 {
 		t.Fatalf("expected 10 IPv6 IPs, got %d", len(ips))
