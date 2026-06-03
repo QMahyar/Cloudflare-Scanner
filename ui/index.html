@@ -730,6 +730,18 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
 }
 @media (min-width: 480px) { .replacer-config-remark { font-size: 0.75rem; max-width: 220px; } }
 
+.output-path-row { display: flex; gap: var(--space-sm); align-items: stretch; }
+.output-path-row input { flex: 1; min-width: 0; }
+.output-path-row .btn { flex: none; white-space: nowrap; }
+.apply-config-item { background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); padding: var(--space-sm); margin-bottom: var(--space-sm); }
+.apply-config-item:last-child { margin-bottom: 0; }
+.apply-config-item-header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-xs); flex-wrap: wrap; }
+.apply-config-item-name { font-weight: 600; font-size: 0.75rem; color: var(--text-heading); word-break: break-all; }
+.apply-config-item-actions { display: flex; gap: var(--space-xs); align-items: center; }
+.apply-config-item-actions .btn { min-height: 32px; padding: 4px 10px; font-size: 0.6875rem; }
+.apply-config-content-box { width: 100%; background: var(--bg-body); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-sm); font-family: var(--font-mono); font-size: 0.625rem; line-height: 1.5; color: var(--text-primary); resize: vertical; min-height: 60px; word-break: break-all; box-sizing: border-box; }
+.apply-config-content-box:focus { outline: none; border-color: var(--accent); }
+
 /* ─── Focus Accessibility ─── */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -738,6 +750,41 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
 }
 button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab:focus-visible {
   outline-offset: 2px;
+}
+
+/* ─── Mobile < 480px ─── */
+@media (max-width: 480px) {
+  body { padding: var(--space-sm); }
+  .card { padding: var(--space-sm); border-radius: var(--radius-sm); }
+  .card h2 { font-size: 0.8125rem; }
+  .header-row h1 { font-size: clamp(1rem, 4vw, 1.25rem); }
+  .subtitle { font-size: 0.7rem; margin-bottom: var(--space-md); }
+  .lang-btn { padding: 4px 10px; font-size: 0.6875rem; min-height: 32px; }
+  .tab-bar { width: 100%; }
+  .tab { flex: 1; text-align: center; font-size: 0.65rem; padding: 8px 6px; min-height: 40px; }
+  .tab-badge { font-size: 0.5625rem; padding: 1px 4px; }
+  .preset-btn { font-size: 0.625rem; padding: 6px 8px; min-height: 36px; }
+  .input-method-bar button { font-size: 0.6875rem; padding: 8px 8px; min-height: 40px; }
+  .btn-bar .btn { min-width: 0; font-size: 0.6875rem; padding: 8px 6px; }
+  .results-table { min-width: 0; font-size: 0.625rem; }
+  .results-table th, .results-table td { padding: 8px 4px; }
+  .results-table td .tag { font-size: 0.625rem; padding: 2px 6px; max-width: 140px; }
+  .results-table-wrap { margin: 0 calc(var(--space-sm) * -1); padding: 0 var(--space-sm); }
+  .checkbox-cell { width: 28px; }
+  .checkbox-cell input[type="checkbox"] { width: 20px; height: 20px; }
+  .results-table td.num { width: 24px; font-size: 0.5625rem; }
+  .results-actions { gap: var(--space-xs); }
+  .results-actions .btn { font-size: 0.625rem; padding: 6px 8px; min-height: 36px; flex: 1 1 auto; }
+  .scan-desc { font-size: 0.6875rem; padding: 8px 10px; }
+  .replacer-config-remark { font-size: 0.625rem; max-width: 100px; }
+  .qr-modal { padding: var(--space-lg); max-width: 300px; }
+  .toast { font-size: 0.75rem; padding: 10px 16px; }
+  .empty-state { padding: var(--space-lg) var(--space-sm); font-size: 0.75rem; }
+  .live-count { font-size: 0.75rem; }
+  .output-path-row { flex-direction: column; }
+  .output-path-row .btn { width: 100%; }
+  .apply-config-item-actions .btn { font-size: 0.625rem; padding: 4px 8px; }
+  .apply-config-content-box { font-size: 0.5625rem; min-height: 48px; }
 }
 
 /* ─── Reduced Motion ─── */
@@ -889,11 +936,15 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
         <div class="row">
           <div class="col">
             <label for="outputDirPath" data-t="apply.outputLabel" data-t-title="apply.outputTitle">Output folder path (leave empty to save next to .exe)</label>
-            <input type="text" id="outputDirPath" data-t-placeholder="apply.outputPlaceholder" data-t-title="apply.outputTitle" placeholder="e.g. E:\vpn\WG Configs\modified">
+            <div class="output-path-row">
+              <input type="text" id="outputDirPath" data-t-placeholder="apply.outputPlaceholder" data-t-title="apply.outputTitle" placeholder="e.g. E:\vpn\WG Configs\modified">
+              <button class="btn btn-secondary" id="browseOutputBtn" onclick="App.browseOutputFolder()" data-t="apply.browse" data-t-title="apply.browseTitle">Browse</button>
+            </div>
           </div>
         </div>
         <button class="btn btn-accent" id="applyBtn" onclick="App.handleApplyEndpoint()" disabled data-t="apply.generate" data-t-title="apply.generateTitle">Generate Configs</button>
         <div id="applyStatus" style="margin-top:10px"></div>
+        <div id="applyConfigsOutput" class="hidden" style="margin-top:10px"></div>
       </details>
     </div>
 
@@ -1317,6 +1368,11 @@ const App = (function() {
       'apply.configsTitle': 'Select .conf files to update with the new endpoint',
       'apply.outputTitle': 'Custom output folder (empty = next to .exe)',
       'apply.generateTitle': 'Generate modified config files with the new endpoint',
+      'apply.browse': 'Browse',
+      'apply.browseTitle': 'Browse for output folder',
+      'apply.browseFallback': 'Folder picker not available. Please type the path manually.',
+      'apply.outDirSelected': 'Output folder: {name}',
+      'apply.outDirUnsupported': 'Your browser does not support folder picking. Type the path manually or leave empty.',
       'results.copyAllTitle': 'Copy all working endpoints to clipboard',
       'results.downloadTitle': 'Download endpoints as a text file',
       'clean.vlessTitle': 'Paste a VLESS share URL for xray validation',
@@ -1380,6 +1436,11 @@ const App = (function() {
       'apply.chooseConfigs': 'انتخاب کانفیگ(ها)...', 'apply.nConfigs': '{n} کانفیگ انتخاب شد',
       'apply.outputLabel': 'پوشه خروجی (خالی بگذارید تا کنار exe ذخیره شود)',
       'apply.outputPlaceholder': 'مثال: E:\\vpn\\WG Configs\\modified',
+      'apply.browse': 'انتخاب پوشه',
+      'apply.browseTitle': 'انتخاب پوشه خروجی',
+      'apply.browseFallback': 'انتخاب پوشه در این مرورگر پشتیبانی نمی‌شود. لطفاً مسیر را دستی وارد کنید.',
+      'apply.outDirSelected': 'پوشه خروجی: {name}',
+      'apply.outDirUnsupported': 'مرورگر شما از انتخاب پوشه پشتیبانی نمی‌کند. مسیر را دستی وارد کنید یا خالی بگذارید.',
       'apply.generate': 'ساخت کانفیگ‌ها', 'apply.generating': 'در حال ساخت...',
       'apply.generated': '{s}/{t} کانفیگ ساخته شد',
       'help.header': 'دریافت کانفیگ واپ',
@@ -1572,6 +1633,7 @@ const App = (function() {
     endpoint: { jobId: null, statusTimer: null, resultsTimer: null, raw: [], sort: { field: 'num', dir: 'asc' } },
     clean: { jobId: null, statusTimer: null, resultsTimer: null, data: null, phase2: [], list: 'direct', sort: { field: 'latency', dir: 'asc' } },
     replacer: { configs: [], generated: [], method: 'url', sort: { field: 'num', dir: 'asc' } },
+    apply: { results: [], dirHandle: null },
     qr: null
   };
 
@@ -1993,31 +2055,95 @@ const App = (function() {
     showToast(t('copied.clipboard'));
   }
 
+  async function browseOutputFolder() {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      state.apply.dirHandle = handle;
+      $('#outputDirPath').value = t('apply.outDirSelected', { name: handle.name });
+      $('#outputDirPath').readOnly = true;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      showToast(t('apply.browseFallback'), true);
+    }
+  }
+
+  function renderApplyConfigItem(r, i) {
+    let html = '<div class="apply-config-item">';
+    html += '<div class="apply-config-item-header">';
+    html += '<span class="apply-config-item-name">' + r.name + '</span>';
+    html += '<div class="apply-config-item-actions">';
+    if (r.path) html += '<span style="font-size:0.625rem;color:var(--text-secondary)">' + r.path + '</span>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.copyApplyConfig(' + i + ')" data-t="results.copyAll" data-t-title="' + t('results.tableEndpoint') + '">' + t('results.copyAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.showApplyQR(' + i + ')" title="QR">QR</button>';
+    html += '</div></div>';
+    html += '<textarea class="apply-config-content-box" readonly spellcheck="false" onclick="this.select()">' + r.content + '</textarea>';
+    html += '</div>';
+    return html;
+  }
+
   async function handleApplyEndpoint() {
     const endpoint = applyEndpoint.value.trim();
     if (!endpoint || !applyConfigs.files.length) return;
     applyBtn.disabled = true;
     applyBtn.textContent = t('apply.generating');
     applyStatus.innerHTML = '';
+    $('#applyConfigsOutput').classList.add('hidden');
     const formData = new FormData();
     formData.append('endpoint', endpoint);
-    formData.append('output_dir', $('#outputDirPath').value.trim());
+    if (!state.apply.dirHandle) formData.append('output_dir', $('#outputDirPath').value.trim());
     for (const f of applyConfigs.files) formData.append('configs', f);
     try {
       const data = await apiJSON('/api/apply-endpoint', { method: 'POST', body: formData });
+      state.apply.results = data.results || [];
       let html = '<div class="success-msg">' + t('apply.generated', { s: data.saved, t: data.total }) + '</div>';
-      html += '<div class="results-table-wrap" style="margin-top:6px"><table class="results-table"><thead><tr><th>' + t('results.tableEndpoint') + '</th><th>' + t('results.tableNum') + '</th></tr></thead><tbody>';
-      data.results.forEach(r => {
-        if (r.error) html += '<tr><td>' + r.name + '</td><td style="color:var(--danger)">' + r.error + '</td></tr>';
-        else html += '<tr><td>' + r.name + '</td><td style="color:var(--success)">&#10003; ' + r.path + '</td></tr>';
-      });
-      html += '</tbody></table></div>';
+      const failed = state.apply.results.filter(r => r.error);
+      if (failed.length > 0) {
+        html += '<div style="margin-top:6px">';
+        failed.forEach(r => html += '<div class="error-msg" style="margin-top:4px">' + r.name + ': ' + r.error + '</div>');
+        html += '</div>';
+      }
       applyStatus.innerHTML = html;
+      const goodResults = state.apply.results.filter(r => !r.error);
+      if (goodResults.length > 0) {
+        let outHtml = '';
+        goodResults.forEach((r, i) => { outHtml += renderApplyConfigItem(r, i); });
+        $('#applyConfigsOutput').innerHTML = outHtml;
+        $('#applyConfigsOutput').classList.remove('hidden');
+        if (state.apply.dirHandle) {
+          saveFilesToDir(goodResults).catch(() => {});
+        }
+      }
     } catch (e) {
       applyStatus.innerHTML = '<div class="error-msg">' + e.message + '</div>';
     }
     applyBtn.disabled = false;
     applyBtn.textContent = t('apply.generate');
+  }
+
+  async function saveFilesToDir(results) {
+    const handle = state.apply.dirHandle;
+    if (!handle) return;
+    for (const r of results) {
+      try {
+        const fh = await handle.getFileHandle(r.name, { create: true });
+        const w = await fh.createWritable();
+        await w.write(r.content);
+        await w.close();
+      } catch (e) {
+        console.warn('Failed to write ' + r.name + ' via browser handle:', e);
+      }
+    }
+  }
+
+  function copyApplyConfig(i) {
+    const r = state.apply.results[i];
+    if (r && r.content) copyToClipboard(r.content);
+    showToast(t('copied.clipboard'));
+  }
+
+  function showApplyQR(i) {
+    const r = state.apply.results[i];
+    if (r && r.content) showQR(r.content);
   }
 
   function showError(msg) {
@@ -2646,6 +2772,8 @@ const App = (function() {
     selectReplacerMethod, replacerParse, replacerFetch, replacerGenerate,
     sortReplacer, replacerToggleAll, replacerSelectAll, replacerCopyAll, replacerDownload,
     showReplacerQR, showEndpointQR, showCleanQR, showQR, closeQR,
+    browseOutputFolder, copyApplyConfig, showApplyQR,
+    saveFilesToDir,
     copyToClipboard, // exposed for inline onclick handlers
     init
   };
