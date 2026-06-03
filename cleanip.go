@@ -42,6 +42,11 @@ var cfIPv4CIDRs = []string{
 	"131.0.72.0/22",
 }
 
+// CFCDNPorts is the official list of Cloudflare CDN-supported TCP ports.
+// HTTP:  80, 8080, 8880, 2052, 2082, 2086, 2095
+// HTTPS: 443, 8443, 2053, 2083, 2087, 2096
+var CFCDNPorts = []int{80, 443, 2052, 2053, 2082, 2083, 2086, 2087, 2095, 2096, 8080, 8443, 8880}
+
 var cfIPv6CIDRs = []string{
 	"2400:cb00:2049::/48",
 	"2400:cb00:f00e::/48",
@@ -192,9 +197,10 @@ func init() {
 	v6CIDRList = cfIPv6CIDRs
 }
 
-func (g *CleanIPGenerator) GenerateIPs(count int, useIPv4, useIPv6 bool, port int) []string {
-	endpoints := make([]string, 0, count)
-	seen := make(map[string]bool)
+func (g *CleanIPGenerator) GenerateIPs(count int, useIPv4, useIPv6 bool, ports []int) []string {
+	if len(ports) == 0 {
+		ports = []int{443}
+	}
 
 	v4Count, v6Count := 0, 0
 	switch {
@@ -207,7 +213,11 @@ func (g *CleanIPGenerator) GenerateIPs(count int, useIPv4, useIPv6 bool, port in
 		v6Count = count
 	}
 
-	for attempts := 0; len(endpoints) < v4Count && attempts < v4Count*20; attempts++ {
+	seen := make(map[string]bool)
+	v4IPs := make([]string, 0, v4Count)
+	v6IPs := make([]string, 0, v6Count)
+
+	for attempts := 0; len(v4IPs) < v4Count && attempts < v4Count*20; attempts++ {
 		idx := pickWeighted(g.rng, v4CIDRInfo, v4TotalWeight)
 		if idx < 0 {
 			break
@@ -220,19 +230,30 @@ func (g *CleanIPGenerator) GenerateIPs(count int, useIPv4, useIPv6 bool, port in
 			continue
 		}
 		seen[ip] = true
-		endpoints = append(endpoints, fmt.Sprintf("%s:%d", ip, port))
+		v4IPs = append(v4IPs, ip)
 	}
 
-	for attempts := 0; len(endpoints) < v4Count+v6Count && attempts < v6Count*20; attempts++ {
+	for attempts := 0; len(v6IPs) < v6Count && attempts < v6Count*20; attempts++ {
 		cidr := v6CIDRList[g.rng.Intn(len(v6CIDRList))]
 		ip := randomIPv6InCIDR(cidr, g.rng)
 		if seen[ip] {
 			continue
 		}
 		seen[ip] = true
-		endpoints = append(endpoints, fmt.Sprintf("[%s]:%d", ip, port))
+		v6IPs = append(v6IPs, ip)
 	}
 
+	endpoints := make([]string, 0, (len(v4IPs)+len(v6IPs))*len(ports))
+	for _, ip := range v4IPs {
+		for _, p := range ports {
+			endpoints = append(endpoints, fmt.Sprintf("%s:%d", ip, p))
+		}
+	}
+	for _, ip := range v6IPs {
+		for _, p := range ports {
+			endpoints = append(endpoints, fmt.Sprintf("[%s]:%d", ip, p))
+		}
+	}
 	return endpoints
 }
 
@@ -250,10 +271,15 @@ func pickWeighted(rng *rand.Rand, items []cidrInfo, totalWeight int) int {
 	return len(items) - 1
 }
 
-func generateNearbyIPs(working []CleanIPResult, countPerIP int, port int) []string {
+func generateNearbyIPs(working []CleanIPResult, countPerIP int, ports []int) []string {
+	if len(ports) == 0 {
+		ports = []int{443}
+	}
 	rng := rand.New(rand.NewSource(rand.Int63()))
 	seen := make(map[string]bool)
 	var result []string
+
+	maxResults := len(working) * countPerIP * len(ports)
 
 	for _, wr := range working {
 		ep := wr.Endpoint
@@ -279,10 +305,10 @@ func generateNearbyIPs(working []CleanIPResult, countPerIP int, port int) []stri
 			continue
 		}
 
-		if 		ip4 := ip.To4(); ip4 != nil {
+		if ip4 := ip.To4(); ip4 != nil {
 			// /24 subnet: x.y.z.0
 			base := uint32(ip4[0])<<24 | uint32(ip4[1])<<16 | uint32(ip4[2])<<8
-			for attempts := 0; len(result) < len(working)*countPerIP && attempts < countPerIP*50; attempts++ {
+			for attempts := 0; len(result) < maxResults && attempts < countPerIP*50; attempts++ {
 				offset := uint32(rng.Intn(256))
 				ipU32 := base | offset
 				s := fmt.Sprintf("%d.%d.%d.%d", byte(ipU32>>24), byte(ipU32>>16), byte(ipU32>>8), byte(ipU32))
@@ -290,14 +316,16 @@ func generateNearbyIPs(working []CleanIPResult, countPerIP int, port int) []stri
 					continue
 				}
 				seen[s] = true
-				result = append(result, fmt.Sprintf("%s:%d", s, port))
-				if len(result) >= len(working)*countPerIP {
+				for _, p := range ports {
+					result = append(result, fmt.Sprintf("%s:%d", s, p))
+				}
+				if len(result) >= maxResults {
 					return result
 				}
 			}
 		} else {
 			// IPv6 /64 subnet: randomize last 64 bits
-			for attempts := 0; len(result) < len(working)*countPerIP && attempts < countPerIP*50; attempts++ {
+			for attempts := 0; len(result) < maxResults && attempts < countPerIP*50; attempts++ {
 				out := make(net.IP, 16)
 				copy(out, ip)
 				// randomize bytes 8-15 (last 64 bits)
@@ -309,8 +337,10 @@ func generateNearbyIPs(working []CleanIPResult, countPerIP int, port int) []stri
 					continue
 				}
 				seen[s] = true
-				result = append(result, fmt.Sprintf("[%s]:%d", s, port))
-				if len(result) >= len(working)*countPerIP {
+				for _, p := range ports {
+					result = append(result, fmt.Sprintf("[%s]:%d", s, p))
+				}
+				if len(result) >= maxResults {
 					return result
 				}
 			}
@@ -361,6 +391,7 @@ type CleanIPJob struct {
 	NearbyCount       int
 	Phase1Probes      int
 	Phase2Probes      int
+	ScanPorts         []int
 	NearbyPhase1Results []CleanIPResult
 	NearbyPhase2Results []CleanIPResult
 	Cancel              chan struct{}
@@ -588,14 +619,15 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		if len(topForNearby) > 10 {
 			topForNearby = topForNearby[:10]
 		}
-		// determine port from first working result
-		port := 443
-		if len(topForNearby) > 0 {
+		// use job's selected ports for nearby scan
+		nearbyPorts := job.ScanPorts
+		if len(nearbyPorts) == 0 {
+			nearbyPorts = []int{443}
 			if cfg := job.Config; cfg != nil {
-				port = cfg.Port
+				nearbyPorts = []int{cfg.Port}
 			}
 		}
-		nearbyIPs := generateNearbyIPs(topForNearby, nearbyCount, port)
+		nearbyIPs := generateNearbyIPs(topForNearby, nearbyCount, nearbyPorts)
 		if len(nearbyIPs) > 0 {
 			job.mu.Lock()
 			savedPhase1Total := job.Phase1Total

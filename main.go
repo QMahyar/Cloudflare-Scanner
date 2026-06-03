@@ -7,6 +7,9 @@ import (
 	"runtime"
 )
 
+// Version is set at build time via -ldflags "-X main.Version=vX.Y.Z"
+var Version = "dev"
+
 func main() {
 	exePath, _ := os.Executable()
 	workDir := filepath.Dir(exePath)
@@ -33,7 +36,7 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("  ╔══════════════════════════════════════════════════════╗")
-	fmt.Println("  ║            Cloudflare Scanner v1.5                  ║")
+	fmt.Printf("  ║         Cloudflare Scanner %-25s║\n", Version)
 	fmt.Println("  ║    Open your browser to the URL below               ║")
 	fmt.Println("  ╚══════════════════════════════════════════════════════╝")
 	fmt.Println()

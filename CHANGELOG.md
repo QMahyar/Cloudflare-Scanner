@@ -1,0 +1,93 @@
+# Changelog
+
+All notable changes to Cloudflare Scanner are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+---
+
+## [Unreleased]
+
+---
+
+## [v2.0.0] — 2026-06-03
+
+### Added
+- **Port selection in IP Scanner** — choose which Cloudflare CDN ports to scan via a persistent checkbox grid
+  - Quick-select presets: **443 only**, **HTTPS (6)**, **HTTP (7)**, **All (13)**, **Config port** (reads port from VLESS URL)
+  - Supported ports: HTTP 80, 8080, 8880, 2052, 2082, 2086, 2095 · HTTPS 443, 8443, 2053, 2083, 2087, 2096
+  - Each IP is probed on every selected port (count × ports endpoints generated)
+  - Nearby scan honours the same port selection
+- **One-liner installers** for Linux, macOS, Windows (PowerShell), and Termux
+  - Auto-detect CPU architecture, download correct release, add to PATH
+- **Version injection** — binary reports its build version in the startup banner via `-ldflags`
+- **SHA256 checksums** — `checksums.txt` included in every GitHub Release
+- **Windows `.zip` archives** — Windows releases packaged as `.zip` in addition to `.tar.gz` for easier extraction
+
+### Changed
+- `GenerateIPs` refactored to accept `[]int` ports; separates unique-IP generation from endpoint building
+- `generateNearbyIPs` updated to probe all selected ports per nearby IP
+- `CleanIPJob` gains `ScanPorts []int` field
+- Release workflow: Go module cache, version ldflags, auto-generate changelog from git log
+- CI workflow: added `fail-fast: false`, `cache: true` on setup-go
+- `README.md` / `README.fa.md`: full rewrite with "What is this?", one-liner installs, feature table, full workflow guide
+- `termux-setup.sh`: install path moved to `~/.local/share/cloudflare-scanner`
+
+---
+
+## [v1.8.0] — 2026-06-03
+
+### Added
+- Mobile-responsive UI — tabs, tables, buttons scale to 360 px+ screens
+- Per-config output cards with copy button, QR code, and selectable textarea
+- Browse button for output folder (native `showDirectoryPicker` on Chromium)
+- Touch targets ≥44 px throughout
+
+### Changed
+- Persian RTL layout fixes on mobile viewports
+
+---
+
+## [v1.7.0] — 2026-06-02
+
+### Added
+- Full UI rewrite — IIFE module pattern, config usage toggles, TCP-only scan mode
+- Standardised IP Scanner layout: presets, buttons, and `OutCount` filter
+
+---
+
+## [v1.6.0] — 2026-06-01
+
+### Added
+- Nearby-scan feature — after Phase 1, expand around working IPs to find adjacent clean IPs
+- Subscription deduplication and cross-product config replacement in IP Replacer
+- Phase 2 probes selector (5/12/25/50/100 concurrent validators)
+
+### Fixed
+- Security: concurrency and resource-leak hardening (double-close on channels, goroutine leaks)
+- Path traversal guard on `apply-endpoint` output directory
+
+---
+
+## [v1.5.0] — 2026-05-30
+
+### Added
+- Two-phase clean IP scanning (TCP probe → xray-core validation)
+- VLESS/Trojan URL parser for Phase 2 validation
+- IP Replacer tab — fetch subscription, deduplicate, replace IP:port in bulk
+- xray process manager with SOCKS5 handshake verification
+
+### Changed
+- Endpoint generator expanded to 14 IPv4 prefixes, 4 IPv6 prefixes, 55 WARP ports
+- Bilingual UI (English + Persian/Farsi) with instant language switching
+
+---
+
+## [v1.0.0] — 2026-05-01
+
+### Added
+- Initial public release
+- Endpoint Scanner — parallel Warp WireGuard endpoint testing
+- UDP noise injection to evade DPI-based Warp blocking
+- Embedded web UI served on a random local port
+- Self-contained binary with bundled xray-core
+- Windows, Linux, macOS, Termux (Android) support

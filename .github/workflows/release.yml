@@ -6,84 +6,103 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number (e.g. 1.1.0)'
+        description: 'Version number — no "v" prefix (e.g. 2.1.0)'
         required: true
-      description:
-        description: 'Release notes (markdown)'
+      changelog:
+        description: "What's changed — markdown (leave empty to auto-generate from git log)"
         required: false
         default: ''
+
+env:
+  XRAY_VERSION: v1.8.24
 
 permissions:
   contents: write
 
 jobs:
   build:
+    name: Build ${{ matrix.platform }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
             goos: windows
             goarch: amd64
             ext: .exe
-            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-windows-64.zip
             xray_in: xray.exe
+            xray_zip: Xray-windows-64.zip
             platform: windows-amd64
 
           - os: windows-latest
             goos: windows
             goarch: arm64
             ext: .exe
-            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-windows-arm64-v8a.zip
             xray_in: xray.exe
+            xray_zip: Xray-windows-arm64-v8a.zip
             platform: windows-arm64
 
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
             ext: ""
-            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-linux-64.zip
             xray_in: xray
+            xray_zip: Xray-linux-64.zip
             platform: linux-amd64
 
           - os: ubuntu-latest
             goos: linux
             goarch: arm64
             ext: ""
-            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-linux-arm64-v8a.zip
             xray_in: xray
+            xray_zip: Xray-linux-arm64-v8a.zip
             platform: linux-arm64
 
           - os: ubuntu-latest
             goos: linux
             goarch: arm64
             ext: ""
-            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-android-arm64-v8a.zip
             xray_in: xray
+            xray_zip: Xray-android-arm64-v8a.zip
             platform: termux-arm64
 
           - os: macos-latest
             goos: darwin
             goarch: amd64
             ext: ""
-            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-macos-64.zip
             xray_in: xray
+            xray_zip: Xray-macos-64.zip
             platform: darwin-amd64
 
           - os: macos-latest
             goos: darwin
             goarch: arm64
             ext: ""
-            xray_url: https://github.com/XTLS/Xray-core/releases/download/v1.8.24/Xray-macos-arm64-v8a.zip
             xray_in: xray
+            xray_zip: Xray-macos-arm64-v8a.zip
             platform: darwin-arm64
 
     runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
+          cache: true
+
+      - name: Resolve version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Vet
         run: go vet ./...
@@ -92,7 +111,11 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
 
       - name: Build
-        run: go build -ldflags="-s -w" -o Cloudflare-Scanner${{ matrix.ext }} .
+        shell: bash
+        run: |
+          go build \
+            -ldflags="-s -w -X 'main.Version=${{ steps.ver.outputs.tag }}'" \
+            -o "Cloudflare-Scanner${{ matrix.ext }}" .
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
@@ -100,96 +123,164 @@ jobs:
       - name: Download xray-core
         shell: bash
         run: |
-          cd "$RUNNER_TEMP"
-          curl -sL "${{ matrix.xray_url }}" -o xray.zip
-          unzip -o xray.zip ${{ matrix.xray_in }}
-          mkdir -p "${{ github.workspace }}/xray-bin"
-          cp ${{ matrix.xray_in }} "${{ github.workspace }}/xray-bin/"
+          XRAY_URL="https://github.com/XTLS/Xray-core/releases/download/${{ env.XRAY_VERSION }}/${{ matrix.xray_zip }}"
+          curl -fsSL "$XRAY_URL" -o xray.zip
+          unzip -o xray.zip "${{ matrix.xray_in }}"
+          chmod +x "${{ matrix.xray_in }}" 2>/dev/null || true
 
       - name: Package
         shell: bash
         run: |
-          cd "${{ github.workspace }}"
-          tag="${{ github.ref_name }}"
-          [ "${{ github.event_name }}" = "workflow_dispatch" ] && tag="v${{ inputs.version }}"
-          cp xray-bin/${{ matrix.xray_in }} xray${{ matrix.ext }}
-          tar -czf "Cloudflare-Scanner-$tag-${{ matrix.platform }}.tar.gz" Cloudflare-Scanner${{ matrix.ext }} xray${{ matrix.ext }}
+          TAG="${{ steps.ver.outputs.tag }}"
+          PLAT="${{ matrix.platform }}"
+          APP="Cloudflare-Scanner${{ matrix.ext }}"
+          XRAY="${{ matrix.xray_in }}"
+
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            7z a "Cloudflare-Scanner-${TAG}-${PLAT}.zip" "$APP" "$XRAY"
+          else
+            tar -czf "Cloudflare-Scanner-${TAG}-${PLAT}.tar.gz" "$APP" "$XRAY"
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.platform }}
-          path: Cloudflare-Scanner-*.tar.gz
+          path: Cloudflare-Scanner-*
 
   release:
+    name: Publish Release
     needs: build
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
           pattern: build-*
           merge-multiple: true
 
-      - name: List artifacts
-        run: ls -la
-
-      - name: Generate release body
-        id: body
+      - name: Resolve version
+        id: ver
         shell: bash
         run: |
-          TAG="${{ github.ref_name }}"
-          [ "${{ github.event_name }}" = "workflow_dispatch" ] && TAG="v${{ inputs.version }}"
-          cat > release-body.md << EOF
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate checksums
+        run: |
+          sha256sum Cloudflare-Scanner-* | tee checksums.txt
+
+      - name: Generate changelog
+        id: changelog
+        shell: bash
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          MANUAL="${{ inputs.changelog }}"
+
+          if [ -n "$MANUAL" ]; then
+            echo "$MANUAL" > changelog.md
+          else
+            # Auto-generate from commits since the previous tag
+            PREV=$(git describe --abbrev=0 --tags HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)
+            {
+              echo "### Commits since $PREV"
+              echo ""
+              git log --pretty=format:"- %s" "$PREV..HEAD" | grep -v "^- docs:" | head -30
+            } > changelog.md
+          fi
+          cat changelog.md
+
+      - name: Generate release body
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+          XRAY: ${{ env.XRAY_VERSION }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 - << 'PYEOF'
+          import os, textwrap
+
+          tag  = os.environ['TAG']
+          xray = os.environ['XRAY']
+          repo = os.environ['REPO']
+          raw  = f"https://raw.githubusercontent.com/{repo}/master"
+
+          with open('changelog.md') as f:
+              changelog = f.read().strip()
+
+          body = textwrap.dedent(f"""\
           ## Downloads
 
-          Each archive includes the app binary + **xray-core v1.8.24** — nothing else to download.
+          Each archive includes **Cloudflare Scanner {tag}** + **xray-core {xray}** — no separate download needed.
 
-          | Platform | Arch | File |
-          |----------|------|------|
-          | 🪟 Windows | amd64 | \`Cloudflare-Scanner-${TAG}-windows-amd64.tar.gz\` |
-          | 🪟 Windows | arm64 | \`Cloudflare-Scanner-${TAG}-windows-arm64.tar.gz\` |
-          | 🐧 Linux | amd64 | \`Cloudflare-Scanner-${TAG}-linux-amd64.tar.gz\` |
-          | 🐧 Linux | arm64 | \`Cloudflare-Scanner-${TAG}-linux-arm64.tar.gz\` |
-          | 🍎 macOS (Intel) | amd64 | \`Cloudflare-Scanner-${TAG}-darwin-amd64.tar.gz\` |
-          | 🍎 macOS (Apple Silicon) | arm64 | \`Cloudflare-Scanner-${TAG}-darwin-arm64.tar.gz\` |
-          | 📱 Termux / Android | arm64 | \`Cloudflare-Scanner-${TAG}-termux-arm64.tar.gz\` |
+          | Platform | Architecture | File |
+          |----------|-------------|------|
+          | 🪟 Windows | x86-64 | `Cloudflare-Scanner-{tag}-windows-amd64.zip` |
+          | 🪟 Windows | ARM64 | `Cloudflare-Scanner-{tag}-windows-arm64.zip` |
+          | 🐧 Linux | x86-64 | `Cloudflare-Scanner-{tag}-linux-amd64.tar.gz` |
+          | 🐧 Linux | ARM64 / Raspberry Pi | `Cloudflare-Scanner-{tag}-linux-arm64.tar.gz` |
+          | 🍎 macOS | Intel (x86-64) | `Cloudflare-Scanner-{tag}-darwin-amd64.tar.gz` |
+          | 🍎 macOS | Apple Silicon | `Cloudflare-Scanner-{tag}-darwin-arm64.tar.gz` |
+          | 📱 Termux / Android | ARM64 | `Cloudflare-Scanner-{tag}-termux-arm64.tar.gz` |
 
-          ## Quick Start
+          ## One-Liner Install
 
-          | Platform | Command |
-          |----------|---------|
-          | **Windows** | Extract \`.tar.gz\`, double-click \`Cloudflare-Scanner.exe\` |
-          | **Linux / macOS** | \`tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner\` |
-          | **Termux** | \`curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh\` then \`scan\` |
+          ```powershell
+          # Windows (PowerShell — run as Administrator)
+          irm {raw}/scripts/install-windows.ps1 | iex
+          ```
+
+          ```sh
+          # Linux
+          curl -fsSL {raw}/scripts/install-linux.sh | sh
+
+          # macOS
+          curl -fsSL {raw}/scripts/install-macos.sh | sh
+
+          # Termux / Android
+          curl -fsSL {raw}/scripts/termux-setup.sh | sh
+          ```
+
+          ## Verify Downloads
+
+          ```sh
+          # Linux / macOS
+          sha256sum -c checksums.txt
+
+          # Windows (PowerShell)
+          Get-FileHash Cloudflare-Scanner-{tag}-windows-amd64.zip | Format-List
+          ```
 
           ## What's Changed
 
-          EOF
-          echo "**Full changelog:** https://github.com/QMahyar/Cloudflare-Scanner/releases" >> release-body.md
+          {changelog}
 
-      # ── Tag push ──
-      - name: Create Release (tag)
-        if: github.event_name != 'workflow_dispatch'
+          ---
+          **Full changelog:** https://github.com/{repo}/blob/master/CHANGELOG.md
+          """)
+
+          with open('release-body.md', 'w') as f:
+              f.write(body)
+          print("Release body generated.")
+          PYEOF
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Cloudflare Scanner ${{ github.ref_name }}
+          tag_name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Cloudflare Scanner ${{ steps.ver.outputs.tag }}
           body_path: release-body.md
-          files: Cloudflare-Scanner-*.tar.gz
+          files: |
+            Cloudflare-Scanner-*.zip
+            Cloudflare-Scanner-*.tar.gz
+            checksums.txt
           draft: false
           prerelease: false
-
-      # ── Manual dispatch ──
-      - name: Create Release (manual)
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          tag="v${{ inputs.version }}"
-          title="Cloudflare Scanner $tag"
-          cat release-body.md > final-body.md
-          if [ -n "${{ inputs.description }}" ]; then
-            echo "" >> final-body.md
-            echo "${{ inputs.description }}" >> final-body.md
-          fi
-          gh release create "$tag" --target "${{ github.sha }}" --title "$title" --notes-file final-body.md
-          gh release upload "$tag" Cloudflare-Scanner-*.tar.gz --clobber

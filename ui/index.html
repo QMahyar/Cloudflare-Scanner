@@ -286,6 +286,14 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
 .scan-desc { margin: var(--space-sm) 0 0; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: 0.75rem; line-height: 1.6; color: var(--text-secondary); }
 @media (min-width: 640px) { .toggle-label { font-size: 0.875rem; } }
 
+/* ─── Port selection grid ─── */
+.port-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.port-cb-label { display: flex; align-items: center; gap: 5px; padding: 4px 10px; background: var(--bg-input); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-secondary); cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s; user-select: none; }
+.port-cb-label:hover { border-color: var(--accent); color: var(--text-primary); }
+.port-cb-label:has(input:checked) { border-color: var(--accent); background: rgba(88,166,255,0.12); color: var(--accent); }
+.port-cb-label input[type=checkbox] { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
+.port-section-label { font-size: 0.6875rem; color: var(--text-secondary); margin: 8px 0 2px; }
+
 /* ─── Buttons ─── */
 .btn {
   padding: 10px 20px;
@@ -1085,6 +1093,35 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
           </select>
         </div>
       </div>
+      <div style="margin:var(--space-sm) 0 var(--space-sm)">
+        <label style="display:block;margin-bottom:6px" data-t="settings.portMode">Ports to scan</label>
+        <div class="preset-bar" id="portPresetBar" style="margin-bottom:10px">
+          <button class="preset-btn active" onclick="App.portPreset('443',this)" data-t="settings.portPreset443">443 only</button>
+          <button class="preset-btn" onclick="App.portPreset('https',this)" data-t="settings.portPresetHttps">HTTPS (6)</button>
+          <button class="preset-btn" onclick="App.portPreset('http',this)" data-t="settings.portPresetHttp">HTTP (7)</button>
+          <button class="preset-btn" onclick="App.portPreset('all',this)" data-t="settings.portPresetAll">All (13)</button>
+          <button class="preset-btn" onclick="App.portPreset('config',this)" data-t="settings.portPresetConfig">Config port</button>
+        </div>
+        <div class="port-section-label" data-t="settings.portHttps">HTTPS</div>
+        <div class="port-grid">
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="443" checked> 443</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="8443"> 8443</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="2053"> 2053</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="2083"> 2083</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="2087"> 2087</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="2096"> 2096</label>
+        </div>
+        <div class="port-section-label" data-t="settings.portHttp">HTTP</div>
+        <div class="port-grid">
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="80"> 80</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="8080"> 8080</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="8880"> 8880</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="2052"> 2052</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="2082"> 2082</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="2086"> 2086</label>
+          <label class="port-cb-label"><input type="checkbox" class="clean-port-cb" value="2095"> 2095</label>
+        </div>
+      </div>
       <div class="row">
         <div class="col">
           <div class="toggle-wrap">
@@ -1387,6 +1424,16 @@ const App = (function() {
       'clean.selectAllTitle': 'Select all endpoints for export',
       'clean.deselectAllTitle': 'Deselect all endpoints',
       'clean.exportTitle': 'Generate VLESS URLs with selected endpoints',
+      'settings.portMode': 'Ports to scan',
+      'settings.portModeTitle': 'Choose which Cloudflare ports to probe',
+      'settings.portPreset443': '443 only',
+      'settings.portPresetHttps': 'HTTPS (6)',
+      'settings.portPresetHttp': 'HTTP (7)',
+      'settings.portPresetAll': 'All (13)',
+      'settings.portPresetConfig': 'Config port',
+      'settings.portConfigNoURL': 'Enter a VLESS URL first',
+      'settings.portHttp': 'HTTP',
+      'settings.portHttps': 'HTTPS',
       'replacer.urlTitle': 'Enter a subscription URL to fetch configs from',
       'replacer.fetchTitle': 'Fetch, parse, and deduplicate the subscription',
       'replacer.pasteTitle': 'Paste vless:// or trojan:// URLs directly, one per line',
@@ -1562,6 +1609,16 @@ const App = (function() {
       'clean.selectAllTitle': 'انتخاب همه اندپوینت‌ها برای خروجی',
       'clean.deselectAllTitle': 'لغو انتخاب همه اندپوینت‌ها',
       'clean.exportTitle': 'ساخت لینک‌های VLESS با اندپوینت‌های انتخاب شده',
+      'settings.portMode': 'پورت‌های اسکن',
+      'settings.portModeTitle': 'انتخاب پورت‌های کلاودفلر برای اسکن',
+      'settings.portPreset443': 'فقط 443',
+      'settings.portPresetHttps': 'HTTPS (6)',
+      'settings.portPresetHttp': 'HTTP (7)',
+      'settings.portPresetAll': 'همه (۱۳)',
+      'settings.portPresetConfig': 'پورت کانفیگ',
+      'settings.portConfigNoURL': 'ابتدا لینک VLESS وارد کنید',
+      'settings.portHttp': 'HTTP',
+      'settings.portHttps': 'HTTPS',
       'replacer.urlTitle': 'لینک اشتراک را برای دریافت کانفیگ‌ها وارد کنید',
       'replacer.fetchTitle': 'دریافت، تجزیه و یکتا کردن اشتراک',
       'replacer.pasteTitle': 'لینک‌های vless:// یا trojan:// را مستقیم و یک خط در هر خط وارد کنید',
@@ -2221,6 +2278,8 @@ const App = (function() {
     const nearby = $('#nearbyScan').checked;
     const p1Probes = parseInt($('#phase1Probes').value);
     const p2Probes = parseInt($('#phase2Probes').value);
+    const portMode = $('#cleanPortMode') ? $('#cleanPortMode').value : 'custom';
+    const scanPorts = Array.from(document.querySelectorAll('.clean-port-cb:checked')).map(cb => parseInt(cb.value)).filter(Boolean);
 
     try {
       const data = await apiJSON('/api/clean-scan', {
@@ -2230,7 +2289,8 @@ const App = (function() {
           vless_url: vlessURL, count: depth,
           ipv4: ipVer === '4' || ipVer === '46', ipv6: ipVer === '6' || ipVer === '46',
           phase2_count: phase2, one_phase: onePhase, nearby_scan: nearby,
-          nearby_count: 10, phase1_probes: p1Probes, phase2_probes: p2Probes
+          nearby_count: 10, phase1_probes: p1Probes, phase2_probes: p2Probes,
+          port_mode: 'custom', ports: scanPorts.length ? scanPorts : [443]
         })
       });
       state.clean.jobId = data.id;
@@ -2787,6 +2847,31 @@ const App = (function() {
     sortEndpoint, copyAllEndpoints, downloadRaw, useEndpoint,
     selectAllEndpoint, copySelectedEndpoints, handleApplyEndpoint,
     startCleanScan, stopCleanScan, cleanRescan, cleanReset,
+    portPreset(mode, btn) {
+      const cbs = [...document.querySelectorAll('.clean-port-cb')];
+      const httpsSet = new Set([443, 8443, 2053, 2083, 2087, 2096]);
+      const httpSet  = new Set([80, 8080, 8880, 2052, 2082, 2086, 2095]);
+      if (mode === 'all') {
+        cbs.forEach(cb => cb.checked = true);
+      } else if (mode === 'https') {
+        cbs.forEach(cb => cb.checked = httpsSet.has(+cb.value));
+      } else if (mode === 'http') {
+        cbs.forEach(cb => cb.checked = httpSet.has(+cb.value));
+      } else if (mode === '443') {
+        cbs.forEach(cb => cb.checked = cb.value === '443');
+      } else if (mode === 'config') {
+        const url = ($('#vlessURL') || {value:''}).value.trim();
+        const m = url.match(/@[^@]+:(\d+)/);
+        if (!m) { showToast(t('settings.portConfigNoURL') || 'Enter a VLESS URL first', true); return; }
+        const port = +m[1];
+        const found = cbs.some(cb => +cb.value === port);
+        cbs.forEach(cb => cb.checked = +cb.value === port);
+        if (!found) showToast('Port ' + port + ' not in CF list — no match', true);
+      }
+      document.querySelectorAll('#portPresetBar .preset-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    },
+    updateCleanPortMode() {},
     switchCleanList, sortClean, copyCleanPhase1IPs, downloadCleanPhase1IPs,
     selectAllClean, copyCleanPhase2IPs, copyCleanSelectedIPs, exportCleanIPs,
     copyNearbyIPs, exportNearbyIPs, pushNearbyToReplacer, pushCleanToReplacer,

@@ -495,6 +495,7 @@ type cleanScanRequest struct {
 	NearbyCount  int    `json:"nearby_count"`
 	Phase1Probes int    `json:"phase1_probes"`
 	Phase2Probes int    `json:"phase2_probes"`
+	Ports        []int  `json:"ports"`
 }
 
 func handleCleanScanStart(xrayPath string) http.HandlerFunc {
@@ -515,7 +516,6 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 			return
 		}
 
-		port := 443
 		var cfg *ProxyConfig
 		if req.VLESSURL != "" {
 			var err error
@@ -524,7 +524,6 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 				jsonError(w, fmt.Sprintf("parse url: %v", err), 400)
 				return
 			}
-			port = cfg.Port
 		}
 
 		if req.Count <= 0 {
@@ -537,8 +536,19 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 			req.IPv4 = true
 		}
 
+		// Resolve scan ports — validate and default to 443
+		var scanPorts []int
+		for _, p := range req.Ports {
+			if p >= 1 && p <= 65535 {
+				scanPorts = append(scanPorts, p)
+			}
+		}
+		if len(scanPorts) == 0 {
+			scanPorts = []int{443}
+		}
+
 		gen := NewCleanIPGenerator()
-		endpoints := gen.GenerateIPs(req.Count, req.IPv4, req.IPv6, port)
+		endpoints := gen.GenerateIPs(req.Count, req.IPv4, req.IPv6, scanPorts)
 
 		cleanJobsMu.Lock()
 		cleanJobCounter++
@@ -557,6 +567,7 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 			NearbyCount:  req.NearbyCount,
 			Phase1Probes: req.Phase1Probes,
 			Phase2Probes: req.Phase2Probes,
+			ScanPorts:    scanPorts,
 			Cancel:       make(chan struct{}),
 		}
 

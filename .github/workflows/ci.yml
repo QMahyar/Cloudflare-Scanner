@@ -9,6 +9,7 @@ on:
 jobs:
   check:
     strategy:
+      fail-fast: false
       matrix:
         goos: [windows, linux, darwin]
         goarch: [amd64, arm64]
@@ -17,9 +18,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
+          cache: true
 
       - name: Vet
         run: go vet ./...
@@ -28,8 +31,6 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
 
       - name: Test
-        # Tests only run on the host architecture; cross-compiled tests
-        # would require the target runtime to be available.
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         run: go test ./...
 
