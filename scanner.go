@@ -25,6 +25,7 @@ type Scanner struct {
 	WorkDir     string
 	Concurrency int
 	Timeout     time.Duration
+	TCPOnly     bool
 	portCounter atomic.Int32
 }
 
@@ -44,6 +45,16 @@ func (s *Scanner) nextPort() int {
 }
 
 func (s *Scanner) testEndpoint(endpoint string) ScanResult {
+	if s.TCPOnly {
+		start := time.Now()
+		conn, err := net.DialTimeout("tcp", endpoint, s.Timeout)
+		if err != nil {
+			return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("tcp dial: %v", err)}
+		}
+		conn.Close()
+		return ScanResult{Endpoint: endpoint, Success: true, Latency: time.Since(start)}
+	}
+
 	socksPort := s.nextPort() + 10799
 
 	xm := &XrayManager{

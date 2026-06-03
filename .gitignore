@@ -22,3 +22,5 @@ WARPGermany.conf
 # Go workspace
 go.work
 go.work.sum
+
+dedup_test_data.txt

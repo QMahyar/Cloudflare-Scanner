@@ -101,26 +101,23 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 			return
 		}
 
+		var cfg *WarpConfig
 		file, _, err := r.FormFile("config")
-		if err != nil {
-			jsonError(w, "config file required", 400)
-			return
-		}
-		defer file.Close()
-
-		tmpFile, err := os.CreateTemp("", "warp-*.conf")
-		if err != nil {
-			jsonError(w, fmt.Sprintf("temp file: %v", err), 500)
-			return
-		}
-		defer os.Remove(tmpFile.Name())
-		io.Copy(tmpFile, file)
-		tmpFile.Close()
-
-		cfg, err := ParseWarpConfig(tmpFile.Name())
-		if err != nil {
-			jsonError(w, fmt.Sprintf("%v", err), 400)
-			return
+		if err == nil {
+			defer file.Close()
+			tmpFile, err := os.CreateTemp("", "warp-*.conf")
+			if err != nil {
+				jsonError(w, fmt.Sprintf("temp file: %v", err), 500)
+				return
+			}
+			defer os.Remove(tmpFile.Name())
+			io.Copy(tmpFile, file)
+			tmpFile.Close()
+			cfg, err = ParseWarpConfig(tmpFile.Name())
+			if err != nil {
+				jsonError(w, fmt.Sprintf("%v", err), 400)
+				return
+			}
 		}
 
 		var req scanRequest
@@ -177,6 +174,9 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 
 func runScan(job *ScanJob, xrayPath, workDir string) {
 	scanner := NewScanner(job.Config, job.Noise, xrayPath, workDir)
+	if job.Config == nil {
+		scanner.TCPOnly = true
+	}
 
 	var mu sync.Mutex
 	var results []ScanResult
