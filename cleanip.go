@@ -457,7 +457,14 @@ func runCleanPhase1TCP(endpoints []string, timeout time.Duration, cancel chan st
 		}(ep, i)
 	}
 
-	wg.Wait()
+done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
+
+	select {
+	case <-done:
+	case <-cancel:
+		// exit fast with partial results; in-flight goroutines drain in background
+	}
 
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Latency < results[j].Latency

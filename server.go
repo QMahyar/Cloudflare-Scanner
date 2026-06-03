@@ -223,15 +223,18 @@ func runScan(job *ScanJob, xrayPath, workDir string) {
 		}(ep, i)
 	}
 
-	wg.Wait()
+	done := make(chan struct{})
+	go func() { wg.Wait(); close(done) }()
 
 	select {
+	case <-done:
 	case <-job.Cancel:
 		job.mu.Lock()
 		job.Status = "cancelled"
+		job.Results = results
+		job.Progress = len(results)
 		job.mu.Unlock()
 		return
-	default:
 	}
 
 	sort.Slice(results, func(i, j int) bool {

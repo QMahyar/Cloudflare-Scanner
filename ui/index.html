@@ -1798,11 +1798,11 @@ const App = (function() {
 
   // ─── Tab Switching ───
   function switchTab(tab) {
-    ['endpoint', 'clean', 'replacer'].forEach(t => {
-      $(`#${t}Tab`).classList.toggle('hidden', t !== tab);
-      const btn = $(`#tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
-      btn.classList.toggle('active', t === tab);
-      btn.setAttribute('aria-selected', t === tab);
+    ['endpoint', 'clean', 'replacer'].forEach(name => {
+      $(`#${name}Tab`).classList.toggle('hidden', name !== tab);
+      const btn = $(`#tab${name.charAt(0).toUpperCase() + name.slice(1)}`);
+      btn.classList.toggle('active', name === tab);
+      btn.setAttribute('aria-selected', name === tab);
     });
     updateTabBadges();
   }
@@ -1941,6 +1941,9 @@ const App = (function() {
     stopBtn.disabled = false;
     rescanBtn.disabled = true;
     progressWrap.classList.add('active');
+    progressFill.style.width = '0%';
+    progressFill.classList.remove('cancelled');
+    progressText.textContent = t('scan.progressTemplate', { p: '0', t: '0' });
 
     const depth = $('#scanDepth');
     let count = parseInt(depth.value);
