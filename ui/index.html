@@ -333,23 +333,27 @@ details summary{list-style:none}details summary::-webkit-details-marker{display:
 
 <div id="cleanTab" class="hidden">
   <div class="card">
-    <h2 data-t="clean.header">Clean IP Scanner</h2>
-    <p class="desc" data-t="clean.desc">Scan Cloudflare IPs with your VLESS URL and find working proxies.</p>
+    <h2 data-t="config.header">Config</h2>
     <div class="row">
       <div class="col">
         <label data-t="clean.vlessLabel" data-t-title="clean.vlessTitle">VLESS share URL</label>
         <input type="text" id="vlessURL" data-t-placeholder="clean.vlessPlaceholder" data-t-title="clean.vlessTitle" placeholder="vless://uuid@host:port?...">
       </div>
     </div>
+  </div>
+
+  <div class="card">
+    <h2 data-t="settings.header">Settings</h2>
     <div class="row">
       <div class="col">
         <label data-t="settings.scanDepth" data-t-title="clean.depthTitle">Scan depth</label>
-        <input type="hidden" id="cleanDepth" value="1000">
+        <input type="hidden" id="cleanDepth" value="500">
         <div class="preset-bar" data-group="clean">
-          <button class="preset-btn" data-value="500" onclick="selectPreset(this)" data-t="clean.depth.fast">Fast (500)</button>
-          <button class="preset-btn active" data-value="1000" onclick="selectPreset(this)" data-t="clean.depth.normal">Normal (1K)</button>
-          <button class="preset-btn" data-value="2000" onclick="selectPreset(this)" data-t="clean.depth.deep">Deep (2K)</button>
-          <button class="preset-btn" data-value="10000" onclick="selectPreset(this)" data-t="clean.depth.massive">Massive (10K)</button>
+          <button class="preset-btn" data-value="100" onclick="selectPreset(this)" data-t="settings.depth.quick">Quick (100)</button>
+          <button class="preset-btn active" data-value="500" onclick="selectPreset(this)" data-t="settings.depth.normal">Normal (500)</button>
+          <button class="preset-btn" data-value="1000" onclick="selectPreset(this)" data-t="settings.depth.deep">Deep (1K)</button>
+          <button class="preset-btn" data-value="5000" onclick="selectPreset(this)" data-t="settings.depth.insane">Insane (5K)</button>
+          <button class="preset-btn" data-value="10000" onclick="selectPreset(this)" data-t="settings.depth.massive">Massive (10K)</button>
           <button class="preset-btn" data-value="0" onclick="selectPreset(this)" data-t="settings.depth.custom">Custom</button>
         </div>
         <div id="cleanCustomCountWrap" class="hidden" style="margin-top:6px">
@@ -367,7 +371,7 @@ details summary{list-style:none}details summary::-webkit-details-marker{display:
     </div>
     <div class="row">
       <div class="col" id="cleanPhase2Col">
-        <label data-t="clean.phase2Label" data-t-title="clean.phase2Title">Phase 2 probes</label>
+        <label data-t="clean.phase2Label" data-t-title="clean.phase2Title">Phase 2 count</label>
         <select id="cleanPhase2" data-t-title="clean.phase2Title">
           <option value="10">10</option>
           <option value="20" selected>20</option>
@@ -416,16 +420,31 @@ details summary{list-style:none}details summary::-webkit-details-marker{display:
         </select>
       </div>
     </div>
-    <div class="btn-bar" style="margin-top:6px">
-      <button class="btn btn-primary" id="cleanStartBtn" onclick="startCleanScan()" data-t="clean.start" data-t-title="clean.startTitle">Start Clean Scan</button>
-      <button class="btn btn-danger" id="cleanStopBtn" onclick="stopCleanScan()" disabled data-t="buttons.stop" data-t-title="clean.stopTitle">Stop</button>
+  </div>
+
+  <div class="btn-bar">
+    <button class="btn btn-primary" id="cleanStartBtn" onclick="startCleanScan()" data-t="clean.start" data-t-title="clean.startTitle">Start Clean Scan</button>
+    <button class="btn btn-danger" id="cleanStopBtn" onclick="stopCleanScan()" disabled data-t="buttons.stop" data-t-title="clean.stopTitle">Stop</button>
+    <button class="btn btn-secondary" id="cleanRescanBtn" onclick="cleanRescan()" disabled data-t="buttons.rescan" data-t-title="buttons.rescanTitle">Rescan</button>
+    <button class="btn btn-secondary" id="cleanResetBtn" onclick="cleanReset()" data-t="buttons.reset" data-t-title="buttons.resetTitle">Reset</button>
+  </div>
+
+  <div class="card" id="cleanResultsCard">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h2 style="margin:0" data-t="results.header">Results</h2>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="margin:0;font-size:11px;white-space:nowrap;color:#8b949e" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
+        <input type="text" id="cleanOutCount" data-t-title="settings.outCountTitle" value="0" style="width:56px;padding:3px 6px;min-height:26px;font-size:11px;background:#21262d;border:1px solid #30363d;border-radius:4px;color:#e6edf3;outline:none;transition:.2s var(--ease);text-align:center">
+      </div>
     </div>
+
     <div class="progress-wrap" id="cleanProgressWrap">
       <div class="progress-bar">
         <div class="progress-fill" id="cleanProgressFill"></div>
       </div>
       <div class="progress-text" id="cleanProgressText" data-t="clean.progressPhase1">Phase 1: TCP probe - 0 / 0</div>
     </div>
+
     <div id="cleanListBar" class="btn-bar hidden" style="margin-top:10px;margin-bottom:4px">
       <button class="btn btn-sm method-btn active" id="cleanListDirect" onclick="switchCleanList('direct')" data-t="clean.listDirect">Direct</button>
       <button class="btn btn-sm method-btn" id="cleanListNearby" onclick="switchCleanList('nearby')" data-t="clean.listNearby">Nearby <span id="nearbyCount" style="color:#8b949e;font-size:10px"></span></button>
@@ -524,13 +543,6 @@ const TR = {
     'config.choose': 'Choose config...',
     'settings.header': 'Settings',
     'settings.scanDepth': 'Scan depth',
-    'settings.depth.quick': 'Quick (100 endpoints)',
-    'settings.depth.normal': 'Normal (500 endpoints)',
-    'settings.depth.deep': 'Deep (1000 endpoints)',
-    'settings.depth.insane': 'Insane (5000 endpoints)',
-    'settings.depth.massive': 'Massive (10000 endpoints)',
-    'settings.depth.absolutelyInsane': 'Absolutely Insane (50000 endpoints)',
-    'settings.depth.custom': 'Custom',
     'settings.customPlaceholder': 'Enter count',
     'settings.ipVersion': 'IP version',
     'settings.ipv4': 'IPv4 only',
@@ -607,11 +619,11 @@ const TR = {
     'clean.desc': 'Scan Cloudflare IPs with your VLESS URL and find working proxies.',
     'clean.vlessLabel': 'VLESS share URL',
     'clean.vlessPlaceholder': 'vless://uuid@host:port?...',
-    'clean.depth.fast': 'Fast (500 IPs)',
-    'clean.depth.normal': 'Normal (1000 IPs)',
-    'clean.depth.deep': 'Deep (2000 IPs)',
-    'clean.depth.max': 'Max (5000 IPs)',
-    'clean.depth.massive': 'Massive (10000 IPs)',
+    'settings.depth.quick': 'Quick (100 endpoints)',
+    'settings.depth.normal': 'Normal (500 endpoints)',
+    'settings.depth.deep': 'Deep (1000 endpoints)',
+    'settings.depth.insane': 'Insane (5000 endpoints)',
+    'settings.depth.massive': 'Massive (10000 endpoints)',
     'clean.phase2Label': 'Phase 2 count',
     'clean.nearby': 'Scan nearby ranges',
     'clean.probesLabel': 'Phase 1 probes',
@@ -1004,6 +1016,12 @@ function showEndpointQR() {
   if (!allText) return;
   showQR(allText);
 }
+function showCleanQR() {
+  if (!lastCleanData || !lastCleanData.entries) return;
+  const allText = lastCleanData.entries.map(r => r.endpoint).join('\n');
+  if (!allText) return;
+  showQR(allText);
+}
 function pushCleanToReplacer() {
   const selected = [];
   document.querySelectorAll('.clean-select:checked').forEach(cb => selected.push(cb.value));
@@ -1172,6 +1190,12 @@ function sortEntries(entries, field, dir) {
 function sortIcon(field, state) {
   if (state.field !== field) return '';
   return '<span class="sort-icon">' + (state.dir === 'asc' ? '▲' : '▼') + '</span>';
+}
+
+function latClass(ms) {
+  const v = parseLatency(ms);
+  if (v === Infinity) return '';
+  return v < 100 ? 'latency-fast' : v < 200 ? 'latency-medium' : 'latency-slow';
 }
 
 // ── Utility ──
@@ -1353,18 +1377,16 @@ function renderResultsTable(data, jobId, isLive) {
   html += '<th class="sortable" onclick="sortEndpoint(\'num\')">' + t('results.tableNum') + sortIcon('num', endpointSort) + '</th>';
   html += '<th class="sortable" onclick="sortEndpoint(\'endpoint\')">' + t('results.tableEndpoint') + sortIcon('endpoint', endpointSort) + '</th>';
   html += '<th class="sortable" onclick="sortEndpoint(\'latency\')">' + t('results.tableLatency') + sortIcon('latency', endpointSort) + '</th>';
-  html += '<th></th></tr>';
-  function latClass(ms) {
-    const v = parseLatency(ms);
-    if (v === Infinity) return '';
-    return v < 100 ? 'latency-fast' : v < 200 ? 'latency-medium' : 'latency-slow';
-  }
+  html += '<th></th>';
+  if (!isLive) html += '<th class="checkbox-cell"></th>';
+  html += '</tr>';
   sorted.forEach((e, i) => {
     const ep = e.endpoint;
     html += '<tr><td class="num">' + (i+1) + '</td>';
     html += '<td><span class="tag" onclick="copyToClipboard(\'' + escapeEp(ep) + '\')" title="' + t('results.tableEndpoint') + '">' + ep + '</span></td>';
     html += '<td class="' + latClass(e.latency) + '">' + e.latency + '</td>';
     html += '<td><button class="btn btn-secondary btn-sm" onclick="useEndpoint(\'' + escapeEp(ep) + '\')" title="' + t('results.tableUse') + '">' + t('results.tableUse') + '</button></td>';
+    if (!isLive) html += '<td class="checkbox-cell"><input type="checkbox" class="endpoint-select" value="' + escapeEp(ep) + '"></td>';
     html += '</tr>';
   });
   html += '</table></div>';
@@ -1374,6 +1396,9 @@ function renderResultsTable(data, jobId, isLive) {
     html += '<button class="btn btn-secondary btn-sm" onclick="copyAllEndpoints(\'' + jobId + '\')" title="' + t('results.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
     html += '<button class="btn btn-secondary btn-sm" onclick="downloadRaw(\'' + jobId + '\')" title="' + t('results.downloadTitle') + '">' + t('results.downloadRaw') + '</button>';
     html += '<button class="btn btn-secondary btn-sm" onclick="showEndpointQR()" title="QR">QR</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="copySelectedEndpoints()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="selectAllEndpoint(true)">' + t('clean.selectAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="selectAllEndpoint(false)">' + t('clean.deselectAll') + '</button>';
     html += '</div>';
     const label = data.status === 'cancelled' ? t('results.scanCancelled') : t('results.found', { n: data.total, s: data.scanned });
     html += '<div class="' + (data.status === 'cancelled' ? 'error-msg' : 'success-msg') + '">' + label + '</div>';
@@ -1436,6 +1461,23 @@ async function downloadRaw(jobId) {
   a.download = 'warp_endpoints.txt';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function selectAllEndpoint(select) {
+  document.querySelectorAll('.endpoint-select').forEach(cb => cb.checked = select);
+}
+
+function copySelectedEndpoints() {
+  const selected = [];
+  document.querySelectorAll('.endpoint-select:checked').forEach(cb => {
+    selected.push(cb.value);
+  });
+  if (selected.length === 0) {
+    showToast(t('clean.errNoSelection'));
+    return;
+  }
+  copyToClipboard(selected.join('\n'));
+  showToast(t('copied.clipboard'));
 }
 
 async function handleApplyEndpoint() {
@@ -1516,9 +1558,11 @@ async function startCleanScan() {
 
   const startBtn = document.getElementById('cleanStartBtn');
   const stopBtn = document.getElementById('cleanStopBtn');
+  const rescanBtn = document.getElementById('cleanRescanBtn');
   startBtn.disabled = true;
   startBtn.textContent = t('clean.scanning');
   stopBtn.disabled = false;
+  rescanBtn.disabled = true;
 
   const progressWrap = document.getElementById('cleanProgressWrap');
   progressWrap.classList.add('active');
@@ -1575,6 +1619,35 @@ async function stopCleanScan() {
   } catch (e) {}
 }
 
+function cleanRescan() {
+  startCleanScan();
+}
+
+function cleanReset() {
+  if (cleanStatusInterval) clearInterval(cleanStatusInterval);
+  if (cleanResultsInterval) clearInterval(cleanResultsInterval);
+  cleanStatusInterval = null;
+  cleanResultsInterval = null;
+  cleanJobId = null;
+  lastCleanData = null;
+  cleanPhase2Entries = [];
+  document.getElementById('cleanResultsContent').classList.add('hidden');
+  document.getElementById('cleanResultsContent').innerHTML = '';
+  document.getElementById('cleanResultsNearby').classList.add('hidden');
+  document.getElementById('cleanResultsNearby').innerHTML = '';
+  document.getElementById('cleanListBar').classList.add('hidden');
+  document.getElementById('cleanStatusMsg').innerHTML = '';
+  document.getElementById('cleanProgressWrap').classList.remove('active');
+  document.getElementById('cleanProgressFill').style.width = '0%';
+  document.getElementById('cleanProgressFill').classList.remove('cancelled');
+  document.getElementById('cleanProgressText').textContent = t('clean.progressPhase1', { p: '0', t: '0' });
+  document.getElementById('cleanStartBtn').disabled = false;
+  document.getElementById('cleanStartBtn').textContent = t('clean.start');
+  document.getElementById('cleanStopBtn').disabled = true;
+  document.getElementById('cleanRescanBtn').disabled = true;
+  updateTabBadges();
+}
+
 function pollCleanStatus(jobId) {
   if (cleanStatusInterval) clearInterval(cleanStatusInterval);
   cleanStatusInterval = setInterval(async () => {
@@ -1609,6 +1682,7 @@ function pollCleanStatus(jobId) {
         document.getElementById('cleanStartBtn').disabled = false;
         document.getElementById('cleanStartBtn').textContent = t('clean.start');
         document.getElementById('cleanStopBtn').disabled = true;
+        document.getElementById('cleanRescanBtn').disabled = false;
       }
     } catch (e) {
       clearInterval(cleanStatusInterval);
@@ -1623,11 +1697,6 @@ document.getElementById('onePhaseClean').addEventListener('change', function() {
 
 function renderCleanResultsTable(data) {
   const sorted = sortEntries(data.entries, cleanSort.field, cleanSort.dir);
-  function latClass(ms) {
-    const v = parseLatency(ms);
-    if (v === Infinity) return '';
-    return v < 100 ? 'latency-fast' : v < 200 ? 'latency-medium' : 'latency-slow';
-  }
   let html = '<div class="results-table-wrap"><table class="results-table">';
   html += '<tr>';
   html += '<th class="sortable" onclick="sortClean(\'num\')">' + t('results.tableNum') + sortIcon('num', cleanSort) + '</th>';
@@ -1668,6 +1737,9 @@ function renderCleanResultsComplete(data) {
   const listBar = document.getElementById('cleanListBar');
   const statusMsg = document.getElementById('cleanStatusMsg');
   const nearbyEntries = data.nearby_entries || [];
+  const outCountEl = document.getElementById('cleanOutCount');
+  let outLimit = parseInt(outCountEl ? outCountEl.value : '0');
+  if (isNaN(outLimit) || outLimit <= 0) outLimit = Infinity;
 
   // Show/hide list switching bar
   if (nearbyEntries.length > 0) {
@@ -1693,9 +1765,9 @@ function renderCleanResultsComplete(data) {
       nearbyHtml = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundNearbyPhase2', { n: nearbyEntries.length, s: data.scanned }) + '</div>';
       nearbyHtml += renderCleanResultsTable(nearbyData);
       nearbyHtml += '<div class="results-actions">';
-      nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="exportNearbyIPs()">' + t('clean.export') + '</button>';
+      nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="copyNearbyIPs()" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
+      nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="exportNearbyIPs()">' + t('clean.export') + '</button>';
       nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="pushNearbyToReplacer()">Push to Replacer</button>';
-      nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="copyNearbyIPs()" title="' + t('clean.copyAllTitle') + '">' + t('clean.copyAll') + '</button>';
       nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(true)">' + t('clean.selectAll') + '</button>';
       nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
       nearbyHtml += '</div>';
@@ -1712,9 +1784,15 @@ function renderCleanResultsComplete(data) {
     return;
   }
 
+  // Apply outCount filter
+  const filteredData = { ...data };
+  if (Number.isFinite(outLimit) && data.entries.length > outLimit) {
+    filteredData.entries = data.entries.slice(0, outLimit);
+  }
+
   let html = '';
   if (data.phase === 'phase1') {
-    html = renderCleanResultsTable(data);
+    html = renderCleanResultsTable(filteredData);
     if (data.status === 'done' || data.status === 'cancelled') {
       const isCancelled = data.status === 'cancelled';
       html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + '" style="margin-top:6px">' +
@@ -1723,18 +1801,21 @@ function renderCleanResultsComplete(data) {
       html += '<div class="results-actions">';
       html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanPhase1IPs(\'' + (cleanJobId || '') + '\')">' + t('results.copyAll') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="downloadCleanPhase1IPs(\'' + (cleanJobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="showCleanQR()" title="QR">QR</button>';
       html += '</div>';
     }
   } else {
     html = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundPhase2', { n: data.total, s: data.scanned }) + '</div>';
-    html += renderCleanResultsTable(data);
+    html += renderCleanResultsTable(filteredData);
     html += '<div class="results-actions">';
+    html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanPhase2IPs()" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="downloadCleanPhase1IPs(\'' + (cleanJobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="showCleanQR()" title="QR">QR</button>';
     html += '<button class="btn btn-accent btn-sm" onclick="exportCleanIPs()">' + t('clean.export') + '</button>';
     html += '<button class="btn btn-accent btn-sm" onclick="pushCleanToReplacer()">Push to Replacer</button>';
-    html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanPhase2IPs()" title="' + t('clean.copyAllTitle') + '">' + t('clean.copyAll') + '</button>';
-    html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
     html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(true)">' + t('clean.selectAll') + '</button>';
     html += '<button class="btn btn-secondary btn-sm" onclick="selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
     html += '</div>';
   }
 
