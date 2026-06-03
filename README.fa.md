@@ -2,250 +2,119 @@
 
 **ابزار سه‌دریکراس‌پلتفرم** — اسکن اندپوینت‌های واپ، پیدا کردن آی‌پی‌های پروکسی تمیز کلاودفلر، و جایگزینی IP:port در کانفیگ‌های اشتراک.
 
+[![آخرین نسخه](https://img.shields.io/github/v/release/QMahyar/Cloudflare-Scanner?label=version&style=flat-square)](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest)
+[![دانلودها](https://img.shields.io/github/downloads/QMahyar/Cloudflare-Scanner/total?style=flat-square)](https://github.com/QMahyar/Cloudflare-Scanner/releases)
+[![لایسنس](https://img.shields.io/github/license/QMahyar/Cloudflare-Scanner?style=flat-square)](LICENSE)
+
 > ## 🌐 English Version
 >
-> [**View English README.md**](README.md) — Complete English documentation with table of contents, per-OS installation guides, step-by-step workflow.
+> [**View English README.md**](README.md) — Complete English documentation.
 >
 > [All English docs](docs/index.md)
 
 ---
 
-## فهرست مطالب
+## دانلود
 
-| # | بخش | توضیح |
-|---|---|---|
-| ۱ | [شروع سریع](#شروع-سریع) | دانلود، extract، اجرا — ۱۰ ثانیه |
-| ۲ | [راهنمای سیستم‌عامل‌ها](#راهنمای-سیستم‌عامل‌ها) | راهنمای گام‌به‌گام برای هر سیستم‌عامل |
-| ۳ | [سه ابزار](#سه-ابزار) | هر برگه چه کاری انجام می‌دهد |
-| ۴ | [مسیر گام‌به‌گام: از صفر تا صد](#مسیر-گام‌به‌گام-از-صفر-تا-صد) | راهنمای کامل از مبتدی تا پیشرفته |
-| ۵ | [مستندات](#مستندات) | همه راهنماها، سوالات متداول، عیب‌یابی |
-| ۶ | [ویژگی‌ها](#ویژگی‌ها) | چه چیزی این برنامه را متفاوت می‌کند |
-| ۷ | [دریافت کانفیگ واپ](#دریافت-کانفیگ-واپ) | از کجا کانفیگ WireGuard بگیریم |
-| ۸ | [کامپایل از سورس](#کامپایل-از-سورس) | خودتان کامپایل کنید |
+| پلتفرم | معماری | دانلود |
+|--------|--------|--------|
+| 🪟 ویندوز | amd64 | [`Cloudflare-Scanner-*-windows-amd64.tar.gz`](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest) |
+| 🪟 ویندوز | arm64 | [`Cloudflare-Scanner-*-windows-arm64.tar.gz`](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest) |
+| 🐧 لینوکس | amd64 | [`Cloudflare-Scanner-*-linux-amd64.tar.gz`](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest) |
+| 🐧 لینوکس | arm64 | [`Cloudflare-Scanner-*-linux-arm64.tar.gz`](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest) |
+| 🍎 مک (Intel) | amd64 | [`Cloudflare-Scanner-*-darwin-amd64.tar.gz`](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest) |
+| 🍎 مک (Apple Silicon) | arm64 | [`Cloudflare-Scanner-*-darwin-arm64.tar.gz`](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest) |
+| 📱 Termux / اندروید | arm64 | [`Cloudflare-Scanner-*-termux-arm64.tar.gz`](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest) |
+
+همراه با **xray-core v1.8.24** — نیاز به دانلود جداگانه نیست.
 
 ---
 
 ## شروع سریع
 
-۱. آخرین [ریلیز](https://github.com/QMahyar/Cloudflare-Scanner/releases) مخصوص پلتفرم خود را دانلود کنید
-۲. extract و اجرا کنید:
-
 | پلتفرم | دستور |
-|---|---|
-| ویندوز | فایل `.tar.gz` را extract کنید، روی `Cloudflare-Scanner.exe` دوبار کلیک کنید |
-| لینوکس / مک | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
-| Termux | `curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh \| sh` سپس تایپ کنید `scan` |
+|--------|-------|
+| **ویندوز** | فایل `.tar.gz` را extract کنید، روی `Cloudflare-Scanner.exe` دوبار کلیک کنید |
+| **لینوکس / مک** | `tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner` |
+| **Termux** | `curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh \| sh` سپس `scan` |
 
-۳. یک برگه مرورگر در `http://127.0.0.1:XXXXX` باز می‌شود
-۴. برای بستن **Ctrl+C** بزنید
-
-xray-core نسخه v1.8.24 همراه برنامه است.
+۱. یک برگه مرورگر در `http://127.0.0.1:XXXXX` باز می‌شود
+۲. فایل `.conf` واپ را آپلود کنید → **Start Scan** → سریع‌ترین اندپوینت را انتخاب کنید
+۳. **Ctrl+C** برای بستن
 
 ---
 
 ## راهنمای سیستم‌عامل‌ها
 
-راهنمای دقیق نصب برای هر سیستم‌عامل. سیستم‌عامل خود را انتخاب کنید.
+<details>
+<summary><strong>ویندوز</strong> — extract، اجرا، فایروال</summary>
 
-### ویندوز
+- **Extract**: روی `.tar.gz` راست کلیک → **Extract All** یا `tar.exe -xzf Cloudflare-Scanner-*-windows-amd64.tar.gz`
+- **اجرا**: روی `Cloudflare-Scanner.exe` دوبار کلیک کنید
+- **فایروال**: **Allow** را بزنید
+- **عیب‌یابی**: آنتی‌ویروس ممکن است `xray.exe` را بلاک کند — استثنا بگذارید. با Administrator اجرا کنید.
+</details>
 
-**قدم ۱ — Extract**
-- روی فایل `.tar.gz` راست کلیک کنید → **Extract All** (با 7-Zip) یا اجرا کنید: `tar.exe -xzf Cloudflare-Scanner-*-windows-amd64.tar.gz`
+<details>
+<summary><strong>لینوکس</strong> — پیش‌نیازها، extract، اجرا</summary>
 
-**قدم ۲ — اجرا**
-- پوشه extract شده را باز کنید، روی `Cloudflare-Scanner.exe` دوبار کلیک کنید
-
-**قدم ۳ — استفاده**
-- یک برگه مرورگر در `http://127.0.0.1:XXXXX` باز می‌شود. اگر باز نشد، خروجی ترمینال را چک کنید.
-
-**فایروال**: ویندوز ممکن است اجازه شبکه بخواهد — **Allow** را بزنید.
-
-**عیب‌یابی**:
-- آنتی‌ویروس ممکن است `xray.exe` را مسدود کند — برای پوشه برنامه استثنا بگذارید
-- اگر پورت اسکن مسدود است، با Administrator اجرا کنید
-
----
-
-### لینوکس
-
-**قدم ۱ — نصب پیش‌نیازها**
 ```bash
-# Debian / Ubuntu
-sudo apt install xdg-utils tar
+# پیش‌نیازها
+sudo apt install xdg-utils tar   # Debian/Ubuntu
+sudo dnf install xdg-utils tar   # Fedora
+sudo pacman -S xdg-utils tar     # Arch
 
-# Fedora
-sudo dnf install xdg-utils tar
-
-# Arch
-sudo pacman -S xdg-utils tar
-```
-
-**قدم ۲ — Extract**
-```bash
+# Extract و اجرا
 tar -xzf Cloudflare-Scanner-*-linux-amd64.tar.gz
 cd Cloudflare-Scanner-*-linux-amd64
-```
-
-**قدم ۳ — قابل اجرا کردن**
-```bash
 chmod +x Cloudflare-Scanner xray
-```
-
-**قدم ۴ — اجرا**
-```bash
 ./Cloudflare-Scanner
 ```
 
-**عیب‌یابی**:
-- اگر مرورگر باز نشد، `xdg-utils` را نصب کنید (بالا) یا آدرس را دستی باز کنید
-- در ARM/ARM64 (Raspberry Pi و غیره) از فایل `*-linux-arm64.tar.gz` استفاده کنید
+**ARM/ARM64** (Raspberry Pi): از `*-linux-arm64.tar.gz` استفاده کنید.
+</details>
 
----
+<details>
+<summary><strong>مک</strong> — extract، اجرا، Gatekeeper</summary>
 
-### مک
-
-**قدم ۱ — Extract**
 ```bash
 tar -xzf Cloudflare-Scanner-*-darwin-amd64.tar.gz
 cd Cloudflare-Scanner-*-darwin-amd64
-```
-
-**قدم ۲ — قابل اجرا کردن**
-```bash
 chmod +x Cloudflare-Scanner xray
-```
-
-**قدم ۳ — اجرا**
-```bash
 ./Cloudflare-Scanner
 ```
 
-**Apple Silicon (M1/M2/M3/M4)**: از فایل `*-darwin-arm64.tar.gz` استفاده کنید.
+**Apple Silicon**: از `*-darwin-arm64.tar.gz` استفاده کنید.
 
-**عیب‌یابی**:
-- **خطای "xray cannot be opened because the developer cannot be verified"** — به **System Settings → Privacy & Security** بروید و **Open Anyway** را بزنید، یا اجرا کنید: `xattr -d com.apple.quarantine xray`
-- Gatekeeper ممکن است برنامه را مسدود کند — راست کلیک کنید → **Open**
+**Gatekeeper**: اگر مسدود شد، به **System Settings → Privacy & Security → Open Anyway** بروید یا:
+```bash
+xattr -d com.apple.quarantine xray
+```
+</details>
 
----
+<details>
+<summary><strong>Termux / اندروید</strong> — نصب یک خطی</summary>
 
-### Termux / اندروید
-
-**قدم ۱ — نصب با یک خط**
 ```bash
 curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh
-```
-
-**قدم ۲ — اجرا**
-```bash
 scan
 ```
 
-**قدم ۳ — مرورگر auto باز می‌شود** با `termux-open-url`.
-
-**نکات**:
-- بسته اضافی نیاز نیست — همه چیز خودکفاست
+- بسته اضافی نیاز نیست
 - دستور `scan` بعد از بستن Termux هم می‌ماند
-- برای به‌روزرسانی: دوباره دستور یک خطی را اجرا کنید
-- برای حذف: `rm -rf ~/cloudflare-scanner && sed -i '/alias scan=/d' ~/.bashrc`
-
-**عیب‌یابی**:
-- **"command not found: scan"** — اجرا کنید `source ~/.bashrc` یا Termux را restart کنید
-- **مرورگر باز نشد** — خروجی ترمینال را برای `Web UI: http://127.0.0.1:XXXXX` چک کنید و دستی باز کنید
+- به‌روزرسانی: دوباره دستور یک خطی را اجرا کنید
+- حذف: `rm -rf ~/cloudflare-scanner && sed -i '/alias scan=/d' ~/.bashrc`
+</details>
 
 ---
 
 ## سه ابزار
 
 | ابزار | عملکرد | زمان استفاده |
-|---|---|---|
-| **اسکنر اندپوینت** | اندپوینت‌های واپ WireGuard را با فایل `.conf` شما تست می‌کند | به یک اندپوینت واپ working نیاز دارید |
-| **اسکنر آی‌پی (تمیز)** | محدوده آی‌پی‌های کلاودفلر را برای پروکسی‌های تمیز با VLESS/Trojan اسکن می‌کند | به آی‌پی‌های تمیز کلاودفلر برای v2ray، Nekobox، Sing-box نیاز دارید |
-| **جایگزین آی‌پی** | IP:port را در کانفیگ‌های اشتراک با اندپوینت‌های تمیز جایگزین می‌کند | کانفیگ‌های قدیمی دارید و می‌خواهید آی‌پی‌های تازه را جایگزین کنید |
-
----
-
-## مسیر گام‌به‌گام: از صفر تا صد
-
-راهنمای کامل برای کاربران جدید. مراحل را به ترتیب دنبال کنید.
-
-### فاز ۱: اولین اسکن
-
-| مرحله | چه کاری | کجا |
-|---|---|---|
-| ۱ | یک فایل WireGuard `.conf` واپ بگیرید | [دریافت کانفیگ واپ](#دریافت-کانفیگ-واپ) |
-| ۲ | برنامه را باز کنید (ببینید [شروع سریع](#شروع-سریع) یا [راهنمای سیستم‌عامل‌ها](#راهنمای-سیستم‌عامل‌ها)) | ترمینال → مرورگر در `http://127.0.0.1:XXXXX` |
-| ۳ | در صورت نیاز زبان را تغییر دهید | دکمه **English** در گوشه بالا-راست |
-| ۴ | به برگه **Endpoint Scanner** بروید | اولین برگه در رابط وب |
-| ۵ | فایل `.conf` خود را آپلود کنید | **Choose config...** را بزنید و فایل را انتخاب کنید |
-| ۶ | تعداد اسکن را **Quick (100)** بگذارید | منوی کشویی — سریع‌ترین گزینه |
-| ۷ | **Start Scan** را بزنید | حدود ۱۰-۳۰ ثانیه صبر کنید |
-| ۸ | سریع‌ترین نتیجه را انتخاب کنید | روی یک اندپوینت در جدول کلیک کنید تا کپی شود |
-
-### فاز ۲: اعمال اندپوینت
-
-| مرحله | چه کاری | کجا |
-|---|---|---|
-| ۹ | روی اندپوینت در نتایج کلیک کنید | در فیلد **Endpoint to apply** کپی می‌شود |
-| ۱۰ | **Choose config(s)...** را بزنید | یک یا چند فایل `.conf` انتخاب کنید |
-| ۱۱ | **Output folder** را تنظیم کنید (اختیاری) | خالی بگذارید تا کنار برنامه ذخیره شود |
-| ۱۲ | **Generate Configs** را بزنید | فایل‌ها با پسوند `-modified` ذخیره می‌شوند |
-| ۱۳ | کانفیگ تغییریافته را در کلاینت Warp خود استفاده کنید | در WireGuard، Nekoray و غیره import کنید |
-
-### فاز ۳: پیشرفته — اسکن آی‌پی تمیز
-
-| مرحله | چه کاری | کجا |
-|---|---|---|
-| ۱۴ | به برگه **IP Scanner** بروید | برگه دوم در رابط وب |
-| ۱۵ | یک لینک `vless://` یا `trojan://` بچسبانید | از ارائه‌دهنده اشتراک خود |
-| ۱۶ | تعداد را **Normal (1000)** بگذارید | تعادل خوب |
-| ۱۷ | **Start Clean Scan** را بزنید | فاز ۱ (TCP probe) اول اجرا می‌شود، سپس فاز ۲ (اعتبارسنجی xray) |
-| ۱۸ | صبر کنید تا نتایج بیایند | پیشرفت زنده در رابط نمایش داده می‌شود |
-| ۱۹ | خروجی آی‌پی‌های working | **Download IP List** را بزنید برای `ip:port` |
-
-### فاز ۴: پیشرفته — جایگزینی آی‌پی در کانفیگ‌ها
-
-| مرحله | چه کاری | کجا |
-|---|---|---|
-| ۲۰ | به برگه **IP Replacer** بروید | برگه سوم در رابط وب |
-| ۲1 | لینک اشتراک یا کانفیگ‌ها را بچسبانید | بین **Subscription URL** و **Paste Configs** جابجا شوید |
-| ۲2 | **Fetch** یا **Parse** را بزنید | کانفیگ‌ها یکتا و لیست می‌شوند |
-| ۲3 | کانفیگ‌های مورد نظر را انتخاب کنید | چک‌باکس‌ها را علامت بزنید |
-| ۲4 | اندپوینت‌های فاز ۳ را بچسبانید | یک `ip:port` در هر خط |
-| ۲5 | **Generate Configs** را بزنید | هر کانفیگ × هر اندپوینت تولید می‌شود |
-| ۲6 | **Copy All** یا **Download** | از لینک‌های تولید شده در کلاینت خود استفاده کنید |
-
-### فاز ۵: حرفه‌ای
-
-| مرحله | چه کاری | کجا |
-|---|---|---|
-| ۲7 | هر سه ابزار را در یک چرخه ترکیب کنید | اسکن → اعمال → اسکن آی‌پی تمیز → جایگزینی → تکرار |
-| ۲8 | تنظیمات اسکن و نویز UDP را تنظیم کنید | راهنمای [اسکنر اندپوینت](docs/fa/endpoint-scanner.md) و [اسکنر آی‌پی](docs/fa/ip-scanner.md) |
-| ۲9 | اعمال دسته‌جمعی روی کانفیگ‌های مختلف | راهنمای [جایگزین آی‌پی](docs/fa/ip-replacer.md) |
-| ۳0 | [سوالات متداول](docs/fa/faq.md) را بخوانید | عیب‌یابی مشکلات رایج |
-
-> **کاربر جدید؟** از مرحله ۱ شروع کنید و فاز ۱ و ۲ را انجام دهید. برای یک اندپوینت واپ working همین کافی است.
-
----
-
-## مستندات
-
-همه راهنماها در `docs/` با ترجمه فارسی در `docs/fa/`.
-
-| راهنما | انگلیسی | فارسی | توضیح |
-|---|---|---|---|
-| صفحه اصلی مستندات | [index.md](docs/index.md) | [fa/index.md](docs/fa/index.md) | مرکز ناوبری — از اینجا شروع کنید |
-| شروع کار | [getting-started.md](docs/getting-started.md) | [fa/getting-started.md](docs/fa/getting-started.md) | دانلود، extract، اجرا، اولین گردش کار |
-| اسکنر اندپوینت | [endpoint-scanner.md](docs/endpoint-scanner.md) | [fa/endpoint-scanner.md](docs/fa/endpoint-scanner.md) | راهنمای کامل برگه اول |
-| اسکنر آی‌پی | [ip-scanner.md](docs/ip-scanner.md) | [fa/ip-scanner.md](docs/fa/ip-scanner.md) | اسکن دو فازه آی‌پی تمیز |
-| جایگزین آی‌پی | [ip-replacer.md](docs/ip-replacer.md) | [fa/ip-replacer.md](docs/fa/ip-replacer.md) | جایگزینی دسته‌جمعی آی‌پی در کانفیگ‌ها |
-| سوالات متداول | [faq.md](docs/faq.md) | [fa/faq.md](docs/fa/faq.md) | عیب‌یابی و سوالات رایج |
-
-**ترتیب پیشنهادی مطالعه:**
-۱. [شروع کار](docs/fa/getting-started.md) — تنظیمات اولیه
-۲. [اسکنر اندپوینت](docs/fa/endpoint-scanner.md) — اولین اندپوینت خود را پیدا کنید
-۳. [اسکنر آی‌پی](docs/fa/ip-scanner.md) — آی‌پی‌های پروکسی تمیز پیدا کنید
-۴. [جایگزین آی‌پی](docs/fa/ip-replacer.md) — جایگزینی دسته‌جمعی آی‌پی در کانفیگ‌ها
-۵. [سوالات متداول](docs/fa/faq.md) — وقتی چیزی کار نمی‌کند
+|-------|--------|-------------|
+| **اسکنر اندپوینت** | اندپوینت‌های واپ WireGuard را با فایل `.conf` تست می‌کند | به اندپوینت واپ working نیاز دارید |
+| **اسکنر آی‌پی (تمیز)** | محدوده آی‌پی‌های کلاودفلر را برای پروکسی‌های تمیز با VLESS/Trojan اسکن می‌کند | به آی‌پی‌های تمیز برای v2ray نیاز دارید |
+| **جایگزین آی‌پی** | IP:port را در کانفیگ‌های اشتراک با اندپوینت‌های تمیز جایگزین می‌کند | کانفیگ‌های قدیمی و آی‌پی‌های تازه دارید |
 
 ---
 
@@ -254,20 +123,54 @@ scan
 - **سه ابزار یکپارچه** — اسکنر اندپوینت، اسکنر آی‌پی، جایگزین آی‌پی
 - **نویز UDP** — padding تصادفی + تأخیر برای عبور از مسدودسازی DPI واپ
 - **نتایج زنده** — اندپوینت‌ها هم‌زمان با قبول شدن هر تست نمایش داده می‌شوند
-- **اسکن آی‌پی تمیز** — تولید آی‌پی از محدوده‌های رسمی کلاودفلر (۲۵ IPv4 + ۹۱ IPv6 CIDR)
-- **پشتیبانی از اشتراک** — دریافت، یکتا کردن و جایگزینی دسته‌جمعی IP:port در کانفیگ‌های VLESS/Trojan
-- **اعمال دسته‌جمعی** — یک اندپوینت working را به چندین فایل کانفیگ هم‌زمان اعمال کنید
-- **رابط وب دو زبانه** — انگلیسی و فارسی با قابلیت جابجایی فوری
-- **خودکفا** — شامل xray-core، نیاز به نصب ندارد
+- **اسکن آی‌پی تمیز** — از ۲۵ محدوده IPv4 + ۹۱ محدوده IPv6 کلاودفلر
+- **پشتیبانی از اشتراک** — دریافت، یکتا کردن و جایگزینی IP:port در کانفیگ‌های VLESS/Trojan
+- **اعمال دسته‌جمعی** — یک اندپوینت را به چندین فایل کانفیگ هم‌زمان اعمال کنید
+- **رابط کاربری سازگار با موبایل** — واکنش‌گرا، دکمه‌های لمسی با سایز مناسب
+- **انتخاب پوشه** — دیالوگ بومی سیستم‌عامل برای انتخاب پوشه خروجی (کرومیوم)
+- **رابط وب دو زبانه** — انگلیسی و فارسی با جابجایی فوری
+- **خودکفا** — شامل xray-core v1.8.24، نیاز به نصب ندارد
 - **قابل لغو** — توقف، ادامه یا ریست اسکن در هر زمان
+
+---
+
+## تغییرات نسخه‌ها
+
+### v1.8.0 (نسخه فعلی)
+- رابط کاربری واکنش‌گرا برای موبایل — تب‌ها، جدول‌ها، دکمه‌ها در صفحه‌های ۳۶۰px به بالا
+- دکمه انتخاب پوشه خروجی (با `showDirectoryPicker` در کرومیوم)
+- نمایش هر کانفیگ با دکمه کپی، QR و textarea قابل انتخاب
+- Page design برای صفحه‌های کوچک
+- رفع مشکل صفحه‌آرایی RTL فارسی در موبایل
+
+[تغییرات کامل ←](https://github.com/QMahyar/Cloudflare-Scanner/releases)
+
+---
 
 ## دریافت کانفیگ واپ
 
 برنامه شامل یک بخش راهنمای کامل با لینک‌های ژنراتورهای آنلاین، بات‌ها و کانال‌های تلگرام، ابزارهای خط فرمان و اپلیکیشن‌های کلاینت است. در برگه **Endpoint Scanner** به پایین اسکرول کنید.
 
+---
+
 ## کامپایل از سورس
 
-نیاز به **Go 1.26+** دارد (کامپایلر C لازم نیست). برای راهنمای کامل کامپایل، نکات مختص پلتفرم، ساختار پروژه و معماری به [BUILD.fa.md](BUILD.fa.md) مراجعه کنید.
+نیاز به **Go 1.26+** دارد (کامپایلر C لازم نیست). برای راهنمای کامل به [BUILD.fa.md](BUILD.fa.md) مراجعه کنید.
+
+---
+
+## مستندات
+
+| راهنما | توضیح |
+|--------|-------|
+| [شروع کار](docs/fa/getting-started.md) | تنظیمات اولیه و گردش کار |
+| [اسکنر اندپوینت](docs/fa/endpoint-scanner.md) | راهنمای کامل اسکن اندپوینت واپ |
+| [اسکنر آی‌پی](docs/fa/ip-scanner.md) | اسکن دو فازه آی‌پی تمیز |
+| [جایگزین آی‌پی](docs/fa/ip-replacer.md) | جایگزینی دسته‌جمعی آی‌پی |
+| [سوالات متداول](docs/fa/faq.md) | عیب‌یابی و سوالات رایج |
+| [BUILD.fa.md](BUILD.fa.md) | کامپایل از سورس، معماری، API |
+
+---
 
 ## لایسنس
 

@@ -1,6 +1,6 @@
 # Cloudflare Scanner — Documentation
 
-> **Start here** → [README.md](../README.md) for Quick Start, per-OS install guides, and the full 1-to-100 workflow.
+> **Start here** → [README.md](../README.md) for Quick Start, download, per-OS install.
 >
 > [نسخه فارسی](fa/index.md)
 
@@ -8,16 +8,15 @@
 
 ## Reading Path
 
-For the best experience, follow this path in order:
-
 | # | Document | What you'll learn |
 |---|----------|-------------------|
-| 0 | **[README.md](../README.md)** | Quick Start, per-OS setup, TOC, 1-to-100 workflow |
+| 0 | **[README.md](../README.md)** | Download, install, quick start, workflow overview |
 | 1 | [Getting Started](getting-started.md) | First-use workflow after the app is running |
 | 2 | [Endpoint Scanner](endpoint-scanner.md) | Full walkthrough of scanning Warp endpoints |
 | 3 | [IP Scanner](ip-scanner.md) | Two-phase clean IP scanning with VLESS validation |
 | 4 | [IP Replacer](ip-replacer.md) | Batch IP replacement in subscription configs |
 | 5 | [FAQ](faq.md) | Troubleshooting and common questions |
+| 6 | [BUILD.md](../BUILD.md) | Build from source, project structure, architecture |
 
 ## Tool Overview
 
@@ -42,10 +41,4 @@ For the best experience, follow this path in order:
 └────────────────────────────────────────────────────────────┘
 ```
 
-## Also See
-
-- [BUILD.md](../BUILD.md) — Build from source, project structure, architecture
-
----
-
-**Tip:** If you're new, just follow steps 0→1→2. That's all you need for a working Warp endpoint.
+**Tip:** New? Just follow steps 0→1→2 for a working Warp endpoint.

@@ -133,6 +133,51 @@ jobs:
       - name: List artifacts
         run: ls -la
 
+      - name: Generate release body
+        id: body
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          [ "${{ github.event_name }}" = "workflow_dispatch" ] && TAG="v${{ inputs.version }}"
+          cat > release-body.md << EOF
+          ## Downloads
+
+          Each archive includes the app binary + **xray-core v1.8.24** — nothing else to download.
+
+          | Platform | Arch | File |
+          |----------|------|------|
+          | 🪟 Windows | amd64 | \`Cloudflare-Scanner-${TAG}-windows-amd64.tar.gz\` |
+          | 🪟 Windows | arm64 | \`Cloudflare-Scanner-${TAG}-windows-arm64.tar.gz\` |
+          | 🐧 Linux | amd64 | \`Cloudflare-Scanner-${TAG}-linux-amd64.tar.gz\` |
+          | 🐧 Linux | arm64 | \`Cloudflare-Scanner-${TAG}-linux-arm64.tar.gz\` |
+          | 🍎 macOS (Intel) | amd64 | \`Cloudflare-Scanner-${TAG}-darwin-amd64.tar.gz\` |
+          | 🍎 macOS (Apple Silicon) | arm64 | \`Cloudflare-Scanner-${TAG}-darwin-arm64.tar.gz\` |
+          | 📱 Termux / Android | arm64 | \`Cloudflare-Scanner-${TAG}-termux-arm64.tar.gz\` |
+
+          ## Quick Start
+
+          | Platform | Command |
+          |----------|---------|
+          | **Windows** | Extract \`.tar.gz\`, double-click \`Cloudflare-Scanner.exe\` |
+          | **Linux / macOS** | \`tar -xzf *.tar.gz && chmod +x Cloudflare-Scanner xray && ./Cloudflare-Scanner\` |
+          | **Termux** | \`curl -sL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh\` then \`scan\` |
+
+          ## What's Changed
+
+          EOF
+          echo "**Full changelog:** https://github.com/QMahyar/Cloudflare-Scanner/releases" >> release-body.md
+
+      # ── Tag push ──
+      - name: Create Release (tag)
+        if: github.event_name != 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Cloudflare Scanner ${{ github.ref_name }}
+          body_path: release-body.md
+          files: Cloudflare-Scanner-*.tar.gz
+          draft: false
+          prerelease: false
+
       # ── Manual dispatch ──
       - name: Create Release (manual)
         if: github.event_name == 'workflow_dispatch'
@@ -141,32 +186,10 @@ jobs:
         run: |
           tag="v${{ inputs.version }}"
           title="Cloudflare Scanner $tag"
-          body="${{ inputs.description }}"
-          [ -z "$body" ] && body="Release $tag"
-          echo "$body" > release-body.md
-          gh release create "$tag" --target "${{ github.sha }}" --title "$title" --notes-file release-body.md
+          cat release-body.md > final-body.md
+          if [ -n "${{ inputs.description }}" ]; then
+            echo "" >> final-body.md
+            echo "${{ inputs.description }}" >> final-body.md
+          fi
+          gh release create "$tag" --target "${{ github.sha }}" --title "$title" --notes-file final-body.md
           gh release upload "$tag" Cloudflare-Scanner-*.tar.gz --clobber
-
-      # ── Tag push ──
-      - name: Create Release (tag)
-        if: github.event_name != 'workflow_dispatch'
-        uses: softprops/action-gh-release@v2
-        with:
-          name: Cloudflare Scanner ${{ github.ref_name }}
-          body: |
-            ## Cloudflare Scanner ${{ github.ref_name }}
-
-            Downloads by platform:
-
-            - **Windows (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-windows-amd64.tar.gz`
-            - **Windows (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-windows-arm64.tar.gz`
-            - **Linux (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-linux-amd64.tar.gz`
-            - **Linux (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-linux-arm64.tar.gz`
-            - **Termux / Android (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-termux-arm64.tar.gz`
-            - **macOS (amd64)**: `Cloudflare-Scanner-${{ github.ref_name }}-darwin-amd64.tar.gz`
-            - **macOS (arm64)**: `Cloudflare-Scanner-${{ github.ref_name }}-darwin-arm64.tar.gz`
-
-            Extract, make `xray` executable (`chmod +x xray` on Linux/macOS), and run `Cloudflare-Scanner` (or `Cloudflare-Scanner.exe` on Windows).
-          files: Cloudflare-Scanner-*.tar.gz
-          draft: false
-          prerelease: false

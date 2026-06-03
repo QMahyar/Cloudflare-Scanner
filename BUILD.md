@@ -33,8 +33,6 @@ On **Windows (PowerShell)** the same commands work with `$env:GOOS="windows"; $e
 
 The binary embeds `ui/index.html` via Go's `//go:embed` directive — no external files needed at runtime.
 
-The binary embeds `ui/index.html` via Go's `//go:embed` directive — no external files needed at runtime.
-
 ## Project structure
 
 ```
