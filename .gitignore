@@ -1,6 +1,8 @@
 # Build artifacts
 Cloudflare-Scanner.exe
 WarpEndpointScanner.exe
+*.exe
+!*.go
 
 # Local xray-core runtime artifacts
 _xray_work/
@@ -25,3 +27,6 @@ go.work.sum
 
 dedup_test_data.txt
 xray.exe
+xray
+verify_*
+cmd/verify/

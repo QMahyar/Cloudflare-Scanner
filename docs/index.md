@@ -1,4 +1,4 @@
-# Cloudflare Scanner — Documentation
+# Cloudflare Scanner Documentation
 
 > **Start here** → [README.md](../README.md) for Quick Start, download, per-OS install.
 >
@@ -10,9 +10,8 @@
 
 | # | Document | What you'll learn |
 |---|----------|-------------------|
-| 0 | **[README.md](../README.md)** | Download, install, quick start, workflow overview |
 | 1 | [Getting Started](getting-started.md) | First-use workflow after the app is running |
-| 2 | [Endpoint Scanner](endpoint-scanner.md) | Full walkthrough of scanning Warp endpoints |
+| 2 | [Endpoint Scanner](endpoint-scanner.md) | Full walkthrough of scanning WARP endpoints |
 | 3 | [IP Scanner](ip-scanner.md) | Two-phase clean IP scanning with VLESS validation |
 | 4 | [IP Replacer](ip-replacer.md) | Batch IP replacement in subscription configs |
 | 5 | [FAQ](faq.md) | Troubleshooting and common questions |
@@ -25,7 +24,7 @@
 │                     Cloudflare Scanner                     │
 ├────────────────────────────────────────────────────────────┤
 │                                                            │
-│  Endpoint Scanner    ──>   Pick a fast Warp endpoint       │
+│  Endpoint Scanner    ──>   Pick a fast WARP endpoint       │
 │       │                                                    │
 │       ▼                                                    │
 │  Apply endpoint to your .conf files                        │
@@ -41,4 +40,4 @@
 └────────────────────────────────────────────────────────────┘
 ```
 
-**Tip:** New? Just follow steps 0→1→2 for a working Warp endpoint.
+**Tip:** New? Start with [Getting Started](getting-started.md) for a working WARP endpoint.

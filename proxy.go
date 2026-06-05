@@ -38,6 +38,10 @@ type ProxyConfig struct {
 	ServiceName    string
 }
 
+func parseInsecureFlag(v string) bool {
+	return v == "1" || strings.EqualFold(v, "true")
+}
+
 func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
 	if !strings.HasPrefix(rawURL, "vmess://") {
 		return nil, fmt.Errorf("not a vmess URL")
@@ -127,7 +131,7 @@ func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
 		RawURL:        rawURL,
 	}
 
-	if vmess.AllowInsecure == "1" || vmess.AllowInsecure == "true" {
+	if parseInsecureFlag(vmess.AllowInsecure) {
 		cfg.AllowInsecure = true
 	}
 
@@ -166,18 +170,9 @@ func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
 		cfg.UUID = parsed.User.Username()
 	}
 
-	host := parsed.Host
-	if strings.Contains(host, "]:") {
-		parts := strings.SplitN(host, "]:", 2)
-		cfg.Address = strings.TrimPrefix(parts[0], "[")
-		cfg.Port, _ = strconv.Atoi(parts[1])
-	} else if strings.Contains(host, ":") {
-		hostParts := strings.SplitN(host, ":", 2)
-		cfg.Address = hostParts[0]
-		cfg.Port, _ = strconv.Atoi(hostParts[1])
-	} else {
-		cfg.Address = host
-		cfg.Port = 443
+	cfg.Address = parsed.Hostname()
+	if portStr := parsed.Port(); portStr != "" {
+		cfg.Port, _ = strconv.Atoi(portStr)
 	}
 
 	if cfg.Port == 0 {
@@ -221,13 +216,13 @@ func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
 	if v := q.Get("spx"); v != "" {
 		cfg.SpiderX = v
 	}
-	if v := q.Get("allowInsecure"); v == "1" {
+	if v := q.Get("allowInsecure"); parseInsecureFlag(v) {
 		cfg.AllowInsecure = true
 	}
-	if v := q.Get("allow_insecure"); v == "1" {
+	if v := q.Get("allow_insecure"); parseInsecureFlag(v) {
 		cfg.AllowInsecure = true
 	}
-	if v := q.Get("insecure"); v == "1" {
+	if v := q.Get("insecure"); parseInsecureFlag(v) {
 		cfg.AllowInsecure = true
 	}
 	if v := q.Get("alpn"); v != "" {

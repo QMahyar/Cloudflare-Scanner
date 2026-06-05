@@ -2,15 +2,40 @@
 
 > [English version](BUILD.md)
 
-این سند شامل ساختار کامل پروژه، معماری، دستورات کامپایل و مرجع API برای هر سه ابزار است: **اسکنر اندپوینت** (واپ)، **اسکنر آی‌پی تمیز** (Clean IP) و **جایگزین آی‌پی** (IP Replacer). برای توسعه‌دهندگانی که از سورس کامپایل می‌کنند، برنامه را گسترش می‌دهند یا می‌خواهند اجزای پروژه را درک کنند مفید است.
+این سند برای **توسعه‌دهندگانی** است که می‌خواهند از سورس کامپایل کنند، معماری را
+بفهمند، یا برنامه را گسترش دهند. برای راهنمای نصب کاربران [README.fa.md](README.fa.md) را ببینید.
 
-## پیش‌نیازها
+---
 
-- **Go 1.26+** (دانلود از [go.dev](https://go.dev/dl/))
-- **کامپایلر C لازم نیست** — تمام وابستگی‌ها خالص Go هستند
-- کراس پلتفرم: ویندوز، لینوکس، مک (تمامی معماری‌ها)
+## فهرست
 
-## دستورات کامپایل
+- [کامپایل سریع](#کامپایل-سریع)
+- [کامپایل کراس‌پلتفرم](#کامپایل-کراس‌پلتفرم)
+- [پیش‌نیازها](#پیش‌نیازها)
+- [ساختار پروژه](#ساختار-پروژه)
+- [معماری](#معماری)
+- [مرجع API](#مرجع-api)
+- [پارس کانفیگ](#پارس-کانفیگ)
+- [نویز UDP](#نویز-udp)
+- [تست](#تست)
+- [CI/CD](#cicd)
+- [متغیرهای محیطی](#متغیرهای-محیطی)
+- [نکات پلتفرم](#نکات-پلتفرم)
+- [مشارکت](#مشارکت)
+
+---
+
+## کامپایل سریع
+
+```bash
+git clone https://github.com/QMahyar/Cloudflare-Scanner.git
+cd Cloudflare-Scanner
+go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
+```
+
+فایل باینری `ui/index.html` را از طریق `//go:embed` توکار می‌کند — بدون نیاز به فایل خارجی.
+
+## کامپایل کراس‌پلتفرم
 
 ```bash
 # ویندوز (amd64)
@@ -19,7 +44,7 @@ GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner.exe .
 # لینوکس (amd64)
 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 
-# لینوکس (arm64) — مثلاً Raspberry Pi
+# لینوکس (arm64) — Raspberry Pi و غیره
 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 
 # مک (Intel)
@@ -29,110 +54,177 @@ GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 ```
 
-در **ویندوز (PowerShell)** دستورات مشابه با `$env:GOOS="windows"; $env:GOARCH="amd64"; go build ...` کار می‌کنند.
+در PowerShell: `$env:GOOS="windows"; $env:GOARCH="amd64"; go build ...`
 
-فایل باینری `ui/index.html` را از طریق دستور `//go:embed` گو در خود جاسازی می‌کند — نیازی به فایل‌های خارجی در زمان اجرا نیست.
+## پیش‌نیازها
+
+- **Go 1.26+** ([go.dev](https://go.dev/dl/))
+- **بدون کامپایلر C** — همه وابستگی‌ها pure Go
+- کراس‌پلتفرم: ویندوز، لینوکس، مک، Termux/اندروید
+
+---
 
 ## ساختار پروژه
 
 ```
 Cloudflare-Scanner/
-├── main.go          # نقطه ورود، بررسی وجود xray.exe، راه‌اندازی سرور HTTP
-├── server.go        # هندلرهای HTTP (اسکن، وضعیت، نتایج، توقف، اعمال اندپوینت، اسکن تمیز، جایگزین)
-├── config.go        # پارسر کانفیگ WireGuard (case-insensitive، پشتیبانی از سبک هاگوارتز)
-├── endpoint.go      # تولیدکننده تصادفی اندپوینت‌های IPv4/IPv6 کلاودفلر
-├── scanner.go       # تست‌کننده موازی اندپوینت (۱۲ کارگر، دست دادن SOCKS5)
-├── xray.go          # تولیدکننده کانفیگ JSON ایکس‌ری و مدیریت فرآیند
-├── noise.go         # کانفیگ نویز UDP و اعتبارسنجی
-├── proxy.go         # پارسر لینک اشتراک VLESS/Trojan و سازنده کانفیگ JSON ایکس‌ری
-├── cleanip.go       # اسکنر آی‌پی تمیز: تولید آی‌پی بر اساس CIDR، پروب TCP، اعتبارسنجی xray، خروجی
-├── replacer.go      # دریافت کننده اشتراک، یکتا کننده، جایگزین IP به صورت ضرب دکارتی
-├── cleanip_test.go  # تست‌های تولید آی‌پی، محاسبه وزن، IPv6
+├── main.go           # نقطه ورودی — بررسی xray، شروع سرور، باز کردن مرورگر
+├── server.go         # هندلرهای HTTP، jobهای اسکن، API، توکار کردن UI
+├── config.go         # پارسر کانفیگ WireGuard (استاندارد + Hogwarts)
+├── endpoint.go       # تولیدکننده اندپوینت تصادفی WARP
+├── scanner.go        # اسکنر اندپوینت — اعتبارسنجی موازی WARP با xray
+├── xray.go           # سازنده کانفیگ xray-core (WireGuard outbound, SOCKS5 inbound)
+├── cleanip.go        # اسکنر آی‌پی تمیز — تولید CIDR، پروب TCP، اعتبارسنجی xray
+├── replacer.go       # دریافت اشتراک، یکتاسازی کانفیگ، جایگزینی دسته‌جمعی IP
+├── proxy.go          # پارسر URL VLESS/Trojan، سازنده کانفیگ xray
+├── metrics.go        # توابع کیفیت اسکن (میانه، بهترین، جیتر، مرتب‌سازی)
+├── noise.go          # کانفیگ نویز UDP و اعتبارسنجی
+├── parsers_test.go   # تست‌های واحد برای پارسینگ، جایگزین، مسیر traversل
+├── cleanip_test.go   # تست‌های تولید آی‌پی تمیز
 ├── ui/
-│   └── index.html   # رابط کاربری وب (۳ برگه، دوزبانه، tooltips، جاسازی شده در باینری)
-├── xray.exe         # xray-core نسخه v1.8.24 (همراه برنامه)
-├── sample.conf      # نمونه کانفیگ WireGuard برای تست
-├── README.md        # مستندات انگلیسی
-├── README.fa.md     # مستندات فارسی
-├── BUILD.md         # راهنمای کامپایل انگلیسی
-└── BUILD.fa.md      # راهنمای کامپایل فارسی (این فایل)
+│   └── index.html    # UI تک‌صفحه (۳ تب، دو زبانه، بدون وابستگی خارجی)
+├── scripts/          # اسکریپت‌های نصب یک‌خطی
+├── docs/             # راهنماهای کاربری (انگلیسی + فارسی)
+├── README.md         # مستندات انگلیسی کاربری
+├── README.fa.md      # مستندات فارسی کاربری
+├── BUILD.md          # راهنمای توسعه انگلیسی
+├── BUILD.fa.md       # این فایل
+├── .github/workflows/ # CI و Release
+├── CHANGELOG.md      # تاریخچه انتشار
+├── LICENSE           # MIT
+└── sample.conf       # نمونه کانفیگ WireGuard
 ```
+
+---
 
 ## معماری
 
-### نحوه عملکرد اسکن
+### جریان اسکن اندپوینت
 
 ```
-کاربر فایل .conf را انتخاب می‌کند  ──>  ParseWarpConfig() کلیدها/آدرس‌ها/بایت‌های Reserved را استخراج می‌کند
-                                          │
-EndpointGenerator                        │
-  └─ IP:port تصادفی                       │
-     از پریفیکس‌ها و پورت‌های              │
-     شناخته شده کلاودفلر                   ▼
-                                    runScan()  ──>  NewScanner()
-                                                       │
-                                          ┌────────────┼──────────────┐
-                                          ▼            ▼              ▼
-                                     کارگر ۱       کارگر ۲ ...    کارگر ۱۲
-                                          │            │              │
-                                     XrayManager  XrayManager    XrayManager
-                                     └─ GenerateConfig(endpoint, port)
-                                     └─ StartXray() → پردازه xray.exe
-                                     └─ WaitForPort() (شنونده SOCKS5)
-                                     └─ socks5Handshake() → HTTP GET
-                                     └─ StopXray() (کشتن پردازه)
-                                          │            │              │
-                                          └────────────┴──────────────┘
-                                                         │
-                                                   مرتب‌سازی بر اساس latency
-                                                         │
-                                                   برگرداندن نتایج
+آپلود .conf توسط کاربر ──>  ParseWarpConfig()
+                                  │
+                    IP:port تصادفی │ (پرافیکس‌ها و پورت‌ها از endpoint.go)
+                                  ▼
+                           runScan() → Scanner(testEndpointAttempts)
+                                           │
+                             ┌──────────────┼──────────────┐
+                             ▼              ▼              ▼
+                        Worker 1        Worker 2 ...  Worker N
+                             │              │              │
+                        testEndpointAttempts (۲ تلاش)
+                        └─ GenerateConfig(endpoint, port) → JSON xray
+                        └─ StartXray() → فرآیند xray
+                        └─ WaitForPort() → SOCKS5 آماده
+                        └─ دست دادن SOCKS5 → HTTP GET generate_204
+                        └─ میانه تأخیر در تلاش‌ها
+                             │              │              │
+                             └──────────────┴──────────────┘
+                                             │
+                                       sortScanResults()
+                                       (اول موفق، سپس تأخیر)
+                                             │
+                                       بازگشت نتایج
 ```
 
-### اجزای اصلی
+### جریان اسکن آی‌پی تمیز
 
-| فایل | وظیفه |
-|------|-------|
-| `main.go` | بررسی وجود xray.exe در کنار باینری، راه‌اندازی سرور HTTP روی پورت تصادفی، باز کردن مرورگر |
-| `server.go` | اندپوینت‌های API: `/api/scan`, `/api/status/{id}`, `/api/results/{id}`, `/api/stop/{id}`, `/api/apply-endpoint`. جاسازی `ui/` به عنوان فایل‌سیستم. |
-| `config.go` | پارس کردن کانفیگ‌های WireGuard. پشتیبانی از هر دو فرمت استاندارد واپ و سبک هاگوارتز. تبدیل همه کلیدها به حروف کوچک، افزودن خودکار `/128` به IPv6 بدون ماسک، استخراج بایت‌های Reserved از فیلدهای S1/S2/S3. |
-| `endpoint.go` | تولید اندپوینت‌های تصادفی از پریفیکس‌های آی‌پی شناخته شده واپ کلاودفلر (۱۴ محدوده IPv4، ۴ محدوده IPv6) و ۵۰+ پورت. حذف آی‌پی‌های تکراری. |
-| `scanner.go` | ۱۲ کارگر هم‌زمان. هر کارگر: کانفیگ ایکس‌ری می‌سازد → ایکس‌ری را اجرا می‌کند → منتظر SOCKS5 می‌ماند → دست دادن SOCKS5 انجام می‌دهد → HTTP GET به gstatic.com → بررسی ۲۰۴ → ثبت latency. |
-| `xray.go` | ساخت کانفیگ JSON ایکس‌ری با خروجی WireGuard، ورودی SOCKS5، قوانین مسیریابی. مدیریت چرخه حیات پردازه (اجرا، انتظار برای پورت، کشتن). |
-| `noise.go` | نویز UDP: اندازه تصادفی بسته (۵۰-۱۰۰ بایت) با تأخیر تصادفی (۱-۵ms) که قبل از هر دست دادن WireGuard ارسال می‌شود. برای عبور از مسدودسازی DPI واپ. |
-| `proxy.go` | پارس لینک‌های اشتراک VLESS/Trojan (`ParseProxyURL`)، ساخت کانفیگ JSON ایکس‌ری (`BuildXrayJSON`)، تولید لینک اشتراک از کانفیگ (`GenerateShareURL`). همیشه `sni` را در صورت وجود حفظ می‌کند. |
-| `cleanip.go` | اسکنر آی‌پی تمیز. تولید آی‌پی از ۲۵ محدوده IPv4 + ۹۱ محدوده IPv6 کلاودفلر (`GenerateIPs`). فاز ۱: پروب TCP با ۵۰۰ کارگر هم‌زمان (`runCleanPhase1TCP`). فاز ۲: اعتبارسنجی xray از طریق SOCKS5 (`validateWithXray`). خروجی کانفیگ (`GenerateExport`). پشتیبانی از حالت SkipPhase2. |
-| `replacer.go` | دریافت لینک اشتراک (`FetchSubscription`)، پارس کانفیگ‌های VLESS (`ParseSubscription`)، یکتا کردن با نادیده گرفتن Address/Port/Remark (`DeduplicateConfigs`)، تولید تمام ترکیب‌های کانفیگ×اندپوینت (`GenerateReplacedConfigs`). |
-| `cleanip_test.go` | تست‌های Go برای `GenerateIPs`، محاسبه وزن و تولید IPv6. همه قبول. |
-| `xray.exe` | xray-core نسخه v1.8.24، همراه در ریپو و زیپ ریلیز |
+```
+ارائه VLESS URL توسط کاربر        CleanIPGenerator
+       (اختیاری)                      └─ GenerateIPs()
+                                         └─ ۲۵ CIDR IPv4 + ۹۱ CIDR IPv6
+                                         └─ توزیع وزنی تصادفی
+                                              │
+                                       فاز ۱: پروب TCP
+                                         └─ ۵۰۰ کارگر همزمان
+                                         └─ net.DialTimeout(ip:port, ۳s)
+                                         └─ probeCloudflareTrace() برای colo/loc
+                                              │
+                                 ┌───────────┴──────────┐
+                                 ▼                      ▼
+                           SkipPhase2=true        SkipPhase2=false
+                                 │                      │
+                            تمام                    فاز ۲: اعتبارسنجی xray
+                                                      └─ sortCleanIPResults()
+                                                      └─ گرفتن N نامزد برتر
+                                                      └─ validateWithXrayAttempts (۲ تلاش)
+                                                      └─ هرکدام: کانفیگ xray → SOCKS5 → HTTP GET
+                                                      └─ میانه تأخیر، بهترین، جیتر
+                                                           │
+                                                      GenerateExport()
+                                                      └─ URLهای VLESS یا لیست IP:port
+```
 
-### API رابط کاربری وب
+### جریان جایگزین آی‌پی
 
-| اندپوینت | متد | توضیحات |
-|----------|------|---------|
-| `/` | GET | سرو `index.html` جاسازی شده |
-| `/api/scan` | POST | آپلود کانفیگ + پارامترهای JSON ← برگرداندن شناسه job |
-| `/api/status/{id}` | GET | برگرداندن `{status, progress, total}` |
-| `/api/results/{id}` | GET | برگرداندن اندپوینت‌های working (زنده هنگام اسکن، کامل پس از اتمام) |
-| `/api/stop/{id}` | POST | لغو یک اسکن در حال اجرا |
-| `/api/apply-endpoint` | POST | آپلود کانفیگ‌ها + اندپوینت ← ذخیره کپی‌های تغییر یافته |
-| `/api/clean-scan` | POST | شروع اسکن آی‌پی تمیز ← برگرداندن شناسه job |
-| `/api/clean-status/{id}` | GET | برگرداندن وضعیت اسکن تمیز `{status, phase1Progress, phase1Total, phase2Progress, phase2Total}` |
-| `/api/clean-results/{id}` | GET | برگرداندن phase1Results + phase2Results (زنده هنگام اسکن، کامل پس از اتمام) |
-| `/api/clean-stop/{id}` | POST | توقف یک اسکن تمیز در حال اجرا |
-| `/api/clean-export/{id}` | GET | دانلود نتایج اسکن تمیز به صورت فایل متنی |
-| `/api/replacer-fetch` | POST | دریافت و یکتا کردن کانفیگ‌ها از لینک اشتراک |
-| `/api/replacer-apply` | POST | تولید کانفیگ‌های جایگزین شده از کانفیگ‌های انتخاب شده + اندپوینت‌ها |
+```
+URL اشتراک ──>  FetchSubscription()
+                 └─ اعتبارسنجی scheme → HTTP GET → محدودیت ۱۰ مگابایت
+                 └─ base64 decode → ParseSubscription()
+                      │
+                 DeduplicateConfigs()
+                 └─ اثرانگشت: protocol, UUID, encryption, security, ...
+                 └─ بازگشت قالب‌های کانفیگ یکتا
+                      │
+                 کاربر کانفیگ‌ها را انتخاب + paste اندپوینت‌ها
+                      │
+                 GenerateReplacedConfigs(configs, endpoints)
+                 └─ ضرب دکارتی: هر کانفیگ × هر اندپوینت
+                 └─ حذف تکراری (همان اثرانگشت + همان اندپوینت)
+                 └─ اضافه کردن " @ endpoint" به remark
+                 └─ بازگشت URLهای VLESS
+```
 
-### جزئیات پارس کانفیگ
+---
 
-پارسر دو فرمت کانفیگ را پشتیبانی می‌کند:
+## مرجع API
 
-**استاندارد واپ:**
+همه اندپوینت‌ها از `127.0.0.1:{port_random}` سرو می‌شوند. API برای UI توکار
+طراحی شده — بدون احراز هویت.
+
+### اسکنر اندپوینت
+
+| اندپوینت | متد | توضیح |
+|----------|--------|-------------|
+| `/` | GET | سرو `ui/index.html` توکار |
+| `/api/scan` | POST | شروع اسکن اندپوینت WARP |
+| `/api/status/{id}` | GET | `{status, progress, total}` |
+| `/api/results/{id}` | GET | `{entries[], raw[], failures[], status}` |
+| `/api/stop/{id}` | POST | لغو اسکن در حال اجرا |
+| `/api/apply-endpoint` | POST | اعمال اندپوینت به فایل‌های .conf آپلودی |
+
+### اسکنر آی‌پی تمیز
+
+| اندپوینت | متد | توضیح |
+|----------|--------|-------------|
+| `/api/clean-scan` | POST | شروع اسکن آی‌پی تمیز |
+| `/api/clean-status/{id}` | GET | وضعیت فاز ۱ و ۲ |
+| `/api/clean-results/{id}` | GET | نتایج فاز ۱ و ۲ |
+| `/api/clean-stop/{id}` | POST | توقف اسکن |
+| `/api/clean-export` | POST | تولید URL از VLESS URL + اندپوینت‌ها |
+
+### جایگزین آی‌پی
+
+| اندپوینت | متد | توضیح |
+|----------|--------|-------------|
+| `/api/replacer/fetch` | POST | دریافت + یکتاسازی از URL اشتراک |
+| `/api/replacer/parse` | POST | پارس متن خام به کانفیگ |
+| `/api/replacer/apply` | POST | تولید کانفیگ‌های جایگزین شده |
+
+---
+
+## پارس کانفیگ
+
+### WireGuard (.conf)
+
+پشتیبانی از دو فرمت استاندارد و Hogwarts.
+
+**استاندارد:**
+
 ```ini
 [Interface]
 PrivateKey = ...
-Address = 2606:4700:110:8d48:...
+Address = 2606:4700:110:.../128
 Reserved = 0,0,0
 MTU = 1280
 
@@ -141,7 +233,8 @@ PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
 Endpoint = 162.159.192.1:2408
 ```
 
-**سبک هاگوارتز (فیلدهای اضافی):**
+**Hogwarts:**
+
 ```ini
 [Interface]
 PrivateKey = ...
@@ -149,124 +242,116 @@ Address = ...
 S1 = 0
 S2 = 0
 S3 = 0
-Jc = ...
-Jmin = ...
-H1 = ...
-H2 = ...
-H3 = ...
-H4 = ...
-I1 = ...
-I2 = ...
+Jc = ...   ; نادیده گرفته می‌شود
+Jmin = ... ; نادیده گرفته می‌شود
 
 [Peer]
 PublicKey = ...
 Endpoint = ...
 ```
 
-پارسر همه کلیدها را به حروف کوچک تبدیل می‌کند، فیلدهای ناشناخته را نادیده می‌گیرد، و در صورت نبود فیلد `Reserved` از S1/S2/S3 برای بایت‌های Reserved استفاده می‌کند.
+پارسر کلیدها را به lowercase تبدیل می‌کند. S1/S2/S3 Reserved را پر می‌کنند
+وقتی فیلد `Reserved` وجود نداشته باشد.
 
-### نویز UDP
+### URL اشتراک VLESS/Trojan
 
-وقتی فعال باشد، ایکس‌ری قبل از هر دست دادن WireGuard بسته‌هایی با اندازه تصادفی ارسال می‌کند. این کار باعث می‌شود ترافیک شبیه نویز به نظر برسد به جای یک نشست WireGuard، و به عبور از ISPهایی که واپ را روی پورت استاندارد ۲۴۰۸ مسدود می‌کنند کمک می‌کند.
+با `url.Parse` پارس می‌شود. پشتیبانی از IPv4، IPv6 (باکرت)، تمام پارامترهای
+استاندارد: `security`, `sni`, `fp`, `type`, `host`, `path`, `flow`,
+`pbk`, `sid`, `spx`, `allowInsecure`, `alpn`, `headerType`, `mode`,
+`serviceName`, `packetEncoding`.
 
-پیش‌فرض: ۵ بسته نویز، هرکدام ۵۰-۱۰۰ بایت داده تصادفی، با فاصله ۱-۵ms.
+---
 
-## xray-core
+## نویز UDP
 
-xray-core نسخه v1.8.24 همراه در هر فایل ریلیز قرار دارد. برنامه به دنبال `xray.exe` (ویندوز) یا `xray` (لینوکس/مک) در همان پوشه باینری خود می‌گردد. اگر پیدا نشود، پیغام خطا با لینک دانلود نمایش می‌دهد.
+وقتی فعال باشد، xray-core بسته‌های تصادفی UDP قبل از دست دادن WireGuard می‌فرستد
+با تأخیر تصادفی. این کار بلاک DPI ترافیک استاندارد WARP را دور می‌زند.
 
-### جریان اسکن آی‌پی تمیز
+| پارامتر | پیش‌فرض | محدوده | توضیح |
+|---------|---------|--------|-------|
+| Type | `rand` | rand / base64 / hex / str | نوع محتوای بسته نویز |
+| Packet | `50-100` | ۱-۱۵۰۰ بایت | اندازه یا محدوده مقدار بسته |
+| Delay | `1-5` | ۱-۱۰۰۰ ms | تأخیر بین بسته‌های نویز |
+| Count | ۵ | ۱-۵۰ | تعداد بسته‌های نویز در هر دست دادن |
 
-```
-کاربر لینک VLESS را وارد می‌کند       CleanIPGenerator
-       (اختیاری)                         └─ GenerateIPs()
-                                           └─ ۲۵ CIDR IPv4 (۵۹۵۵ زیرشبکه /۲۴)
-                                           └─ ۹۱ CIDR IPv6 (توزیع وزنی)
-                                                │
-                                         فاز ۱: پروب TCP
-                                           └─ ۵۰۰ کارگر هم‌زمان
-                                           └─ net.DialTimeout(ip:port, 2s)
-                                           └─ نوشتن نتایج به صورت تدریجی در job.Phase1Progress
-                                                │
-                                   ┌───────────┴──────────┐
-                                   ▼                      ▼
-                             SkipPhase2=true         SkipPhase2=false
-                                   │                      │
-                              اتمام (status)       فاز ۲: اعتبارسنجی xray
-                                                   └─ مرتب‌سازی فاز ۱ بر اساس latency
-                                                   └─ انتخاب N تا از بهترین‌ها (تعداد فاز ۲)
-                                                   └─ ۱۲ کارگر xray هم‌زمان
-                                                   └─ هرکدام: BuildXrayJSON → StartXray → SOCKS5 → HTTP GET
-                                                   └─ نوشتن نتایج تدریجی در job.Phase2Progress
-                                                        │
-                                                   GenerateExport()
-                                                   └─ لینک‌های VLESS
-                                                   └─ لیست خام IP:port
+---
+
+## تست
+
+```bash
+go vet ./...
+go test ./...       # تست‌های پارسینگ، امنیت، تولید
+go test -race ./... # اختیاری — کندتر، race condition را می‌یابد
 ```
 
-### جریان جایگزین آی‌پی
+تست‌ها پوشش می‌دهند:
 
-```
-لینک اشتراک ──> FetchSubscription()
-                  └─ HTTP GET → base64.decode → ParseSubscription()
-                       │
-                  DeduplicateConfigs()
-                  └─ اثر انگشت: حذف Address, Port, Remark
-                  └─ برگرداندن قالب‌های کانفیگ یکتا
-                       │
-                  کاربر کانفیگ‌ها را انتخاب می‌کند + اندپوینت‌ها را می‌چسباند
-                       │
-                  GenerateReplacedConfigs(configs, endpoints)
-                  └─ ضرب دکارتی: هر کانفیگ × هر اندپوینت
-                  └─ رد کردن موارد تکراری (همان کانفیگ + همان اندپوینت)
-                  └─ افزودن " @ endpoint" به هر remark
-                  └─ برگرداندن لینک‌های VLESS
-```
+- پارس کانفیگ WARP
+- پارس URL VLESS/Trojan
+- یکتاسازی و تولید ضرب دکارتی
+- منطق جلوگیری از path traversal
+- تولید CIDR آی‌پی تمیز
+
+---
+
+## CI/CD
+
+### CI (`.github/workflows/ci.yml`)
+
+اجرا در push/PR به `master`. ماتریس: ۶ ترکیب پلتفرم/معماری.
+
+مراحل: `go vet` ← `go test` ← `go build`
+
+### Release (`.github/workflows/release.yml`)
+
+با `git tag v*` یا دستی از GitHub UI فعال می‌شود. ۷ هدف می‌سازد، xray-core
+متناظر را دانلود می‌کند، آرشیو `.zip`/`.tar.gz` می‌سازد، checksum تولید می‌کند
+و در GitHub Releases منتشر می‌کند.
+
+---
 
 ## متغیرهای محیطی
 
-هیچ متغیر محیطی لازم نیست. همه چیز از طریق رابط کاربری وب در زمان اجرا تنظیم می‌شود.
+هیچ کدام لازم نیست. همه چیز از طریق UI وب در زمان اجرا تنظیم می‌شود.
 
-## نکات مختص پلتفرم
+---
+
+## نکات پلتفرم
 
 ### لینوکس
 
-پس از extract، فایل xray را قابل اجرا کنید: `chmod +x xray`. برنامه مرورگر را از طریق `xdg-open` باز می‌کند — در صورت نیاز `xdg-utils` را نصب کنید:
-
-| توزیع | دستور |
-|---|---|
-| دبیان / اوبونتو / مینت | `sudo apt install xdg-utils` |
-| فدورا / RHEL / سنت‌اواس | `sudo dnf install xdg-utils` |
-| آرچ / مانجارو | `sudo pacman -S xdg-utils` |
+- مرورگر از طریق `xdg-open` باز می‌شود — در صورت نیاز `xdg-utils` را نصب کنید.
+- `chmod +x xray` بعد از استخراج الزامی است.
 
 ### Termux / اندروید
 
-فایل ریلیز `termux-arm64` شامل نسخه اندروید xray-core و باینری `linux/arm64` برنامه است.
-
-1. فایل `Cloudflare-Scanner-*-termux-arm64.tar.gz` رادانلود و extract کنید:
-   ```bash
-   tar -xzf Cloudflare-Scanner-*-termux-arm64.tar.gz
-   ```
-2. هر دو فایل را قابل اجرا کنید: `chmod +x Cloudflare-Scanner xray`
-3. برنامه به طور خودکار Termux را از طریق `$PREFIX` تشخیص می‌دهد و مرورگر را با `termux-open-url` باز می‌کند
-4. اجرا: `./Cloudflare-Scanner`
-
-> در صورت نیاز نصب `termux-open-url`: `pkg install termux-open-url`
+- نسخه release شامل xray-core مخصوص اندروید است.
+- مرورگر از طریق `termux-open-url` باز می‌شود — `pkg install termux-open-url`.
+- اسکریپت: `scripts/termux-setup.sh` برای نصب یک‌خطی.
 
 ### مک
-- پس از extract، فایل xray را قابل اجرا کنید: `chmod +x xray`
-- برنامه مرورگر را از طریق `open` باز می‌کند (داخلی)
-- اگر مک باینری امضا نشده را بلاک کرد، اجرا کنید: `xattr -d com.apple.quarantine Cloudflare-Scanner`
+
+- Gatekeeper ممکن است `xray` را بلاک کند — `xattr -dr com.apple.quarantine xray`.
+- اگر خود برنامه بلاک شد: System Settings → Privacy & Security → Open Anyway.
+
+### ویندوز
+
+- آنتی‌ویروس ممکن است `xray.exe` را بلاک کند — برای پوشه استثنا تعریف کنید.
+- در سیستم‌های محدود شده، برنامه را به عنوان Administrator اجرا کنید.
+
+---
 
 ## مشارکت
 
-1. پروژه را Fork کنید
-2. یک شاخه (branch) ایجاد کنید (`git checkout -b my-thing`)
-3. تغییرات را اعمال کنید، با `go vet ./...` بررسی کنید
-4. کامپایل و تست کنید: `go build -o Cloudflare-Scanner.exe . && .\Cloudflare-Scanner.exe`
-5. Commit با پیام واضح
-6. Push کنید و PR باز کنید
+۱. Fork کنید
+۲. branch ایجاد کنید (`git checkout -b my-feature`)
+۳. تغییرات را اعمال کنید، `go vet ./...` و `go test ./...` اجرا کنید
+۴. کامپایل و تست محلی: `go build -o Cloudflare-Scanner.exe .`
+۵. commit با پیام واضح
+۶. push و PR باز کنید
+
+---
 
 ## لایسنس
 
-MIT
+MIT — استفاده، تغییر و توزیع آزادانه.

@@ -1,34 +1,33 @@
 # Cloudflare Scanner
 
-**Find working Cloudflare Warp endpoints and clean proxy IPs — fast, free, and no setup required.**
+> **Find working Cloudflare Warp endpoints and clean proxy IPs — fast, free, no setup.**
 
 [![Latest Release](https://img.shields.io/github/v/release/QMahyar/Cloudflare-Scanner?style=flat-square&label=Download)](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest)
 [![CI](https://img.shields.io/github/actions/workflow/status/QMahyar/Cloudflare-Scanner/ci.yml?branch=master&style=flat-square&label=CI)](https://github.com/QMahyar/Cloudflare-Scanner/actions/workflows/ci.yml)
 [![Downloads](https://img.shields.io/github/downloads/QMahyar/Cloudflare-Scanner/total?style=flat-square)](https://github.com/QMahyar/Cloudflare-Scanner/releases)
 [![License](https://img.shields.io/github/license/QMahyar/Cloudflare-Scanner?style=flat-square)](LICENSE)
 
-> ### 🌐 Persian / فارسی
-> [**مشاهده نسخه فارسی ← README.fa.md**](README.fa.md)
+---
+
+> **فارسی** → [README.fa.md](README.fa.md)
 
 ---
 
-## What is this?
+## Overview
 
-**Cloudflare Scanner** is a cross-platform desktop tool that helps you:
+Cloudflare Scanner is a **cross-platform desktop tool** for finding healthy Cloudflare WARP endpoints and clean proxy IPs, plus batch-applying them to your config files. It bundles [xray-core](https://github.com/XTLS/Xray-core) for realistic validation — no separate prox圏 setup needed.
 
-- **Find working Warp endpoints** — scan hundreds of Cloudflare WARP/WireGuard IPs:ports and rank them by latency so you can pick the fastest working one.
-- **Find clean Cloudflare IPs** — probe Cloudflare's global IP ranges via TCP and then validate through xray-core (VLESS/Trojan), so you know exactly which IPs your config will actually connect through.
-- **Batch-update configs** — replace the IP:port in any number of subscription configs at once with the freshly discovered endpoints.
-
-It runs a tiny local web server and opens a browser tab — no installation, no dependencies. Just download, extract, and run.
+**Start here if you're new.** Download, extract, run, and a browser tab opens. Three tabs do the whole job.
 
 ### Who needs this?
 
-If you use **Cloudflare Warp**, **v2ray**, **Nekobox**, **Sing-box**, or any proxy client built on Cloudflare's network, your performance depends entirely on which IP:port the client connects to. ISPs frequently block specific endpoints. This tool finds the ones that still work, ranked by speed.
+Anyone who uses **Cloudflare WARP**, **v2ray/v2rayN**, **Nekobox**, **Sing-box**, **Clash**, or any proxy client running on Cloudflare's edge. ISPs frequently block specific IPs and ports. This tool finds the ones that still work from **your** network and ranks them by real-world performance.
 
 ---
 
-## Download
+## Quick Start
+
+### 1. Download
 
 | Platform | Architecture | Download |
 |----------|-------------|---------|
@@ -40,43 +39,18 @@ If you use **Cloudflare Warp**, **v2ray**, **Nekobox**, **Sing-box**, or any pro
 | 🍎 macOS | Apple Silicon | [`darwin-arm64.tar.gz`](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest) |
 | 📱 Android (Termux) | ARM64 | [`termux-arm64.tar.gz`](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest) |
 
-Each archive contains the app **and** xray-core — nothing else to install.
+Each archive contains the app **and** xray-core — nothing extra to install.
 
----
-
-## One-Liner Install
-
-```powershell
-# Windows — run PowerShell as Administrator
-irm https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-windows.ps1 | iex
-```
-
-```sh
-# Linux
-curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-linux.sh | sh
-
-# macOS
-curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-macos.sh | sh
-
-# Termux / Android
-curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh
-```
-
-The scripts auto-detect your CPU architecture, download the correct release, and add `cloudflare-scanner` (or `scan` on Termux) to your PATH.
-
----
-
-## Manual Setup
+### 2. Extract and Run
 
 <details>
 <summary><strong>Windows</strong></summary>
 
-1. Download `Cloudflare-Scanner-*-windows-amd64.zip` from [Releases](https://github.com/QMahyar/Cloudflare-Scanner/releases/latest)
-2. Right-click → **Extract All** (or use [7-Zip](https://7-zip.org))
-3. Double-click `Cloudflare-Scanner.exe`
-4. A browser tab opens automatically
+1. Right-click the `.zip` → **Extract All** (or use [7-Zip](https://7-zip.org))
+2. Double-click `Cloudflare-Scanner.exe`
+3. A browser tab opens at `http://127.0.0.1:PORT`
 
-**Troubleshooting:** Antivirus may flag `xray.exe` — add an exclusion for the extracted folder. Run as Administrator if the app fails to start.
+*Troubleshooting:* Antivirus may flag `xray.exe` — add an exclusion for the extracted folder.
 </details>
 
 <details>
@@ -88,7 +62,7 @@ chmod +x Cloudflare-Scanner xray
 ./Cloudflare-Scanner
 ```
 
-ARM64 (Raspberry Pi, etc.): use the `*-linux-arm64.tar.gz` archive.
+ARM64: use the `*-linux-arm64.tar.gz` archive.
 </details>
 
 <details>
@@ -96,13 +70,12 @@ ARM64 (Raspberry Pi, etc.): use the `*-linux-arm64.tar.gz` archive.
 
 ```bash
 tar -xzf Cloudflare-Scanner-*-darwin-arm64.tar.gz   # Apple Silicon
-# or darwin-amd64 for Intel
 chmod +x Cloudflare-Scanner xray
 xattr -dr com.apple.quarantine xray  # remove Gatekeeper flag
 ./Cloudflare-Scanner
 ```
 
-If macOS still blocks the app: **System Settings → Privacy & Security → Open Anyway**.
+If blocked: **System Settings → Privacy & Security → Open Anyway**.
 </details>
 
 <details>
@@ -110,67 +83,23 @@ If macOS still blocks the app: **System Settings → Privacy & Security → Open
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh
-scan   # run the app
+scan
 ```
 
-- Updates: re-run the same one-liner
-- Remove: `rm -rf ~/.local/share/cloudflare-scanner && rm $PREFIX/bin/scan`
+*Update:* re-run the same one-liner. *Remove:* `rm -rf ~/.local/share/cloudflare-scanner && rm $PREFIX/bin/scan`
 </details>
 
----
+### 3. Use the App
 
-## How to Use
+After launching, a browser opens with three tabs:
 
-After launching, a browser tab opens at `http://127.0.0.1:PORT`. The app has three tabs:
+| Tab | What it does | When to use |
+|-----|-------------|-------------|
+| **Endpoint Scanner** | Finds working WARP WireGuard endpoints | Your WARP/WireGuard client is slow or disconnected |
+| **IP Scanner** | Finds clean Cloudflare proxy IPs (VLESS/Trojan) | You need fresh IPs for a proxy config |
+| **IP Replacer** | Batch-replaces IP:port across configs | You have working endpoints and want them injected into subscriptions |
 
-### Tab 1 — Endpoint Scanner
-
-Use this to find a fast Warp WireGuard endpoint.
-
-1. Get a Warp `.conf` file — see [Getting Warp Configs](#getting-warp-configs)
-2. Toggle **Use Real Config** and upload your `.conf`
-3. Choose scan depth (Quick=100 / Normal=500 / Deep=1K+)
-4. Click **Start Scan**
-5. Results appear in real-time, sorted by latency
-6. Click a result → **Apply** it to one or more `.conf` files
-
-> **Without a config:** disable "Use Real Config" for a fast TCP-only scan — no xray needed.
-
-### Tab 2 — IP Scanner
-
-Use this to find clean Cloudflare IPs for VLESS/Trojan configs.
-
-1. Paste your `vless://` or `trojan://` URL
-2. Choose which **ports to scan**: 443 only, all HTTPS, all HTTP+HTTPS, or a custom selection
-3. Set scan depth and click **Start Clean Scan**
-4. **Phase 1** — fast TCP probe across Cloudflare IP ranges
-5. **Phase 2** — xray-core validates the top Phase 1 candidates
-6. Export working IPs → use with IP Replacer
-
-> **Port selection:** The scanner supports all official Cloudflare CDN ports (HTTP: 80, 8080, 8880, 2052, 2082, 2086, 2095 · HTTPS: 443, 8443, 2053, 2083, 2087, 2096).
-
-### Tab 3 — IP Replacer
-
-Use this to inject fresh IPs into existing configs in bulk.
-
-1. Paste a subscription URL **or** raw config text
-2. Select which configs to update
-3. Paste the `IP:port` endpoints discovered in the IP Scanner
-4. Click **Generate Configs** → Copy All or Download
-
----
-
-## Full Workflow (Beginner to Advanced)
-
-| Step | Action | Tab |
-|------|--------|-----|
-| 1 | Get a Warp `.conf` from a generator (see links in the app) | — |
-| 2 | Upload `.conf` → Start Scan → pick the fastest result | Endpoint Scanner |
-| 3 | Apply the endpoint to your `.conf` files | Endpoint Scanner |
-| 4 | Paste your `vless://` URL → scan clean IPs → export | IP Scanner |
-| 5 | Paste subscription URL → select configs → inject endpoints | IP Replacer |
-
-> **First time?** Steps 1–3 alone give you a working Warp endpoint.
+Each tab has built-in guidance and tooltips — start with **Endpoint Scanner** if you just need a working WARP endpoint.
 
 ---
 
@@ -178,59 +107,66 @@ Use this to inject fresh IPs into existing configs in bulk.
 
 | Feature | Details |
 |---------|---------|
-| Endpoint scanning | Tests Warp WireGuard endpoints with optional xray validation |
-| IP scanning | CIDR-based generation from 25 IPv4 + 91 IPv6 Cloudflare ranges |
-| Port selection | Choose from all 13 official Cloudflare CDN ports (HTTP + HTTPS) |
-| Nearby scan | After Phase 1, expands around working IPs to find adjacent clean IPs |
-| UDP noise | Random padding + jitter to evade DPI-based Warp blocking |
-| Batch apply | Update many `.conf` files at once with a single endpoint |
-| Subscription | Fetch, deduplicate, and batch-replace IP:port in VLESS/Trojan configs |
-| Live results | Endpoints stream in as they are confirmed, sorted by latency |
-| Bilingual UI | English and Persian/Farsi, switch instantly |
-| Mobile UI | Responsive down to 360 px, touch-optimised |
-| QR codes | Generate QR for any config — scan with your phone |
-| Folder picker | Native OS dialog to choose output directory |
-| Self-contained | Ships with xray-core, nothing else to install |
-| Cancellable | Stop, rescan, or reset at any time |
+| **WARP endpoint scanning** | Tests WireGuard endpoints via SOCKS5 through real xray-core outbound |
+| **Clean IP scanning** | Two-phase: fast TCP probe → Xray validation (VLESS/Trojan) |
+| **Port selection** | All 13 official CF CDN ports (HTTP + HTTPS) |
+| **UDP noise** | Random padding + jitter to bypass DPI-based blocking |
+| **Nearby scan** | Expands around working clean IPs to find adjacent targets |
+| **Subscription replacer** | Fetch → deduplicate → inject fresh IP:port into VLESS/Trojan configs |
+| **Batch apply** | Update many `.conf` files at once with a single endpoint |
+| **Multi-attempt validation** | Each endpoint tested multiple times, median latency reported |
+| **Cloudflare colo detection** | Identifies which data center responds (FRA, AMS, IAD, etc.) |
+| **Live streaming results** | Working endpoints appear as they're confirmed |
+| **Bilingual UI** | English and Persian/Farsi, switchable instantly |
+| **Mobile-friendly** | Responsive to 360 px, touch-optimized |
+| **QR codes** | Generate QR for any config — scan with a phone |
+| **Self-contained** | Bundles xray-core — no runtime dependencies |
+| **Cancellable** | Stop, rescan, or reset at any time |
 
 ---
 
-## Getting Warp Configs
+## Workflows
 
-The **Endpoint Scanner** tab contains a built-in help section with links to:
-- Online Warp config generators
-- Telegram bots that generate configs on demand
-- Open-source CLI tools
-- WireGuard client apps
+### Beginner — get a working WARP endpoint
 
-Scroll to the bottom of the Endpoint Scanner tab to find them.
-
----
-
-## Build from Source
-
-Requires **Go 1.26+** — no C compiler needed.
-
-```bash
-git clone https://github.com/QMahyar/Cloudflare-Scanner.git
-cd Cloudflare-Scanner
-go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
+```
+1. Get a Warp .conf        ─>  see "Getting Warp Configs" inside the app
+2. Upload → Start Scan     ─>  wait for results
+3. Click best result       ─>  apply to your .conf files
 ```
 
-See [BUILD.md](BUILD.md) for cross-platform build commands, project architecture, and the HTTP API reference.
+### Advanced — clean IPs + bulk replace
+
+```
+1. Paste vless:// URL      ─>  Tab: IP Scanner
+2. Start Clean Scan        ─>  wait for Phase 1 + Phase 2
+3. Export working IPs
+4. Paste subscription URL  ─>  Tab: IP Replacer
+5. Select configs + paste endpoints → Generate
+```
+
+---
+
+## Security & Privacy
+
+- The web server binds to **127.0.0.1** only — no external access.
+- Configs / subscriptions are processed **entirely on your machine**.
+- Subscription fetching sends one HTTP request to the URL you type.
+- The app contains no telemetry, analytics, or network calls beyond scan traffic.
 
 ---
 
 ## Documentation
 
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](docs/getting-started.md) | First-time setup and end-to-end workflow |
-| [Endpoint Scanner](docs/endpoint-scanner.md) | Deep dive into Warp endpoint scanning |
-| [IP Scanner](docs/ip-scanner.md) | Two-phase clean IP scanning |
-| [IP Replacer](docs/ip-replacer.md) | Batch IP replacement in configs |
-| [FAQ](docs/faq.md) | Troubleshooting and common questions |
-| [BUILD.md](BUILD.md) | Build from source, architecture, API |
+| Guide | Audience | Description |
+|-------|----------|-------------|
+| [Getting Started](docs/getting-started.md) | Users | First-use walkthrough after launching |
+| [Endpoint Scanner](docs/endpoint-scanner.md) | Users | Deep dive into WARP endpoint scanning |
+| [IP Scanner](docs/ip-scanner.md) | Users | Clean IP scanning explained |
+| [IP Replacer](docs/ip-replacer.md) | Users | Subscription batch-replacement |
+| [FAQ](docs/faq.md) | Users | Troubleshooting and common questions |
+| [BUILD.md](BUILD.md) | Developers | Build, architecture, API reference |
+| [docs/index.md](docs/index.md) | All | Documentation table of contents |
 
 Persian docs: [`docs/fa/`](docs/fa/index.md)
 
@@ -238,7 +174,7 @@ Persian docs: [`docs/fa/`](docs/fa/index.md)
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for the full release history.
+See [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
