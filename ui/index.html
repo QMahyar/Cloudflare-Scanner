@@ -4,10 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Cloudflare Scanner</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 /* ─── Design Tokens ─── */
 :root {
@@ -44,9 +40,9 @@
   --space-md: 12px;
   --space-lg: 16px;
   --space-xl: 24px;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-fa: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Cascadia Mono', 'Consolas', 'SFMono-Regular', monospace;
+  --font-fa: 'Segoe UI', Tahoma, sans-serif;
 }
 
 /* ─── Reset & Base ─── */
@@ -1445,6 +1441,12 @@ const App = (function() {
       'replacer.downloadTitle': 'Download generated configs as a text file',
       'copied.clipboard': 'Copied to clipboard',
       'qr.title': 'QR Code',
+      'results.copySelected': 'Copy Selected',
+      'results.copySelectedTitle': 'Copy selected endpoints to clipboard',
+      'results.selectAll': 'Select All',
+      'results.deselectAll': 'Deselect All',
+      'clean.pushToReplacer': 'Push to Replacer',
+      'clean.pushedToReplacer': 'Pushed {n} endpoints to IP Replacer',
       'langBtn': 'فارسی', langCode: 'en'
     },
     fa: {
@@ -1630,6 +1632,12 @@ const App = (function() {
       'replacer.downloadTitle': 'دانلود کانفیگ‌های ساخته شده به صورت فایل متنی',
       'copied.clipboard': 'در کلیپ‌بورد کپی شد',
       'qr.title': 'کد QR',
+      'results.copySelected': 'کپی انتخاب‌شده‌ها',
+      'results.copySelectedTitle': 'کپی اندپوینت‌های انتخاب‌شده در کلیپ‌بورد',
+      'results.selectAll': 'انتخاب همه',
+      'results.deselectAll': 'لغو انتخاب',
+      'clean.pushToReplacer': 'ارسال به جایگزین',
+      'clean.pushedToReplacer': '{n} اندپوینت به جایگزین آی‌پی ارسال شد',
       'langBtn': 'English', langCode: 'fa'
     }
   };
@@ -1871,7 +1879,8 @@ const App = (function() {
     const enabled = this.checked;
     endpointConfigFields.classList.toggle('config-fields-disabled', !enabled);
     $('#configFile').disabled = !enabled;
-    startBtn.disabled = false;
+    // When config is required, only enable Start if a file is already selected.
+    startBtn.disabled = enabled && !fileInput.files.length;
     updateEndpointDesc();
   });
 
@@ -1894,7 +1903,8 @@ const App = (function() {
     } else {
       fileLabel.textContent = t('config.choose');
       fileLabel.classList.remove('selected');
-      startBtn.disabled = !$('#useConfigEndpoint').checked;
+      // Config mode requires a file; TCP-only mode can start without one.
+      startBtn.disabled = $('#useConfigEndpoint').checked;
     }
   });
 
@@ -2031,9 +2041,10 @@ const App = (function() {
     state.endpoint.resultsTimer = setInterval(async () => {
       try {
         const data = await apiJSON('/api/results/' + jobId);
-        if (data.total > 0) {
+        const rawCount = (data.raw || []).length;
+        if (rawCount > 0) {
           renderResultsTable(data, jobId, true);
-          liveCount.textContent = t('results.working', { n: data.total });
+          liveCount.textContent = t('results.working', { n: rawCount });
           liveCount.classList.remove('hidden');
         }
       } catch {}
@@ -2041,8 +2052,13 @@ const App = (function() {
   }
 
   function renderResultsTable(data, jobId, isLive) {
-    state.endpoint.raw = data.raw || [];
-    const sorted = sortEntries(data.entries, state.endpoint.sort.field, state.endpoint.sort.dir);
+    if (data.raw) state.endpoint.raw = data.raw;
+    // Sort the full successful pool, then apply outCount limit — so the user
+    // sorts all results, not just the already-truncated visible slice.
+    const outCount = parseInt($('#outCount').value) || 0;
+    let pool = sortEntries(state.endpoint.raw, state.endpoint.sort.field, state.endpoint.sort.dir);
+    if (outCount > 0 && pool.length > outCount) pool = pool.slice(0, outCount);
+    const sorted = pool;
     let html = '<div class="results-table-wrap"><table class="results-table"><thead><tr>';
     html += '<th class="sortable" onclick="App.sortEndpoint(\'num\')">' + t('results.tableNum') + sortIcon('num', state.endpoint.sort) + '</th>';
     html += '<th class="sortable" onclick="App.sortEndpoint(\'endpoint\')">' + t('results.tableEndpoint') + sortIcon('endpoint', state.endpoint.sort) + '</th>';
@@ -2066,9 +2082,9 @@ const App = (function() {
       html += '<button class="btn btn-secondary btn-sm" onclick="App.copyAllEndpoints(\'' + jobId + '\')" title="' + t('results.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadRaw(\'' + jobId + '\')" title="' + t('results.downloadTitle') + '">' + t('results.downloadRaw') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.showEndpointQR()" title="QR">QR</button>';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.copySelectedEndpoints()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(true)">' + t('clean.selectAll') + '</button>';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(false)">' + t('clean.deselectAll') + '</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="App.copySelectedEndpoints()" title="' + t('results.copySelectedTitle') + '">' + t('results.copySelected') + '</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(true)">' + t('results.selectAll') + '</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(false)">' + t('results.deselectAll') + '</button>';
       html += '</div>';
       const label = data.status === 'cancelled' ? t('results.scanCancelled') : t('results.found', { n: data.total, s: data.scanned });
       html += '<div class="' + (data.status === 'cancelled' ? 'error-msg' : 'success-msg') + '">' + label + '</div>';
@@ -2089,7 +2105,8 @@ const App = (function() {
   async function fetchResults(jobId) {
     try {
       const data = await apiJSON('/api/results/' + jobId);
-      if (data.total === 0) {
+      const successCount = (data.raw || []).length;
+      if (successCount === 0) {
         resultsContent.innerHTML = '<div class="empty-state"><p>' + t('results.notFound') + '</p></div>';
         resultsContent.classList.remove('hidden');
         liveCount.classList.add('hidden');
@@ -2137,15 +2154,18 @@ const App = (function() {
   }
 
   async function browseOutputFolder() {
-    try {
-      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-      state.apply.dirHandle = handle;
-      $('#outputDirPath').value = t('apply.outDirSelected', { name: handle.name });
-      $('#outputDirPath').readOnly = true;
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-      showToast(t('apply.browseFallback'), true);
+    if (window.showDirectoryPicker) {
+      try {
+        const handle = await window.showDirectoryPicker();
+        state.apply.dirHandle = handle;
+        $('#outputDirPath').value = t('apply.outDirSelected', { name: handle.name });
+        $('#outputDirPath').readOnly = true;
+        return;
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
     }
+    $('#outputDirPath').focus();
   }
 
   function renderApplyConfigItem(r, i) {
@@ -2439,7 +2459,7 @@ const App = (function() {
         nearbyHtml += '<div class="results-actions">';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyNearbyIPs()" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.exportNearbyIPs()">' + t('clean.export') + '</button>';
-        nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="App.pushNearbyToReplacer()">Push to Replacer</button>';
+        nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="App.pushNearbyToReplacer()">' + t('clean.pushToReplacer') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(true)">' + t('clean.selectAll') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
         nearbyHtml += '</div>';
@@ -2482,7 +2502,7 @@ const App = (function() {
       html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.showCleanQR()" title="QR">QR</button>';
       html += '<button class="btn btn-accent btn-sm" onclick="App.exportCleanIPs()">' + t('clean.export') + '</button>';
-      html += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">Push to Replacer</button>';
+      html += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">' + t('clean.pushToReplacer') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(true)">' + t('clean.selectAll') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
@@ -2557,7 +2577,7 @@ const App = (function() {
     ta.value = existing ? existing + '\n' + selected.join('\n') : selected.join('\n');
     ta.dispatchEvent(new Event('input'));
     switchTab('replacer');
-    showToast('Pushed ' + selected.length + ' endpoints to IP Replacer');
+    showToast(t('clean.pushedToReplacer', { n: selected.length }));
   }
 
   async function copyCleanPhase1IPs(jobId) {
@@ -2796,10 +2816,19 @@ const App = (function() {
     const container = $('#qrCode');
     container.innerHTML = '';
     if (state.qr) { state.qr.clear(); state.qr = null; }
-    state.qr = new QRCode(container, {
-      text, width: 220, height: 220,
-      colorDark: '#e6edf3', colorLight: '#0d1117', correctLevel: QRCode.CorrectLevel.M
-    });
+    if (window.QRCode) {
+      state.qr = new QRCode(container, {
+        text, width: 220, height: 220,
+        colorDark: '#e6edf3', colorLight: '#0d1117', correctLevel: QRCode.CorrectLevel.M
+      });
+    } else {
+      const fallback = document.createElement('textarea');
+      fallback.className = 'apply-config-content-box';
+      fallback.readOnly = true;
+      fallback.value = text;
+      fallback.style.minHeight = '160px';
+      container.appendChild(fallback);
+    }
     $('#qrOverlay').classList.add('open');
   }
 
@@ -2832,7 +2861,7 @@ const App = (function() {
     ta.value = existing ? existing + '\n' + selected.join('\n') : selected.join('\n');
     ta.dispatchEvent(new Event('input'));
     switchTab('replacer');
-    showToast('Pushed ' + selected.length + ' endpoints to IP Replacer');
+    showToast(t('clean.pushedToReplacer', { n: selected.length }));
   }
 
   // ═══════════════════════════════════════════════════════════════

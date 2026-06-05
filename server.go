@@ -1,15 +1,16 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -19,18 +20,20 @@ import (
 var uiFS embed.FS
 
 type ScanJob struct {
-	ID         string
-	Status     string
-	Progress   int
-	Total      int
-	Results    []ScanResult
-	Config     *WarpConfig
-	Endpoints  []string
-	Noise      NoiseConfig
-	OutCount   int
-	Cancel     chan struct{}
-	cancelOnce sync.Once
-	mu         sync.Mutex
+	ID          string
+	Status      string
+	Progress    int
+	Total       int
+	Results     []ScanResult
+	Config      *WarpConfig
+	Endpoints   []string
+	Noise       NoiseConfig
+	OutCount    int
+	Concurrency int
+	Attempts    int
+	Cancel      chan struct{}
+	cancelOnce  sync.Once
+	mu          sync.Mutex
 }
 
 // stop closes the Cancel channel at most once, so concurrent stop requests
@@ -39,22 +42,43 @@ func (j *ScanJob) stop() {
 	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
+const jobTTL = 10 * time.Minute
+
 var (
 	scanJobs   = map[string]*ScanJob{}
 	scanJobsMu sync.Mutex
 	jobCounter int
 
-	cleanJobs   = map[string]*CleanIPJob{}
-	cleanJobsMu sync.Mutex
+	cleanJobs       = map[string]*CleanIPJob{}
+	cleanJobsMu     sync.Mutex
 	cleanJobCounter int
 )
 
+func scheduleScanJobCleanup(id string) {
+	time.AfterFunc(jobTTL, func() {
+		scanJobsMu.Lock()
+		delete(scanJobs, id)
+		scanJobsMu.Unlock()
+	})
+}
+
+func scheduleCleanJobCleanup(id string) {
+	time.AfterFunc(jobTTL, func() {
+		cleanJobsMu.Lock()
+		delete(cleanJobs, id)
+		cleanJobsMu.Unlock()
+	})
+}
+
 type scanRequest struct {
-	Noise     bool   `json:"noise"`
-	IPv4      bool   `json:"ipv4"`
-	IPv6      bool   `json:"ipv6"`
-	Count     int    `json:"count"`
-	OutCount  int    `json:"outCount"`
+	Noise       bool        `json:"noise"`
+	NoiseConfig NoiseConfig `json:"noiseConfig"`
+	IPv4        bool        `json:"ipv4"`
+	IPv6        bool        `json:"ipv6"`
+	Count       int         `json:"count"`
+	OutCount    int         `json:"outCount"`
+	Concurrency int         `json:"concurrency"`
+	Attempts    int         `json:"attempts"`
 }
 
 func jsonError(w http.ResponseWriter, msg string, code int) {
@@ -86,13 +110,24 @@ func startServer(xrayPath string) (int, error) {
 		return 0, fmt.Errorf("listen: %w", err)
 	}
 
-	go http.Serve(listener, mux)
+	go func() {
+		if err := http.Serve(listener, mux); err != nil && !errors.Is(err, net.ErrClosed) {
+			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
+		}
+	}()
 	return listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:")
+	data, err := uiFS.ReadFile("ui/index.html")
+	if err != nil {
+		http.Error(w, "UI unavailable", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	data, _ := uiFS.ReadFile("ui/index.html")
 	w.Write(data)
 }
 
@@ -103,6 +138,7 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 			return
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 		if err := r.ParseMultipartForm(10 << 20); err != nil {
 			jsonError(w, err.Error(), 400)
 			return
@@ -130,7 +166,10 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		var req scanRequest
 		jsonStr := r.FormValue("params")
 		if jsonStr != "" {
-			json.Unmarshal([]byte(jsonStr), &req)
+			if err := json.Unmarshal([]byte(jsonStr), &req); err != nil {
+				jsonError(w, fmt.Sprintf("invalid params: %v", err), 400)
+				return
+			}
 		}
 
 		if req.Count <= 0 {
@@ -139,6 +178,12 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		if req.OutCount <= 0 {
 			req.OutCount = 10
 		}
+		if req.Attempts <= 0 {
+			req.Attempts = 2
+		}
+		if req.Attempts > 5 {
+			req.Attempts = 5
+		}
 		if !req.IPv4 && !req.IPv6 {
 			req.IPv4 = true
 		}
@@ -146,6 +191,16 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		noise := NoiseConfig{}
 		if req.Noise {
 			noise = DefaultNoise()
+			if req.NoiseConfig.Type != "" {
+				noise = req.NoiseConfig
+			}
+			if noise.Count <= 0 {
+				noise.Count = 5
+			}
+			if err := noise.Validate(); err != nil {
+				jsonError(w, fmt.Sprintf("invalid noise: %v", err), 400)
+				return
+			}
 		}
 
 		gen := NewEndpointGenerator()
@@ -160,14 +215,16 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		workDir := filepath.Dir(exePath)
 
 		job := &ScanJob{
-			ID:        jobID,
-			Status:    "running",
-			Total:     len(endpoints),
-			Config:    cfg,
-			Endpoints: endpoints,
-			Noise:     noise,
-			OutCount:  req.OutCount,
-			Cancel:    make(chan struct{}),
+			ID:          jobID,
+			Status:      "running",
+			Total:       len(endpoints),
+			Config:      cfg,
+			Endpoints:   endpoints,
+			Noise:       noise,
+			OutCount:    req.OutCount,
+			Concurrency: req.Concurrency,
+			Attempts:    req.Attempts,
+			Cancel:      make(chan struct{}),
 		}
 
 		scanJobsMu.Lock()
@@ -182,9 +239,24 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 }
 
 func runScan(job *ScanJob, xrayPath, workDir string) {
+	defer scheduleScanJobCleanup(job.ID)
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+	go func() {
+		select {
+		case <-job.Cancel:
+			ctxCancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	scanner := NewScanner(job.Config, job.Noise, xrayPath, workDir)
 	if job.Config == nil {
 		scanner.TCPOnly = true
+	}
+	if job.Concurrency > 0 {
+		scanner.Concurrency = job.Concurrency
 	}
 
 	var mu sync.Mutex
@@ -194,10 +266,11 @@ func runScan(job *ScanJob, xrayPath, workDir string) {
 
 	for i, ep := range job.Endpoints {
 		select {
-		case <-job.Cancel:
+		case <-ctx.Done():
 			job.mu.Lock()
 			job.Status = "cancelled"
 			job.mu.Unlock()
+			wg.Wait()
 			return
 		default:
 		}
@@ -205,10 +278,14 @@ func runScan(job *ScanJob, xrayPath, workDir string) {
 		wg.Add(1)
 		go func(endpoint string, idx int) {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
 
-			result := scanner.testEndpoint(endpoint)
+			result := scanner.testEndpointAttempts(ctx, endpoint, job.Attempts)
 
 			mu.Lock()
 			results = append(results, result)
@@ -228,18 +305,19 @@ func runScan(job *ScanJob, xrayPath, workDir string) {
 
 	select {
 	case <-done:
-	case <-job.Cancel:
+	case <-ctx.Done():
+		wg.Wait()
+		mu.Lock()
 		job.mu.Lock()
 		job.Status = "cancelled"
 		job.Results = results
 		job.Progress = len(results)
 		job.mu.Unlock()
+		mu.Unlock()
 		return
 	}
 
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Latency < results[j].Latency
-	})
+	sortScanResults(results)
 
 	job.mu.Lock()
 	job.Status = "done"
@@ -328,6 +406,10 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 		Latency  string `json:"latency"`
 		Success  bool   `json:"success"`
 		Error    string `json:"error,omitempty"`
+		Attempts int    `json:"attempts,omitempty"`
+		Passes   int    `json:"passes,omitempty"`
+		Best     string `json:"best,omitempty"`
+		Jitter   string `json:"jitter,omitempty"`
 	}
 
 	entries := make([]resultEntry, 0, showN)
@@ -339,6 +421,10 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 			Endpoint: r.Endpoint,
 			Latency:  r.Latency.Round(time.Millisecond).String(),
 			Success:  true,
+			Attempts: r.Attempts,
+			Passes:   r.Passes,
+			Best:     r.Best.Round(time.Millisecond).String(),
+			Jitter:   r.Jitter.Round(time.Millisecond).String(),
 		})
 		if len(entries) >= showN {
 			break
@@ -348,22 +434,46 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 	type rawEntry struct {
 		Endpoint string `json:"endpoint"`
 		Latency  string `json:"latency"`
+		Attempts int    `json:"attempts,omitempty"`
+		Passes   int    `json:"passes,omitempty"`
+		Best     string `json:"best,omitempty"`
+		Jitter   string `json:"jitter,omitempty"`
 	}
 
 	raw := make([]rawEntry, 0)
 	for _, r := range results {
 		if r.Success {
-			raw = append(raw, rawEntry{Endpoint: r.Endpoint, Latency: r.Latency.Round(time.Millisecond).String()})
+			raw = append(raw, rawEntry{
+				Endpoint: r.Endpoint,
+				Latency:  r.Latency.Round(time.Millisecond).String(),
+				Attempts: r.Attempts,
+				Passes:   r.Passes,
+				Best:     r.Best.Round(time.Millisecond).String(),
+				Jitter:   r.Jitter.Round(time.Millisecond).String(),
+			})
+		}
+	}
+
+	type failEntry struct {
+		Endpoint string `json:"endpoint"`
+		Error    string `json:"error"`
+	}
+	failures := make([]failEntry, 0)
+	for _, r := range results {
+		if !r.Success {
+			failures = append(failures, failEntry{Endpoint: r.Endpoint, Error: r.Error})
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"entries": entries,
-		"raw":     raw,
-		"total":   len(entries),
-		"scanned": len(results),
-		"status":  status,
+		"entries":      entries,
+		"raw":          raw,
+		"failures":     failures,
+		"failed_count": len(failures),
+		"total":        len(entries),
+		"scanned":      len(results),
+		"status":       status,
 	})
 }
 
@@ -373,6 +483,7 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<22)
 	if err := r.ParseMultipartForm(10 << 22); err != nil {
 		jsonError(w, err.Error(), 400)
 		return
@@ -381,6 +492,10 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 	endpoint := r.FormValue("endpoint")
 	if endpoint == "" {
 		jsonError(w, "endpoint required", 400)
+		return
+	}
+	if _, _, err := net.SplitHostPort(endpoint); err != nil {
+		jsonError(w, fmt.Sprintf("invalid endpoint format (expected host:port): %v", err), 400)
 		return
 	}
 
@@ -398,12 +513,16 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	// Resolve to absolute path and ensure it stays within the executable's
 	// directory or one of its subdirectories (prevents path traversal).
+	if !filepath.IsAbs(outputDir) && (strings.HasPrefix(outputDir, "/") || strings.HasPrefix(outputDir, `\\`)) {
+		jsonError(w, "output_dir must be inside the application directory", 400)
+		return
+	}
 	outputDir = filepath.Clean(outputDir)
 	if !filepath.IsAbs(outputDir) {
 		outputDir = filepath.Join(exeDir, outputDir)
 	}
 	rel, err := filepath.Rel(exeDir, outputDir)
-	if err != nil || strings.HasPrefix(rel, "..") {
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 		jsonError(w, "output_dir must be inside the application directory", 400)
 		return
 	}
@@ -420,10 +539,10 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type fileResult struct {
-		Name     string `json:"name"`
-		Path     string `json:"path,omitempty"`
-		Content  string `json:"content,omitempty"`
-		Error    string `json:"error,omitempty"`
+		Name    string `json:"name"`
+		Path    string `json:"path,omitempty"`
+		Content string `json:"content,omitempty"`
+		Error   string `json:"error,omitempty"`
 	}
 
 	results := make([]fileResult, 0, len(files))
@@ -508,6 +627,7 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 			return
 		}
 
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var req cleanScanRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			jsonError(w, err.Error(), 400)
@@ -672,6 +792,27 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 		Latency  string `json:"latency"`
 		Success  bool   `json:"success"`
 		Error    string `json:"error,omitempty"`
+		Attempts int    `json:"attempts,omitempty"`
+		Passes   int    `json:"passes,omitempty"`
+		Best     string `json:"best,omitempty"`
+		Jitter   string `json:"jitter,omitempty"`
+		Colo     string `json:"colo,omitempty"`
+		Loc      string `json:"loc,omitempty"`
+	}
+
+	cleanEntry := func(r CleanIPResult) resultEntry {
+		return resultEntry{
+			Endpoint: r.Endpoint,
+			Latency:  r.Latency.Round(time.Millisecond).String(),
+			Success:  r.Success,
+			Error:    r.Error,
+			Attempts: r.Attempts,
+			Passes:   r.Passes,
+			Best:     r.Best.Round(time.Millisecond).String(),
+			Jitter:   r.Jitter.Round(time.Millisecond).String(),
+			Colo:     r.Colo,
+			Loc:      r.Loc,
+		}
 	}
 
 	if showPhase2 {
@@ -680,16 +821,12 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 			if !r.Success {
 				continue
 			}
-			entries = append(entries, resultEntry{
-				Endpoint: r.Endpoint,
-				Latency:  r.Latency.Round(time.Millisecond).String(),
-				Success:  true,
-			})
+			entries = append(entries, cleanEntry(r))
 		}
 		raw := make([]resultEntry, 0)
 		for _, r := range phase2Results {
 			if r.Success {
-				raw = append(raw, resultEntry{Endpoint: r.Endpoint, Latency: r.Latency.Round(time.Millisecond).String(), Success: true})
+				raw = append(raw, cleanEntry(r))
 			}
 		}
 		nearbyEntries := make([]resultEntry, 0, len(nearbyPhase2Results))
@@ -697,11 +834,7 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 			if !r.Success {
 				continue
 			}
-			nearbyEntries = append(nearbyEntries, resultEntry{
-				Endpoint: r.Endpoint,
-				Latency:  r.Latency.Round(time.Millisecond).String(),
-				Success:  true,
-			})
+			nearbyEntries = append(nearbyEntries, cleanEntry(r))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
@@ -722,22 +855,14 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 		if !r.Success {
 			continue
 		}
-		entries = append(entries, resultEntry{
-			Endpoint: r.Endpoint,
-			Latency:  r.Latency.Round(time.Millisecond).String(),
-			Success:  true,
-		})
+		entries = append(entries, cleanEntry(r))
 	}
 	nearbyEntries := make([]resultEntry, 0, len(nearbyPhase1Results))
 	for _, r := range nearbyPhase1Results {
 		if !r.Success {
 			continue
 		}
-		nearbyEntries = append(nearbyEntries, resultEntry{
-			Endpoint: r.Endpoint,
-			Latency:  r.Latency.Round(time.Millisecond).String(),
-			Success:  true,
-		})
+		nearbyEntries = append(nearbyEntries, cleanEntry(r))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -764,6 +889,7 @@ func handleCleanExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var req cleanExportRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, err.Error(), 400)
@@ -832,6 +958,7 @@ func handleReplacerFetch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var req replacerFetchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, err.Error(), 400)
@@ -909,6 +1036,7 @@ func handleReplacerParse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 	var req replacerParseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, err.Error(), 400)
@@ -977,6 +1105,7 @@ func handleReplacerApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 	var req replacerApplyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		jsonError(w, err.Error(), 400)

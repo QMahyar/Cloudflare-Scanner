@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bufio"
+	"context"
+	"crypto/tls"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -370,28 +375,34 @@ type CleanIPResult struct {
 	Latency  time.Duration
 	Success  bool
 	Error    string
+	Attempts int
+	Passes   int
+	Best     time.Duration
+	Jitter   time.Duration
+	Colo     string
+	Loc      string
 }
 
 type CleanIPJob struct {
-	ID                string
-	Status            string
-	Progress          int
-	Total             int
-	Phase1Progress    int
-	Phase1Total       int
-	Phase2Progress    int
-	Phase2Total       int
-	Config            *ProxyConfig
-	Endpoints         []string
-	Phase1Results     []CleanIPResult
-	Phase2Results     []CleanIPResult
-	Phase2Count       int
-	SkipPhase2        bool
-	NearbyScan        bool
-	NearbyCount       int
-	Phase1Probes      int
-	Phase2Probes      int
-	ScanPorts         []int
+	ID                  string
+	Status              string
+	Progress            int
+	Total               int
+	Phase1Progress      int
+	Phase1Total         int
+	Phase2Progress      int
+	Phase2Total         int
+	Config              *ProxyConfig
+	Endpoints           []string
+	Phase1Results       []CleanIPResult
+	Phase2Results       []CleanIPResult
+	Phase2Count         int
+	SkipPhase2          bool
+	NearbyScan          bool
+	NearbyCount         int
+	Phase1Probes        int
+	Phase2Probes        int
+	ScanPorts           []int
 	NearbyPhase1Results []CleanIPResult
 	NearbyPhase2Results []CleanIPResult
 	Cancel              chan struct{}
@@ -422,8 +433,12 @@ func runCleanPhase1TCP(endpoints []string, timeout time.Duration, cancel chan st
 		wg.Add(1)
 		go func(endpoint string, idx int) {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-cancel:
+				return
+			}
 
 			start := time.Now()
 			conn, err := net.DialTimeout("tcp", endpoint, timeout)
@@ -438,10 +453,16 @@ func runCleanPhase1TCP(endpoints []string, timeout time.Duration, cancel chan st
 			conn.Close()
 			latency := time.Since(start)
 
+			colo, loc := probeCloudflareTrace(context.Background(), endpoint, 2*time.Second)
 			result := CleanIPResult{
 				Endpoint: endpoint,
 				Latency:  latency,
 				Success:  true,
+				Attempts: 1,
+				Passes:   1,
+				Best:     latency,
+				Colo:     colo,
+				Loc:      loc,
 			}
 
 			mu.Lock()
@@ -457,7 +478,7 @@ func runCleanPhase1TCP(endpoints []string, timeout time.Duration, cancel chan st
 		}(ep, i)
 	}
 
-done := make(chan struct{})
+	done := make(chan struct{})
 	go func() { wg.Wait(); close(done) }()
 
 	select {
@@ -473,7 +494,94 @@ done := make(chan struct{})
 	return results
 }
 
-func validateWithXray(cfg *ProxyConfig, endpoint string, xrayPath string, socksPort int, timeout time.Duration) CleanIPResult {
+func probeCloudflareTrace(ctx context.Context, endpoint string, timeout time.Duration) (colo, loc string) {
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return "", ""
+	}
+	scheme := "http"
+	if port == "443" || port == "8443" || port == "2053" || port == "2083" || port == "2087" || port == "2096" {
+		scheme = "https"
+	}
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, network, endpoint)
+		},
+		TLSClientConfig: &tls.Config{ServerName: "speed.cloudflare.com", MinVersion: tls.VersionTLS12},
+	}
+	client := &http.Client{Transport: transport, Timeout: timeout}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, scheme+"://speed.cloudflare.com/cdn-cgi/trace", nil)
+	if err != nil {
+		return "", ""
+	}
+	req.Host = "speed.cloudflare.com"
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return "", ""
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 16<<10))
+	if err != nil {
+		return "", ""
+	}
+	for _, line := range strings.Split(string(body), "\n") {
+		if strings.HasPrefix(line, "colo=") {
+			colo = strings.TrimSpace(strings.TrimPrefix(line, "colo="))
+		}
+		if strings.HasPrefix(line, "loc=") {
+			loc = strings.TrimSpace(strings.TrimPrefix(line, "loc="))
+		}
+	}
+	_ = host
+	return colo, loc
+}
+
+func validateWithXrayAttempts(ctx context.Context, cfg *ProxyConfig, endpoint string, xrayPath string, socksPortBase int, timeout time.Duration, attempts int) CleanIPResult {
+	if attempts <= 0 {
+		attempts = 1
+	}
+	var latencies []time.Duration
+	var lastErr string
+	for i := 0; i < attempts; i++ {
+		result := validateWithXray(ctx, cfg, endpoint, xrayPath, socksPortBase+i, timeout)
+		if result.Success {
+			latencies = append(latencies, result.Latency)
+		} else {
+			lastErr = result.Error
+		}
+		select {
+		case <-ctx.Done():
+			lastErr = "cancelled"
+			i = attempts
+		default:
+		}
+	}
+	passes := len(latencies)
+	if passes == 0 {
+		return CleanIPResult{Endpoint: endpoint, Error: lastErr, Attempts: attempts, Passes: passes}
+	}
+	return CleanIPResult{
+		Endpoint: endpoint,
+		Success:  true,
+		Latency:  medianDuration(latencies),
+		Attempts: attempts,
+		Passes:   passes,
+		Best:     bestDuration(latencies),
+		Jitter:   jitterDuration(latencies),
+	}
+}
+
+func validateWithXray(ctx context.Context, cfg *ProxyConfig, endpoint string, xrayPath string, socksPort int, timeout time.Duration) CleanIPResult {
+	select {
+	case <-ctx.Done():
+		return CleanIPResult{Endpoint: endpoint, Error: "cancelled"}
+	default:
+	}
+
 	if cfg.UUID == "" {
 		return CleanIPResult{Endpoint: endpoint, Error: "no UUID in config"}
 	}
@@ -482,6 +590,7 @@ func validateWithXray(cfg *ProxyConfig, endpoint string, xrayPath string, socksP
 	if err != nil {
 		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("xray config: %v", err)}
 	}
+	defer os.RemoveAll(filepath.Dir(configPath))
 
 	cmd := exec.Command(xrayPath, "run", "-c", configPath)
 	cmd.Dir = filepath.Dir(configPath)
@@ -497,7 +606,7 @@ func validateWithXray(cfg *ProxyConfig, endpoint string, xrayPath string, socksP
 		f.Close()
 		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("start xray: %v", err)}
 	}
-	f.Close() // child process holds its own handle; release ours
+	f.Close()
 	defer func() {
 		if cmd != nil && cmd.Process != nil {
 			cmd.Process.Kill()
@@ -506,9 +615,14 @@ func validateWithXray(cfg *ProxyConfig, endpoint string, xrayPath string, socksP
 	}()
 
 	addr := fmt.Sprintf("127.0.0.1:%d", socksPort)
-	deadline := time.Now().Add(4 * time.Second)
+	startupDeadline := time.Now().Add(4 * time.Second)
 	started := false
-	for time.Now().Before(deadline) {
+	for time.Now().Before(startupDeadline) {
+		select {
+		case <-ctx.Done():
+			return CleanIPResult{Endpoint: endpoint, Error: "cancelled"}
+		default:
+		}
 		conn, err := net.DialTimeout("tcp", addr, 300*time.Millisecond)
 		if err == nil {
 			conn.Close()
@@ -524,61 +638,54 @@ func validateWithXray(cfg *ProxyConfig, endpoint string, xrayPath string, socksP
 
 	start := time.Now()
 
-	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	var d net.Dialer
+	dialCtx, dialCancel := context.WithTimeout(ctx, 3*time.Second)
+	defer dialCancel()
+	conn, err := d.DialContext(dialCtx, "tcp", addr)
 	if err != nil {
 		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("socks connect: %v", err)}
 	}
+	defer conn.Close()
+
+	// Single deadline covering both SOCKS5 handshake and HTTP round-trip.
+	conn.SetDeadline(time.Now().Add(timeout))
 
 	if err := socks5Handshake(conn, "www.gstatic.com", 80); err != nil {
-		conn.Close()
 		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("socks5: %v", err)}
 	}
 
 	req := "GET /generate_204 HTTP/1.1\r\nHost: www.gstatic.com\r\nConnection: close\r\nUser-Agent: Mozilla/5.0\r\n\r\n"
-	conn.SetDeadline(time.Now().Add(timeout))
 	if _, err := conn.Write([]byte(req)); err != nil {
-		conn.Close()
 		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("http write: %v", err)}
 	}
 
-	resp, err := httpReadResponse(conn)
-	conn.Close()
+	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
 	if err != nil {
 		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("http read: %v", err)}
 	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
 
 	if resp.StatusCode == 204 || resp.StatusCode == 200 {
-		latency := time.Since(start)
-		return CleanIPResult{Endpoint: endpoint, Success: true, Latency: latency}
+		return CleanIPResult{Endpoint: endpoint, Success: true, Latency: time.Since(start)}
 	}
 
 	return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("HTTP %d", resp.StatusCode)}
 }
 
-func httpReadResponse(conn net.Conn) (*httpSimpleResponse, error) {
-	buf := make([]byte, 4096)
-	n, err := conn.Read(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &httpSimpleResponse{}
-	data := string(buf[:n])
-	parts := strings.SplitN(data, "\r\n", 2)
-	if len(parts) > 0 {
-		statusParts := strings.SplitN(parts[0], " ", 3)
-		if len(statusParts) >= 2 {
-			fmt.Sscanf(statusParts[1], "%d", &resp.StatusCode)
-		}
-	}
-	return resp, nil
-}
-
-type httpSimpleResponse struct {
-	StatusCode int
-}
-
 func runCleanScan(job *CleanIPJob, xrayPath string) {
+	defer scheduleCleanJobCleanup(job.ID)
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	defer ctxCancel()
+	go func() {
+		select {
+		case <-job.Cancel:
+			ctxCancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	phase1Timeout := 3 * time.Second
 	phase2Timeout := 5 * time.Second
 
@@ -678,7 +785,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	}
 
 	job.mu.Lock()
-	job.Phase2Total = len(tcpResults)
+	job.Phase2Total = len(tcpResults) + len(nearbyTcpResults)
 	job.Phase2Progress = 0
 	job.Status = "running-phase2"
 	job.mu.Unlock()
@@ -703,9 +810,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	for _, pr := range tcpResults {
 		select {
 		case <-job.Cancel:
-			sort.Slice(phase2Results, func(i, j int) bool {
-				return phase2Results[i].Latency < phase2Results[j].Latency
-			})
+			sortCleanIPResults(phase2Results)
 			mu.Lock()
 			job.mu.Lock()
 			job.Phase2Results = phase2Results
@@ -720,11 +825,15 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		wg.Add(1)
 		go func(ep string) {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
 
-			socksPort := int(portCounter.Add(1)) + 20799
-			result := validateWithXray(job.Config, ep, xrayPath, socksPort, phase2Timeout)
+			socksPort := int(portCounter.Add(10)) + 20799
+			result := validateWithXrayAttempts(ctx, job.Config, ep, xrayPath, socksPort, phase2Timeout, 2)
 
 			mu.Lock()
 			phase2Results = append(phase2Results, result)
@@ -759,22 +868,28 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			nearbyWg.Add(1)
 			go func(ep string) {
 				defer nearbyWg.Done()
-				sem <- struct{}{}
-				defer func() { <-sem }()
+				select {
+				case sem <- struct{}{}:
+					defer func() { <-sem }()
+				case <-ctx.Done():
+					return
+				}
 
-				socksPort := int(portCounter.Add(1)) + 20799
-				result := validateWithXray(job.Config, ep, xrayPath, socksPort, phase2Timeout)
+				socksPort := int(portCounter.Add(10)) + 20799
+				result := validateWithXrayAttempts(ctx, job.Config, ep, xrayPath, socksPort, phase2Timeout, 2)
 
 				mu.Lock()
 				nearbyPhase2Results = append(nearbyPhase2Results, result)
 				mu.Unlock()
+
+				job.mu.Lock()
+				job.Phase2Progress++
+				job.mu.Unlock()
 			}(pr.Endpoint)
 		}
 		nearbyWg.Wait()
 
-		sort.Slice(nearbyPhase2Results, func(i, j int) bool {
-			return nearbyPhase2Results[i].Latency < nearbyPhase2Results[j].Latency
-		})
+		sortCleanIPResults(nearbyPhase2Results)
 	}
 
 	select {
@@ -786,14 +901,12 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	default:
 	}
 
-	sort.Slice(phase2Results, func(i, j int) bool {
-		return phase2Results[i].Latency < phase2Results[j].Latency
-	})
+	sortCleanIPResults(phase2Results)
 
 	job.mu.Lock()
 	job.Phase2Results = phase2Results
 	job.NearbyPhase2Results = nearbyPhase2Results
-	job.Phase2Progress = len(phase2Results)
+	job.Phase2Progress = len(phase2Results) + len(nearbyPhase2Results)
 	job.Status = "done"
 	job.mu.Unlock()
 }

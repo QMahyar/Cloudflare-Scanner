@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -69,6 +70,7 @@ type NoiseEntry struct {
 	Type   string `json:"type"`
 	Packet string `json:"packet"`
 	Delay  string `json:"delay"`
+	Count  int    `json:"count,omitempty"`
 }
 
 type XrayManager struct {
@@ -95,6 +97,7 @@ func (xm *XrayManager) GenerateConfig(endpoint string, socksPort int) (configPat
 				Type:   xm.Noise.Type,
 				Packet: xm.Noise.Packet,
 				Delay:  xm.Noise.Delay,
+				Count:  xm.Noise.Count,
 			},
 		}
 	}
@@ -198,10 +201,19 @@ func (xm *XrayManager) StartXray(configPath string) (*exec.Cmd, error) {
 }
 
 func (xm *XrayManager) WaitForPort(port int, timeout time.Duration) bool {
+	return xm.WaitForPortCtx(context.Background(), port, timeout)
+}
+
+func (xm *XrayManager) WaitForPortCtx(ctx context.Context, port int, timeout time.Duration) bool {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	deadline := time.Now().Add(timeout)
 
 	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
 		conn, err := net.DialTimeout("tcp", addr, 300*time.Millisecond)
 		if err == nil {
 			conn.Close()

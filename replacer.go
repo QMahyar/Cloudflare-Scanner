@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -34,14 +35,21 @@ func ParseRawConfigs(rawText string) []*ProxyConfig {
 }
 
 func FetchSubscription(rawURL string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("only http/https subscription URLs are allowed")
+	}
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get(rawURL)
+	resp, err := client.Get(u.String())
 	if err != nil {
 		return "", fmt.Errorf("fetch: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("unexpected HTTP status: %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10<<20))
 	if err != nil {
 		return "", fmt.Errorf("read: %w", err)
 	}
@@ -115,13 +123,17 @@ func GenerateReplacedConfigs(configs []*ProxyConfig, endpoints []string) []strin
 			if ep == "" {
 				continue
 			}
-			clone := *cfg
-			if host, portStr, err := net.SplitHostPort(ep); err == nil {
-				clone.Address = host
-				if p, _ := strconv.Atoi(portStr); p > 0 {
-					clone.Port = p
-				}
+			host, portStr, err := net.SplitHostPort(ep)
+			if err != nil {
+				continue
 			}
+			p, _ := strconv.Atoi(portStr)
+			if p <= 0 || p > 65535 {
+				continue
+			}
+			clone := *cfg
+			clone.Address = host
+			clone.Port = p
 			if clone.Remark != "" {
 				clone.Remark = cfg.Remark + " @ " + ep
 			} else {

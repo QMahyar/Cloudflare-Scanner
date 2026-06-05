@@ -2,10 +2,13 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,6 +19,10 @@ type ScanResult struct {
 	Latency  time.Duration
 	Success  bool
 	Error    string
+	Attempts int
+	Passes   int
+	Best     time.Duration
+	Jitter   time.Duration
 }
 
 type Scanner struct {
@@ -44,10 +51,58 @@ func (s *Scanner) nextPort() int {
 	return int(s.portCounter.Add(1))
 }
 
-func (s *Scanner) testEndpoint(endpoint string) ScanResult {
+func (s *Scanner) testEndpoint(ctx context.Context, endpoint string) ScanResult {
+	return s.testEndpointAttempts(ctx, endpoint, 1)
+}
+
+func (s *Scanner) testEndpointAttempts(ctx context.Context, endpoint string, attempts int) ScanResult {
+	if attempts <= 0 {
+		attempts = 1
+	}
+	var latencies []time.Duration
+	var lastErr string
+	for i := 0; i < attempts; i++ {
+		result := s.testEndpointOnce(ctx, endpoint)
+		if result.Success {
+			latencies = append(latencies, result.Latency)
+		} else {
+			lastErr = result.Error
+		}
+		select {
+		case <-ctx.Done():
+			lastErr = "cancelled"
+			i = attempts
+		default:
+		}
+	}
+	passes := len(latencies)
+	if passes == 0 {
+		return ScanResult{Endpoint: endpoint, Error: lastErr, Attempts: attempts, Passes: passes}
+	}
+	return ScanResult{
+		Endpoint: endpoint,
+		Success:  true,
+		Latency:  medianDuration(latencies),
+		Attempts: attempts,
+		Passes:   passes,
+		Best:     bestDuration(latencies),
+		Jitter:   jitterDuration(latencies),
+	}
+}
+
+func (s *Scanner) testEndpointOnce(ctx context.Context, endpoint string) ScanResult {
+	select {
+	case <-ctx.Done():
+		return ScanResult{Endpoint: endpoint, Error: "cancelled"}
+	default:
+	}
+
 	if s.TCPOnly {
 		start := time.Now()
-		conn, err := net.DialTimeout("tcp", endpoint, s.Timeout)
+		dialCtx, dialCancel := context.WithTimeout(ctx, s.Timeout)
+		defer dialCancel()
+		var d net.Dialer
+		conn, err := d.DialContext(dialCtx, "tcp", endpoint)
 		if err != nil {
 			return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("tcp dial: %v", err)}
 		}
@@ -68,41 +123,42 @@ func (s *Scanner) testEndpoint(endpoint string) ScanResult {
 	if err != nil {
 		return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("config: %v", err)}
 	}
+	defer os.RemoveAll(filepath.Dir(configPath))
 
 	cmd, err := xm.StartXray(configPath)
 	if err != nil {
 		return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("start: %v", err)}
 	}
-
 	defer xm.StopXray(cmd)
 
-	if !xm.WaitForPort(socksPort, 4*time.Second) {
+	if !xm.WaitForPortCtx(ctx, socksPort, 4*time.Second) {
 		return ScanResult{Endpoint: endpoint, Error: "xray startup timeout"}
 	}
 
 	start := time.Now()
 
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", socksPort), 3*time.Second)
+	dialCtx, dialCancel := context.WithTimeout(ctx, 3*time.Second)
+	defer dialCancel()
+	var d net.Dialer
+	conn, err := d.DialContext(dialCtx, "tcp", fmt.Sprintf("127.0.0.1:%d", socksPort))
 	if err != nil {
 		return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("socks connect: %v", err)}
 	}
+	defer conn.Close()
 
-	// SOCKS5 handshake
+	// Set a single deadline covering both the SOCKS5 handshake and HTTP round-trip.
+	conn.SetDeadline(time.Now().Add(6 * time.Second))
+
 	if err := socks5Handshake(conn, "www.gstatic.com", 80); err != nil {
-		conn.Close()
 		return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("socks5: %v", err)}
 	}
 
-	// HTTP GET
 	req := "GET /generate_204 HTTP/1.1\r\nHost: www.gstatic.com\r\nConnection: close\r\nUser-Agent: Mozilla/5.0\r\n\r\n"
-	conn.SetDeadline(time.Now().Add(3 * time.Second))
 	if _, err := conn.Write([]byte(req)); err != nil {
-		conn.Close()
 		return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("http write: %v", err)}
 	}
 
 	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
-	conn.Close()
 	if err != nil {
 		return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("http read: %v", err)}
 	}
@@ -110,8 +166,7 @@ func (s *Scanner) testEndpoint(endpoint string) ScanResult {
 	resp.Body.Close()
 
 	if resp.StatusCode == 204 {
-		latency := time.Since(start)
-		return ScanResult{Endpoint: endpoint, Success: true, Latency: latency}
+		return ScanResult{Endpoint: endpoint, Success: true, Latency: time.Since(start)}
 	}
 
 	return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("HTTP %d", resp.StatusCode)}
@@ -177,10 +232,15 @@ func (s *Scanner) Run(endpoints []string) []ScanResult {
 		wg.Add(1)
 		go func(endpoint string) {
 			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			default:
+				sem <- struct{}{}
+				defer func() { <-sem }()
+			}
 
-			result := s.testEndpoint(endpoint)
+			result := s.testEndpointAttempts(context.Background(), endpoint, 2)
 
 			mu.Lock()
 			results = append(results, result)
