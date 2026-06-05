@@ -7,12 +7,13 @@
 <style>
 /* ─── Design Tokens ─── */
 :root {
-  --bg-body: #0d1117;
-  --bg-card: rgba(22, 27, 34, 0.85);
-  --bg-input: #21262d;
-  --bg-hover: #1c2128;
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: #30363d;
+  --bg-body: #090d14;
+  --bg-surface: rgba(13, 17, 23, 0.72);
+  --bg-card: rgba(22, 27, 34, 0.82);
+  --bg-input: rgba(33, 38, 45, 0.9);
+  --bg-hover: rgba(31, 41, 55, 0.62);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(139, 148, 158, 0.28);
   --text-primary: #e6edf3;
   --text-secondary: #8b949e;
   --text-heading: #f0f6fc;
@@ -29,10 +30,10 @@
   --btn-danger-hover: #f85149;
   --btn-accent: #1f6feb;
   --btn-accent-hover: #388bfd;
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 12px;
-  --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
   --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --space-xs: 4px;
@@ -50,7 +51,11 @@
 html { scroll-behavior: smooth; }
 body {
   font-family: var(--font-sans);
-  background: var(--bg-body);
+  background:
+    radial-gradient(circle at top left, rgba(88, 166, 255, 0.16), transparent 32rem),
+    radial-gradient(circle at 85% 8%, rgba(63, 185, 80, 0.10), transparent 26rem),
+    linear-gradient(180deg, #0d1117 0%, var(--bg-body) 42%, #070a10 100%);
+  background-attachment: fixed;
   color: var(--text-primary);
   padding: var(--space-md);
   min-height: 100dvh;
@@ -61,29 +66,46 @@ body[dir="rtl"] { font-family: var(--font-fa); }
 @media (min-width: 640px) { body { padding: 20px; } }
 
 /* ─── Layout ─── */
-.container { max-width: 840px; margin: 0 auto; position: relative; z-index: 1; }
+.container { max-width: 1040px; margin: 0 auto; position: relative; z-index: 1; }
+
+.app-shell {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  box-shadow: var(--shadow), var(--shadow-inset);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+@media (min-width: 640px) { .app-shell { padding: var(--space-xl); } }
 
 /* ─── Header ─── */
 .header-row {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--space-xs);
   gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(88, 166, 255, 0.12), rgba(63, 185, 80, 0.05) 48%, rgba(22, 27, 34, 0.45));
+  box-shadow: var(--shadow-inset);
 }
 .header-row h1 {
-  font-size: clamp(1.25rem, 2vw, 1.5rem);
+  font-size: clamp(1.45rem, 4vw, 2.2rem);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--text-heading);
   letter-spacing: -0.02em;
 }
 .subtitle {
   color: var(--text-secondary);
   font-size: 0.8125rem;
-  margin-bottom: var(--space-lg);
+  margin-top: 4px;
+  margin-bottom: 0;
 }
 @media (min-width: 640px) {
-  .subtitle { font-size: 0.875rem; margin-bottom: var(--space-xl); }
+  .subtitle { font-size: 0.875rem; }
 }
 
 /* ─── Language Button ─── */
@@ -110,17 +132,17 @@ body[dir="rtl"] { font-family: var(--font-fa); }
 /* ─── Cards ─── */
 .card {
   position: relative;
-  background: var(--bg-card);
+  background: linear-gradient(180deg, rgba(22, 27, 34, 0.88), rgba(13, 17, 23, 0.78));
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-md);
   margin-bottom: var(--space-md);
-  box-shadow: var(--shadow-inset), var(--shadow);
+  box-shadow: var(--shadow-inset), 0 10px 34px rgba(0, 0, 0, 0.22);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   transition: border-color 0.2s var(--ease);
 }
-.card:hover { border-color: rgba(255, 255, 255, 0.1); }
+.card:hover { border-color: rgba(88, 166, 255, 0.18); }
 @media (min-width: 640px) { .card { padding: var(--space-lg); margin-bottom: var(--space-lg); } }
 
 .card::before {
@@ -336,11 +358,12 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
 /* ─── Tabs ─── */
 .tab-bar {
   display: flex;
-  gap: 0;
+  gap: 4px;
   margin-bottom: var(--space-lg);
-  padding: 4px;
-  background: #1c2128;
-  border-radius: var(--radius-md);
+  padding: 5px;
+  background: rgba(13, 17, 23, 0.72);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   width: fit-content;
   box-shadow: var(--shadow-inset);
 }
@@ -364,7 +387,7 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
 @media (min-width: 640px) { .tab { padding: 8px 20px; font-size: 0.8125rem; } }
 
 .tab:hover { color: var(--text-primary); }
-.tab.active { background: var(--bg-body); color: var(--text-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.tab.active { background: linear-gradient(180deg, rgba(88, 166, 255, 0.18), rgba(88, 166, 255, 0.08)); color: var(--text-heading); box-shadow: var(--shadow-inset), 0 8px 20px rgba(31,111,235,0.16); }
 
 .tab-badge {
   display: none;
@@ -746,6 +769,32 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
 .apply-config-content-box { width: 100%; background: var(--bg-body); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: var(--space-sm); font-family: var(--font-mono); font-size: 0.625rem; line-height: 1.5; color: var(--text-primary); resize: vertical; min-height: 60px; word-break: break-all; box-sizing: border-box; }
 .apply-config-content-box:focus { outline: none; border-color: var(--accent); }
 
+
+/* ─── Shared UI Helpers ─── */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+}
+.section-header h2 { margin: 0; }
+.compact-control { display: flex; align-items: center; gap: 6px; }
+.compact-control label { margin: 0; font-size: 0.6875rem; white-space: nowrap; color: var(--text-secondary); }
+.compact-input {
+  width: 64px !important;
+  padding: 5px 8px !important;
+  min-height: 32px !important;
+  font-size: 0.75rem !important;
+  text-align: center;
+  font-family: var(--font-mono) !important;
+}
+.help-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.muted-inline { font-size: 0.6875rem; color: var(--text-secondary); }
+.status-slot { margin-top: 8px; }
+.mono-break { font-size: 0.6875rem; font-family: var(--font-mono); word-break: break-all; }
+
 /* ─── Focus Accessibility ─── */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -804,6 +853,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 <body>
 <div class="noise-overlay"></div>
 <div class="container">
+  <main class="app-shell">
 
   <!-- Header -->
   <div class="header-row">
@@ -865,7 +915,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
             <button class="preset-btn" data-value="10000" onclick="App.selectPreset(this)" data-t="settings.depth.massive">Massive (10K)</button>
             <button class="preset-btn" data-value="0" onclick="App.selectPreset(this)" data-t="settings.depth.custom">Custom</button>
           </div>
-          <div id="customCountWrap" class="hidden" style="margin-top:6px">
+          <div id="customCountWrap" class="hidden status-slot">
             <input type="text" id="customCount" data-t-placeholder="settings.customPlaceholder" data-t-title="settings.customTitle" placeholder="Enter count" inputmode="numeric">
           </div>
         </div>
@@ -900,11 +950,11 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
 
     <div class="card" id="resultsCard">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <h2 style="margin:0" data-t="results.header">Results</h2>
-        <div style="display:flex;align-items:center;gap:6px">
-          <label for="outCount" style="margin:0;font-size:0.6875rem;white-space:nowrap;color:var(--text-secondary)" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
-          <input type="text" id="outCount" data-t-title="settings.outCountTitle" value="0" style="width:56px;padding:4px 8px;min-height:30px;font-size:0.75rem;background:var(--bg-input);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--text-primary);outline:none;transition:all 0.2s var(--ease);text-align:center;font-family:var(--font-mono)" inputmode="numeric">
+      <div class="section-header">
+        <h2 data-t="results.header">Results</h2>
+        <div class="compact-control">
+          <label for="outCount" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
+          <input class="compact-input" type="text" id="outCount" data-t-title="settings.outCountTitle" value="0" inputmode="numeric">
         </div>
       </div>
 
@@ -921,7 +971,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 
       <details id="applyCard" style="margin-top:var(--space-md)">
         <summary data-t="apply.header">Apply Endpoint to Configs</summary>
-        <p class="desc" style="margin-top:6px" data-t="apply.desc">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
+        <p class="desc status-slot" data-t="apply.desc">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
         <div class="row">
           <div class="col">
             <label for="applyEndpoint" data-t="apply.endpointLabel" data-t-title="apply.endpointTitle">Endpoint to apply</label>
@@ -947,8 +997,8 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
           </div>
         </div>
         <button class="btn btn-accent" id="applyBtn" onclick="App.handleApplyEndpoint()" disabled data-t="apply.generate" data-t-title="apply.generateTitle">Generate Configs</button>
-        <div id="applyStatus" style="margin-top:10px"></div>
-        <div id="applyConfigsOutput" class="hidden" style="margin-top:10px"></div>
+        <div id="applyStatus" class="status-slot"></div>
+        <div id="applyConfigsOutput" class="hidden status-slot"></div>
       </details>
     </div>
 
@@ -958,31 +1008,31 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
         <p class="desc" style="margin-top:8px" data-t="help.desc">Where to get WireGuard configs for Cloudflare Warp:</p>
 
         <h3 data-t="help.onlineGen">Online Generators</h3>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-          <div><a class="help-link" href="https://warp-generator.github.io/warp/" target="_blank" rel="noopener">&rarr; warp-generator.github.io/warp/</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.gen1">- configs with license key, multiple formats</span></div>
-          <div><a class="help-link" href="https://lanrat.github.io/wireguard-warp-generator/" target="_blank" rel="noopener">&rarr; lanrat.github.io/wireguard-warp-generator/</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.gen2">- browser-based, client-side, QR support</span></div>
-          <div><a class="help-link" href="https://warp-mirrors.vercel.app/" target="_blank" rel="noopener">&rarr; warp-mirrors.vercel.app</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.gen3">- multi-server generator (WG, AWG, WireSock, Clash)</span></div>
-          <div><a class="help-link" href="https://warp.llimonix.pw/" target="_blank" rel="noopener">&rarr; warp.llimonix.pw</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.gen4">- region-specific servers, Telegram auth for extras</span></div>
-          <div><a class="help-link" href="https://warpper.me/" target="_blank" rel="noopener">&rarr; warpper.me</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.gen5">- clean UI, generates WG/AWG configs</span></div>
+        <div class="help-list">
+          <div><a class="help-link" href="https://warp-generator.github.io/warp/" target="_blank" rel="noopener">&rarr; warp-generator.github.io/warp/</a> <span class="muted-inline" data-t="help.gen1">- configs with license key, multiple formats</span></div>
+          <div><a class="help-link" href="https://lanrat.github.io/wireguard-warp-generator/" target="_blank" rel="noopener">&rarr; lanrat.github.io/wireguard-warp-generator/</a> <span class="muted-inline" data-t="help.gen2">- browser-based, client-side, QR support</span></div>
+          <div><a class="help-link" href="https://warp-mirrors.vercel.app/" target="_blank" rel="noopener">&rarr; warp-mirrors.vercel.app</a> <span class="muted-inline" data-t="help.gen3">- multi-server generator (WG, AWG, WireSock, Clash)</span></div>
+          <div><a class="help-link" href="https://warp.llimonix.pw/" target="_blank" rel="noopener">&rarr; warp.llimonix.pw</a> <span class="muted-inline" data-t="help.gen4">- region-specific servers, Telegram auth for extras</span></div>
+          <div><a class="help-link" href="https://warpper.me/" target="_blank" rel="noopener">&rarr; warpper.me</a> <span class="muted-inline" data-t="help.gen5">- clean UI, generates WG/AWG configs</span></div>
         </div>
 
         <h3 data-t="help.telegram">Telegram</h3>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-          <div><a class="help-link" href="https://t.me/warp_generator_bot" target="_blank" rel="noopener">&rarr; @warp_generator_bot</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.tg1">- 54k+ users, generates WG/AWG configs, region selection</span></div>
-          <div><a class="help-link" href="https://t.me/WarpGenerator_bot" target="_blank" rel="noopener">&rarr; @WarpGenerator_bot</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.tg2">- WireGuard + AmneziaWG config generator</span></div>
-          <div><a class="help-link" href="https://github.com/cat228608/Warp-Generator-Bot" target="_blank" rel="noopener">&rarr; Warp-Generator-Bot (GitHub)</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.tg3">- open-source bot, uses 3 API sources</span></div>
-          <div><a class="help-link" href="https://t.me/ConfigWireguard" target="_blank" rel="noopener">&rarr; @ConfigWireguard</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.tg4">- 20k+ subs, shares Warp/WireGuard configs daily</span></div>
-          <div><a class="help-link" href="https://t.me/str_bypass" target="_blank" rel="noopener">&rarr; str_bypass</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.tg5">- Warp config channel</span></div>
-          <div><a class="help-link" href="https://t.me/findllimonix" target="_blank" rel="noopener">&rarr; @findllimonix</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.tg6">- llimonix/Warp updates channel</span></div>
+        <div class="help-list">
+          <div><a class="help-link" href="https://t.me/warp_generator_bot" target="_blank" rel="noopener">&rarr; @warp_generator_bot</a> <span class="muted-inline" data-t="help.tg1">- 54k+ users, generates WG/AWG configs, region selection</span></div>
+          <div><a class="help-link" href="https://t.me/WarpGenerator_bot" target="_blank" rel="noopener">&rarr; @WarpGenerator_bot</a> <span class="muted-inline" data-t="help.tg2">- WireGuard + AmneziaWG config generator</span></div>
+          <div><a class="help-link" href="https://github.com/cat228608/Warp-Generator-Bot" target="_blank" rel="noopener">&rarr; Warp-Generator-Bot (GitHub)</a> <span class="muted-inline" data-t="help.tg3">- open-source bot, uses 3 API sources</span></div>
+          <div><a class="help-link" href="https://t.me/ConfigWireguard" target="_blank" rel="noopener">&rarr; @ConfigWireguard</a> <span class="muted-inline" data-t="help.tg4">- 20k+ subs, shares Warp/WireGuard configs daily</span></div>
+          <div><a class="help-link" href="https://t.me/str_bypass" target="_blank" rel="noopener">&rarr; str_bypass</a> <span class="muted-inline" data-t="help.tg5">- Warp config channel</span></div>
+          <div><a class="help-link" href="https://t.me/findllimonix" target="_blank" rel="noopener">&rarr; @findllimonix</a> <span class="muted-inline" data-t="help.tg6">- llimonix/Warp updates channel</span></div>
         </div>
 
         <h3 data-t="help.cliTools">CLI Tools</h3>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-          <div><a class="help-link" href="https://github.com/ViRb3/wgcf" target="_blank" rel="noopener">&rarr; ViRb3/wgcf</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.cli1">- the classic CLI generator, register + generate from terminal</span></div>
-          <div><a class="help-link" href="https://github.com/lanrat/wireguard-warp-generator" target="_blank" rel="noopener">&rarr; lanrat/wireguard-warp-generator</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.cli2">- shell scripts, QR code for mobile</span></div>
-          <div><a class="help-link" href="https://github.com/AnimMouse/wgcf-connector" target="_blank" rel="noopener">&rarr; AnimMouse/wgcf-connector</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.cli3">- extracts WARP Connector configs for site-to-site VPN</span></div>
-          <div><a class="help-link" href="https://gitlab.com/ImMALWARE/bash-warp-generator" target="_blank" rel="noopener">&rarr; ImMALWARE/bash-warp-generator</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.cli4">- bash script for AmneziaWG Warp configs</span></div>
-          <div><a class="help-link" href="https://github.com/barry-far/V2ray-Config" target="_blank" rel="noopener">&rarr; barry-far/V2ray-Config</a> <span style="font-size:0.6875rem;color:var(--text-secondary)" data-t="help.cli5">- GitHub repo with free V2ray/Warp configs</span></div>
+        <div class="help-list">
+          <div><a class="help-link" href="https://github.com/ViRb3/wgcf" target="_blank" rel="noopener">&rarr; ViRb3/wgcf</a> <span class="muted-inline" data-t="help.cli1">- the classic CLI generator, register + generate from terminal</span></div>
+          <div><a class="help-link" href="https://github.com/lanrat/wireguard-warp-generator" target="_blank" rel="noopener">&rarr; lanrat/wireguard-warp-generator</a> <span class="muted-inline" data-t="help.cli2">- shell scripts, QR code for mobile</span></div>
+          <div><a class="help-link" href="https://github.com/AnimMouse/wgcf-connector" target="_blank" rel="noopener">&rarr; AnimMouse/wgcf-connector</a> <span class="muted-inline" data-t="help.cli3">- extracts WARP Connector configs for site-to-site VPN</span></div>
+          <div><a class="help-link" href="https://gitlab.com/ImMALWARE/bash-warp-generator" target="_blank" rel="noopener">&rarr; ImMALWARE/bash-warp-generator</a> <span class="muted-inline" data-t="help.cli4">- bash script for AmneziaWG Warp configs</span></div>
+          <div><a class="help-link" href="https://github.com/barry-far/V2ray-Config" target="_blank" rel="noopener">&rarr; barry-far/V2ray-Config</a> <span class="muted-inline" data-t="help.cli5">- GitHub repo with free V2ray/Warp configs</span></div>
         </div>
 
         <h3 data-t="help.clientApps">Client Apps</h3>
@@ -1045,7 +1095,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
             <button class="preset-btn" data-value="10000" onclick="App.selectPreset(this)" data-t="settings.depth.massive">Massive (10K)</button>
             <button class="preset-btn" data-value="0" onclick="App.selectPreset(this)" data-t="settings.depth.custom">Custom</button>
           </div>
-          <div id="cleanCustomCountWrap" class="hidden" style="margin-top:6px">
+          <div id="cleanCustomCountWrap" class="hidden status-slot">
             <input type="text" id="cleanCustomCount" data-t-placeholder="settings.customPlaceholder" placeholder="Enter count" inputmode="numeric">
           </div>
         </div>
@@ -1149,11 +1199,11 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
 
     <div class="card" id="cleanResultsCard">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <h2 style="margin:0" data-t="results.header">Results</h2>
-        <div style="display:flex;align-items:center;gap:6px">
-          <label for="cleanOutCount" style="margin:0;font-size:0.6875rem;white-space:nowrap;color:var(--text-secondary)" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
-          <input type="text" id="cleanOutCount" data-t-title="settings.outCountTitle" value="0" style="width:56px;padding:4px 8px;min-height:30px;font-size:0.75rem;background:var(--bg-input);border:1px solid var(--border-strong);border-radius:var(--radius-sm);color:var(--text-primary);outline:none;transition:all 0.2s var(--ease);text-align:center;font-family:var(--font-mono)" inputmode="numeric">
+      <div class="section-header">
+        <h2 data-t="results.header">Results</h2>
+        <div class="compact-control">
+          <label for="cleanOutCount" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
+          <input class="compact-input" type="text" id="cleanOutCount" data-t-title="settings.outCountTitle" value="0" inputmode="numeric">
         </div>
       </div>
 
@@ -1168,7 +1218,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
       </div>
       <div id="cleanResultsContent" class="hidden" style="margin-top:4px"></div>
       <div id="cleanResultsNearby" class="hidden" style="margin-top:4px"></div>
-      <div id="cleanStatusMsg" style="margin-top:6px"></div>
+      <div id="cleanStatusMsg" class="status-slot"></div>
     </div>
   </div>
 
@@ -1193,23 +1243,23 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
             <button class="btn btn-primary" id="fetchBtn" onclick="App.replacerFetch()" data-t="replacer.fetch" data-t-title="replacer.fetchTitle">Fetch</button>
           </div>
         </div>
-        <div id="replacerFetchStatus" style="margin-top:6px"></div>
+        <div id="replacerFetchStatus" class="status-slot"></div>
       </div>
 
       <div id="replacerPasteWrap" class="hidden">
         <textarea id="replacerRawText" rows="3" data-t-placeholder="replacer.pastePlaceholder" data-t-title="replacer.pasteTitle" placeholder="vless://uuid@ip:port?encryption=none&...&#10;trojan://password@ip:port?security=tls&..."></textarea>
-        <div style="margin-top:6px">
+        <div class="status-slot">
           <button class="btn btn-secondary" id="parseBtn" onclick="App.replacerParse()" data-t="replacer.parse" data-t-title="replacer.parseTitle">Parse</button>
-          <div id="replacerParseStatus" style="margin-top:6px"></div>
+          <div id="replacerParseStatus" class="status-slot"></div>
         </div>
       </div>
     </div>
 
     <div class="card hidden" id="replacerConfigsCard">
       <h2 data-t="replacer.configsHeader">Unique Configs</h2>
-      <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:6px" id="replacerConfigCount"></p>
+      <p class="desc" id="replacerConfigCount"></p>
       <div class="results-table-wrap scrollable-list" id="replacerConfigsWrap"></div>
-      <div id="replacerConfigActions" class="hidden" style="margin-top:6px">
+      <div id="replacerConfigActions" class="hidden status-slot">
         <button class="btn btn-secondary btn-sm" onclick="App.replacerSelectAll(true)" data-t-title="replacer.configsSelectTitle">Select All</button>
         <button class="btn btn-secondary btn-sm" onclick="App.replacerSelectAll(false)" data-t-title="replacer.configsSelectTitle">Deselect All</button>
       </div>
@@ -1217,19 +1267,19 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 
     <div class="card" id="replacerEndpointsCard">
       <h2 data-t="replacer.endpointsHeader">Endpoints</h2>
-      <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:6px" data-t="replacer.endpointsDesc">Paste IP:port endpoints (one per line) from Clean IP scan results.</p>
+      <p class="desc" data-t="replacer.endpointsDesc">Paste IP:port endpoints (one per line) from Clean IP scan results.</p>
       <textarea id="replacerEndpoints" rows="4" data-t-placeholder="replacer.endpointsPlaceholder" data-t-title="replacer.endpointsTitle" placeholder="162.159.90.249:443&#10;162.159.82.8:443&#10;..."></textarea>
-      <div style="margin-top:6px">
+      <div class="status-slot">
         <button class="btn btn-accent" id="replacerGenerateBtn" onclick="App.replacerGenerate()" data-t="replacer.generate" data-t-title="replacer.generateTitle">Generate Configs</button>
       </div>
-      <div id="replacerGenStatus" style="margin-top:6px"></div>
+      <div id="replacerGenStatus" class="status-slot"></div>
     </div>
 
     <div class="card hidden" id="replacerResultsCard">
       <h2 data-t="replacer.resultsHeader">Generated Configs</h2>
-      <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:6px" id="replacerResultsCount"></p>
+      <p class="desc" id="replacerResultsCount"></p>
       <div class="results-table-wrap scrollable-list" id="replacerResultsWrap"></div>
-      <div class="results-actions" id="replacerResultsActions" style="margin-top:10px">
+      <div class="results-actions" id="replacerResultsActions" class="status-slot">
         <button class="btn btn-secondary btn-sm" onclick="App.replacerCopyAll()" data-t="replacer.copyAll" data-t-title="replacer.copyAllTitle">Copy All</button>
         <button class="btn btn-secondary btn-sm" onclick="App.replacerDownload()" data-t="replacer.download" data-t-title="replacer.downloadTitle">Download</button>
         <button class="btn btn-secondary btn-sm" onclick="App.showReplacerQR()">QR</button>
@@ -1237,6 +1287,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
   </div>
 
+  </main>
 </div>
 
 <!-- QR Overlay -->
@@ -1244,7 +1295,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
   <div class="qr-modal" role="dialog" aria-modal="true" aria-label="QR Code">
     <h3 data-t="qr.title">QR Code</h3>
     <div id="qrCode"></div>
-    <p style="font-size:0.6875rem;color:var(--text-secondary);word-break:break-all;margin-bottom:8px;font-family:var(--font-mono)" id="qrText"></p>
+    <p class="mono-break" id="qrText"></p>
     <button class="btn btn-secondary btn-sm qr-close" onclick="App.closeQR()" data-t="buttons.close">Close</button>
   </div>
 </div>
@@ -2199,7 +2250,7 @@ const App = (function() {
       let html = '<div class="success-msg">' + t('apply.generated', { s: data.saved, t: data.total }) + '</div>';
       const failed = state.apply.results.filter(r => r.error);
       if (failed.length > 0) {
-        html += '<div style="margin-top:6px">';
+        html += '<div class="status-slot">';
         failed.forEach(r => html += '<div class="error-msg" style="margin-top:4px">' + escapeHtml(r.name) + ': ' + escapeHtml(r.error) + '</div>');
         html += '</div>';
       }
@@ -2486,7 +2537,7 @@ const App = (function() {
       html = renderCleanResultsTable(filteredData);
       if (data.status === 'done' || data.status === 'cancelled') {
         const isCancelled = data.status === 'cancelled';
-        html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + '" style="margin-top:6px">' +
+        html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + ' status-slot">' +
           (isCancelled ? t('clean.progressCancelled') : t('clean.foundPhase1', { n: data.total, t: data.phase1_total })) + '</div>';
         html += '<div class="results-actions">';
         html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')">' + t('results.copyAll') + '</button>';
@@ -2785,7 +2836,7 @@ const App = (function() {
     let html = '<table class="results-table"><thead><tr><th>#</th><th>' + t('replacer.tableConfig') + '</th></tr></thead><tbody>';
     urls.forEach((u, i) => {
       const display = u.length > 100 ? u.substring(0, 100) + '…' : u;
-      html += '<tr><td class="num">' + (i+1) + '</td><td style="font-size:0.6875rem;font-family:var(--font-mono);word-break:break-all">' + escapeHtml(display) + '</td></tr>';
+      html += '<tr><td class="num">' + (i+1) + '</td><td class="mono-break">' + escapeHtml(display) + '</td></tr>';
     });
     html += '</tbody></table>';
     container.innerHTML = html;
