@@ -10,7 +10,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +36,111 @@ type ScanJob struct {
 	Cancel      chan struct{}
 	cancelOnce  sync.Once
 	mu          sync.Mutex
+}
+
+var errFolderSelectionCancelled = errors.New("folder selection cancelled")
+
+func handleSelectOutputDir(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		jsonError(w, "GET required", 405)
+		return
+	}
+
+	dir, err := selectOutputDir()
+	if err != nil {
+		if errors.Is(err, errFolderSelectionCancelled) {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]interface{}{"cancelled": true})
+			return
+		}
+		jsonError(w, fmt.Sprintf("folder picker failed: %v", err), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"path": dir})
+}
+
+func selectOutputDir() (string, error) {
+	switch runtime.GOOS {
+	case "windows":
+		return selectOutputDirWindows()
+	case "darwin":
+		return selectOutputDirDarwin()
+	default:
+		return selectOutputDirLinux()
+	}
+}
+
+func selectOutputDirWindows() (string, error) {
+	script := `Add-Type -AssemblyName System.Windows.Forms; $dlg = New-Object System.Windows.Forms.FolderBrowserDialog; $dlg.Description = "Select output folder"; $dlg.ShowNewFolderButton = $true; if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dlg.SelectedPath) } else { exit 2 }`
+	cmd := exec.Command("powershell", "-NoProfile", "-Command", script)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 2 {
+			return "", errFolderSelectionCancelled
+		}
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", errors.New(msg)
+	}
+	path := strings.TrimSpace(string(out))
+	if path == "" {
+		return "", errFolderSelectionCancelled
+	}
+	return filepath.Clean(path), nil
+}
+
+func selectOutputDirDarwin() (string, error) {
+	cmd := exec.Command("/usr/bin/osascript",
+		"-e", `set selectedFolder to choose folder with prompt "Select output folder"`,
+		"-e", `POSIX path of selectedFolder`,
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.ToLower(strings.TrimSpace(string(out)))
+		if strings.Contains(msg, "user canceled") || strings.Contains(msg, "cancelled") {
+			return "", errFolderSelectionCancelled
+		}
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", errors.New(msg)
+	}
+	path := strings.TrimSpace(string(out))
+	if path == "" {
+		return "", errFolderSelectionCancelled
+	}
+	return filepath.Clean(path), nil
+}
+
+func selectOutputDirLinux() (string, error) {
+	type pickerCmd struct {
+		name string
+		args []string
+	}
+	candidates := []pickerCmd{
+		{name: "zenity", args: []string{"--file-selection", "--directory", "--title=Select output folder"}},
+		{name: "kdialog", args: []string{"--getexistingdirectory", ".", "--title", "Select output folder"}},
+	}
+	for _, c := range candidates {
+		cmd := exec.Command(c.name, c.args...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+				return "", errFolderSelectionCancelled
+			}
+			continue
+		}
+		path := strings.TrimSpace(string(out))
+		if path == "" {
+			return "", errFolderSelectionCancelled
+		}
+		return filepath.Clean(path), nil
+	}
+	return "", errors.New("no supported folder picker found (install zenity or kdialog)")
 }
 
 // stop closes the Cancel channel at most once, so concurrent stop requests
@@ -96,6 +203,7 @@ func startServer(xrayPath string) (int, error) {
 	mux.HandleFunc("/api/results/", handleScanResults)
 	mux.HandleFunc("/api/stop/", handleScanStop)
 	mux.HandleFunc("/api/apply-endpoint", handleApplyEndpoint)
+	mux.HandleFunc("/api/select-output-dir", handleSelectOutputDir)
 	mux.HandleFunc("/api/clean-scan", handleCleanScanStart(xrayPath))
 	mux.HandleFunc("/api/clean-status/", handleCleanScanStatus)
 	mux.HandleFunc("/api/clean-results/", handleCleanScanResults)
@@ -510,21 +618,9 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 	if outputDir == "" {
 		outputDir = exeDir
 	}
-
-	// Resolve to absolute path and ensure it stays within the executable's
-	// directory or one of its subdirectories (prevents path traversal).
-	if !filepath.IsAbs(outputDir) && (strings.HasPrefix(outputDir, "/") || strings.HasPrefix(outputDir, `\\`)) {
-		jsonError(w, "output_dir must be inside the application directory", 400)
-		return
-	}
 	outputDir = filepath.Clean(outputDir)
 	if !filepath.IsAbs(outputDir) {
 		outputDir = filepath.Join(exeDir, outputDir)
-	}
-	rel, err := filepath.Rel(exeDir, outputDir)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		jsonError(w, "output_dir must be inside the application directory", 400)
-		return
 	}
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {

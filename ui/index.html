@@ -794,6 +794,11 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
 .muted-inline { font-size: 0.6875rem; color: var(--text-secondary); }
 .status-slot { margin-top: 8px; }
 .mono-break { font-size: 0.6875rem; font-family: var(--font-mono); word-break: break-all; }
+.help-panel { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 var(--space-sm) var(--space-sm); background: var(--bg-input); }
+.help-panel > summary { padding-top: var(--space-sm); margin: 0 calc(var(--space-xs) * -1); padding-left: var(--space-xs); padding-right: var(--space-xs); }
+.help-panel h3 { margin: var(--space-sm) 0 8px; font-size: 0.75rem; letter-spacing: 0.01em; color: var(--text-heading); }
+.help-panel .help-list > div { padding: 6px 8px; border-radius: var(--radius-sm); background: rgba(88, 166, 255, 0.04); border: 1px solid rgba(88, 166, 255, 0.08); }
+.help-panel .help-list > div:hover { border-color: rgba(88, 166, 255, 0.2); background: rgba(88, 166, 255, 0.08); }
 
 /* ─── Focus Accessibility ─── */
 :focus-visible {
@@ -1003,7 +1008,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
 
     <div class="card">
-      <details>
+      <details class="help-panel">
         <summary data-t="help.header">Getting Warp Configs</summary>
         <p class="desc" style="margin-top:8px" data-t="help.desc">Where to get WireGuard configs for Cloudflare Warp:</p>
 
@@ -1169,15 +1174,6 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
         </div>
       </div>
       <div class="row">
-        <div class="col">
-          <div class="toggle-wrap">
-            <label class="toggle" data-t-title="clean.onePhaseTitle" aria-label="Toggle one phase scan">
-              <input type="checkbox" id="onePhaseClean">
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label" data-t="clean.onePhase" data-t-title="clean.onePhaseTitle">1-phase (TCP probe only, no config)</span>
-          </div>
-        </div>
         <div class="col">
           <div class="toggle-wrap">
             <label class="toggle" data-t-title="clean.nearbyTitle" aria-label="Toggle nearby scan">
@@ -1746,7 +1742,7 @@ const App = (function() {
 
   // ─── State ───
   const state = {
-    endpoint: { jobId: null, statusTimer: null, resultsTimer: null, raw: [], sort: { field: 'num', dir: 'asc' } },
+    endpoint: { jobId: null, statusTimer: null, resultsTimer: null, raw: [], lastStatus: 'idle', sort: { field: 'num', dir: 'asc' } },
     clean: { jobId: null, statusTimer: null, resultsTimer: null, data: null, phase2: [], list: 'direct', sort: { field: 'latency', dir: 'asc' } },
     replacer: { configs: [], generated: [], method: 'url', sort: { field: 'num', dir: 'asc' } },
     apply: { results: [], dirHandle: null },
@@ -1775,6 +1771,8 @@ const App = (function() {
       document.body.removeChild(ta);
     }
   }
+
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   // ─── Toast ───
   let toastTimer = null;
@@ -1915,15 +1913,8 @@ const App = (function() {
 
   function updateCleanDesc() {
     const el = $('#cleanScanDesc');
-    const onePhase = $('#onePhaseClean').checked;
     const useConfig = $('#useConfigClean').checked;
-    if (onePhase) {
-      el.textContent = t('clean.descOnePhase');
-    } else if (useConfig) {
-      el.textContent = t('clean.descTwoPhase');
-    } else {
-      el.textContent = t('clean.descTwoPhaseNoURL');
-    }
+    el.textContent = t(useConfig ? 'clean.descTwoPhase' : 'clean.descOnePhase');
   }
 
   $('#useConfigEndpoint').addEventListener('change', function() {
@@ -1939,10 +1930,7 @@ const App = (function() {
     const enabled = this.checked;
     cleanConfigFields.classList.toggle('config-fields-disabled', !enabled);
     $('#vlessURL').disabled = !enabled;
-    if (!enabled) {
-      $('#onePhaseClean').checked = true;
-      $('#cleanPhase2Col').classList.add('hidden');
-    }
+    $('#cleanPhase2Col').classList.toggle('hidden', !enabled);
     updateCleanDesc();
   });
 
@@ -2068,6 +2056,7 @@ const App = (function() {
     state.endpoint.statusTimer = setInterval(async () => {
       try {
         const data = await apiJSON('/api/status/' + jobId);
+        state.endpoint.lastStatus = data.status;
         const pct = total > 0 ? Math.round((data.progress / total) * 100) : 0;
         progressFill.style.width = pct + '%';
         progressText.textContent = t('scan.progressTemplate', { p: data.progress, t: total });
@@ -2077,7 +2066,7 @@ const App = (function() {
           clearInterval(state.endpoint.resultsTimer);
           state.endpoint.resultsTimer = null;
           if (data.status === 'cancelled') progressFill.classList.add('cancelled');
-          fetchResults(jobId);
+          fetchResults(jobId, data.status);
           setScanDone();
         }
       } catch {
@@ -2153,21 +2142,35 @@ const App = (function() {
     if (state.endpoint.jobId) fetchResults(state.endpoint.jobId);
   }
 
-  async function fetchResults(jobId) {
-    try {
-      const data = await apiJSON('/api/results/' + jobId);
-      const successCount = (data.raw || []).length;
-      if (successCount === 0) {
-        resultsContent.innerHTML = '<div class="empty-state"><p>' + t('results.notFound') + '</p></div>';
-        resultsContent.classList.remove('hidden');
+  async function fetchResults(jobId, finalStatus) {
+    for (let i = 0; i < 4; i++) {
+      try {
+        const data = await apiJSON('/api/results/' + jobId);
+        const successCount = (data.raw || []).length;
+        if (successCount === 0) {
+          resultsContent.innerHTML = '<div class="empty-state"><p>' + t('results.notFound') + '</p></div>';
+          resultsContent.classList.remove('hidden');
+          liveCount.classList.add('hidden');
+          return;
+        }
+        renderResultsTable(data, jobId, false);
         liveCount.classList.add('hidden');
         return;
+      } catch {
+        await sleep(250);
       }
-      renderResultsTable(data, jobId, false);
-      liveCount.classList.add('hidden');
-    } catch {
-      showError(t('results.failed'));
     }
+    if (state.endpoint.raw && state.endpoint.raw.length > 0) {
+      renderResultsTable({
+        raw: state.endpoint.raw,
+        total: state.endpoint.raw.length,
+        scanned: state.endpoint.raw.length,
+        status: finalStatus || state.endpoint.lastStatus || 'done'
+      }, jobId, false);
+      liveCount.classList.add('hidden');
+      return;
+    }
+    showError(t('results.failed'));
   }
 
   function useEndpoint(ep) {
@@ -2205,17 +2208,30 @@ const App = (function() {
   }
 
   async function browseOutputFolder() {
+    try {
+      const data = await apiJSON('/api/select-output-dir');
+      if (data && data.path) {
+        state.apply.dirHandle = null;
+        $('#outputDirPath').readOnly = false;
+        $('#outputDirPath').value = data.path;
+        updateApplyBtn();
+        return;
+      }
+      if (data && data.cancelled) return;
+    } catch {}
     if (window.showDirectoryPicker) {
       try {
         const handle = await window.showDirectoryPicker();
         state.apply.dirHandle = handle;
         $('#outputDirPath').value = t('apply.outDirSelected', { name: handle.name });
         $('#outputDirPath').readOnly = true;
+        updateApplyBtn();
         return;
       } catch (e) {
         if (e.name === 'AbortError') return;
       }
     }
+    showToast(t('apply.browseFallback'), true);
     $('#outputDirPath').focus();
   }
 
@@ -2259,6 +2275,10 @@ const App = (function() {
       if (goodResults.length > 0) {
         let outHtml = '';
         goodResults.forEach((r, i) => { outHtml += renderApplyConfigItem(r, i); });
+        outHtml += '<div class="results-actions">';
+        outHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyAllApplyConfigs()">' + t('results.copyAll') + '</button>';
+        outHtml += '<button class="btn btn-secondary btn-sm" onclick="App.downloadApplyConfigs()">' + t('results.downloadRaw') + '</button>';
+        outHtml += '</div>';
         $('#applyConfigsOutput').innerHTML = outHtml;
         $('#applyConfigsOutput').classList.remove('hidden');
         if (state.apply.dirHandle) {
@@ -2293,6 +2313,28 @@ const App = (function() {
     showToast(t('copied.clipboard'));
   }
 
+  function copyAllApplyConfigs() {
+    const items = (state.apply.results || []).filter(r => !r.error && r.content);
+    if (!items.length) return;
+    const payload = items.map(r => '# ' + r.name + '\n' + r.content).join('\n\n');
+    copyToClipboard(payload);
+    showToast(t('copied.clipboard'));
+  }
+
+  function downloadApplyConfigs() {
+    const items = (state.apply.results || []).filter(r => !r.error && r.content);
+    if (!items.length) return;
+    let text = '# Modified WireGuard Configs\n# Generated by Cloudflare Scanner\n\n';
+    items.forEach(r => {
+      text += '# ' + r.name + '\n' + r.content + '\n\n';
+    });
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'modified_warp_configs.txt'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function showApplyQR(i) {
     const r = state.apply.results[i];
     if (r && r.content) showQR(r.content);
@@ -2319,7 +2361,7 @@ const App = (function() {
 
   async function startCleanScan() {
     const useConfig = $('#useConfigClean').checked;
-    const onePhase = !useConfig || $('#onePhaseClean').checked;
+    const onePhase = !useConfig;
     const vlessURL = useConfig ? $('#vlessURL').value.trim() : '';
     if (!onePhase && !vlessURL) {
       $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errNoURL') + '</div>';
@@ -2449,10 +2491,6 @@ const App = (function() {
     }, 200);
   }
 
-  $('#onePhaseClean').addEventListener('change', function() {
-    $('#cleanPhase2Col').classList.toggle('hidden', this.checked);
-    updateCleanDesc();
-  });
 
   function renderCleanResultsTable(data) {
     const sorted = sortEntries(data.entries, state.clean.sort.field, state.clean.sort.dir);
@@ -2460,13 +2498,13 @@ const App = (function() {
     html += '<th class="sortable" onclick="App.sortClean(\'num\')">' + t('results.tableNum') + sortIcon('num', state.clean.sort) + '</th>';
     html += '<th class="sortable" onclick="App.sortClean(\'endpoint\')">' + t('results.tableEndpoint') + sortIcon('endpoint', state.clean.sort) + '</th>';
     html += '<th class="sortable" onclick="App.sortClean(\'latency\')">' + t('results.tableLatency') + sortIcon('latency', state.clean.sort) + '</th>';
-    if (data.phase === 'phase2') html += '<th></th>';
+    html += '<th class="checkbox-cell"></th>';
     html += '</tr></thead><tbody>';
     sorted.forEach((e, i) => {
       html += '<tr><td class="num">' + (i+1) + '</td>';
       html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(e.endpoint) + '\')" title="' + t('results.tableEndpoint') + '">' + escapeHtml(e.endpoint) + '</span></td>';
       html += '<td class="' + latClass(e.latency) + '">' + escapeHtml(e.latency) + '</td>';
-      if (data.phase === 'phase2') html += '<td class="checkbox-cell"><input type="checkbox" class="clean-select" value="' + escapeEp(e.endpoint) + '"></td>';
+      html += '<td class="checkbox-cell"><input type="checkbox" class="clean-select" value="' + escapeEp(e.endpoint) + '"></td>';
       html += '</tr>';
     });
     html += '</tbody></table></div>';
@@ -2503,16 +2541,25 @@ const App = (function() {
       if (data.phase === 'phase1') {
         nearbyHtml = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundNearby', { n: nearbyEntries.length }) + '</div>';
         nearbyHtml += renderCleanResultsTable(nearbyData);
-        nearbyHtml += '<div class="results-actions"><button class="btn btn-secondary btn-sm" onclick="App.copyNearbyIPs()">' + t('results.copyAll') + '</button></div>';
+        nearbyHtml += '<div class="results-actions">';
+        nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyNearbyIPs()" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
+        nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.downloadNearbyIPs()">' + t('results.downloadRaw') + '</button>';
+        nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">' + t('clean.pushToReplacer') + '</button>';
+        nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(true)">' + t('clean.selectAll') + '</button>';
+        nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
+        nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
+        nearbyHtml += '</div>';
       } else {
         nearbyHtml = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundNearbyPhase2', { n: nearbyEntries.length }) + '</div>';
         nearbyHtml += renderCleanResultsTable(nearbyData);
         nearbyHtml += '<div class="results-actions">';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyNearbyIPs()" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
+        nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.downloadNearbyIPs()">' + t('results.downloadRaw') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.exportNearbyIPs()">' + t('clean.export') + '</button>';
-        nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="App.pushNearbyToReplacer()">' + t('clean.pushToReplacer') + '</button>';
+        nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">' + t('clean.pushToReplacer') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(true)">' + t('clean.selectAll') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
+        nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
         nearbyHtml += '</div>';
       }
       nearbyContainer.innerHTML = nearbyHtml;
@@ -2540,9 +2587,13 @@ const App = (function() {
         html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + ' status-slot">' +
           (isCancelled ? t('clean.progressCancelled') : t('clean.foundPhase1', { n: data.total, t: data.phase1_total })) + '</div>';
         html += '<div class="results-actions">';
-        html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')">' + t('results.copyAll') + '</button>';
+        html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
         html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
         html += '<button class="btn btn-secondary btn-sm" onclick="App.showCleanQR()" title="QR">QR</button>';
+        html += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">' + t('clean.pushToReplacer') + '</button>';
+        html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(true)">' + t('clean.selectAll') + '</button>';
+        html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
+        html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
         html += '</div>';
       }
     } else {
@@ -2597,6 +2648,17 @@ const App = (function() {
     showToast(t('copied.clipboard'));
   }
 
+  function downloadNearbyIPs() {
+    if (!state.clean.data?.nearby_entries) return;
+    let text = '# Nearby Cloudflare Responding IPs\n# Generated by Cloudflare Scanner\n\n';
+    state.clean.data.nearby_entries.forEach(r => text += r.endpoint + '\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'nearby_responded_ips.txt'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function exportNearbyIPs() {
     const vlessURL = $('#vlessURL').value.trim();
     if (!state.clean.data?.nearby_entries) return;
@@ -2622,13 +2684,7 @@ const App = (function() {
   function pushNearbyToReplacer() {
     if (!state.clean.data?.nearby_entries) return;
     const selected = state.clean.data.nearby_entries.map(e => e.endpoint);
-    if (!selected.length) { showToast(t('clean.errNoSelection')); return; }
-    const ta = $('#replacerEndpoints');
-    const existing = ta.value.trim();
-    ta.value = existing ? existing + '\n' + selected.join('\n') : selected.join('\n');
-    ta.dispatchEvent(new Event('input'));
-    switchTab('replacer');
-    showToast(t('clean.pushedToReplacer', { n: selected.length }));
+    appendEndpointsToReplacer(selected);
   }
 
   async function copyCleanPhase1IPs(jobId) {
@@ -2663,6 +2719,21 @@ const App = (function() {
     if (!selected.length) { showToast(t('clean.errNoSelection')); return; }
     copyToClipboard(selected.join('\n'));
     showToast(t('copied.clipboard'));
+  }
+
+  function appendEndpointsToReplacer(endpoints) {
+    const cleaned = (endpoints || []).map(s => (s || '').trim()).filter(Boolean);
+    if (!cleaned.length) { showToast(t('clean.errNoSelection')); return; }
+    const ta = $('#replacerEndpoints');
+    const existing = ta.value
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean);
+    const merged = Array.from(new Set(existing.concat(cleaned)));
+    ta.value = merged.join('\n');
+    ta.dispatchEvent(new Event('input'));
+    switchTab('replacer');
+    showToast(t('clean.pushedToReplacer', { n: cleaned.length }));
   }
 
   async function exportCleanIPs() {
@@ -2906,13 +2977,7 @@ const App = (function() {
 
   function pushCleanToReplacer() {
     const selected = Array.from($$('.clean-select:checked')).map(cb => cb.value);
-    if (!selected.length) { showToast(t('clean.errNoSelection')); return; }
-    const ta = $('#replacerEndpoints');
-    const existing = ta.value.trim();
-    ta.value = existing ? existing + '\n' + selected.join('\n') : selected.join('\n');
-    ta.dispatchEvent(new Event('input'));
-    switchTab('replacer');
-    showToast(t('clean.pushedToReplacer', { n: selected.length }));
+    appendEndpointsToReplacer(selected);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -2923,6 +2988,7 @@ const App = (function() {
     selectReplacerMethod('url');
     updateEndpointDesc();
     updateCleanDesc();
+    $('#cleanPhase2Col').classList.toggle('hidden', !$('#useConfigClean').checked);
   }
 
   // ─── Public API ───
@@ -2960,11 +3026,11 @@ const App = (function() {
     updateCleanPortMode() {},
     switchCleanList, sortClean, copyCleanPhase1IPs, downloadCleanPhase1IPs,
     selectAllClean, copyCleanPhase2IPs, copyCleanSelectedIPs, exportCleanIPs,
-    copyNearbyIPs, exportNearbyIPs, pushNearbyToReplacer, pushCleanToReplacer,
+    copyNearbyIPs, downloadNearbyIPs, exportNearbyIPs, pushNearbyToReplacer, pushCleanToReplacer,
     selectReplacerMethod, replacerParse, replacerFetch, replacerGenerate,
     sortReplacer, replacerToggleAll, replacerSelectAll, replacerCopyAll, replacerDownload,
     showReplacerQR, showEndpointQR, showCleanQR, showQR, closeQR,
-    browseOutputFolder, copyApplyConfig, showApplyQR,
+    browseOutputFolder, copyApplyConfig, copyAllApplyConfigs, downloadApplyConfigs, showApplyQR,
     saveFilesToDir,
     copyToClipboard, // exposed for inline onclick handlers
     init
