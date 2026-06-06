@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -59,10 +58,7 @@ func FetchSubscription(rawURL string) (string, error) {
 
 func ParseSubscription(content string) ([]*ProxyConfig, error) {
 	text := content
-	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSpace(content))
-	if err != nil {
-		decoded, err = base64.RawStdEncoding.DecodeString(strings.TrimSpace(content))
-	}
+	decoded, err := decodeBase64Loose(content)
 	if err == nil {
 		text = string(decoded)
 	}

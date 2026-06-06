@@ -98,6 +98,9 @@ func ParseWarpConfig(path string) (*WarpConfig, error) {
 			}
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
+	}
 
 	if cfg.PrivateKey == "" {
 		return nil, fmt.Errorf("config missing [Interface] PrivateKey")

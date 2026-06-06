@@ -41,6 +41,32 @@ type ProxyConfig struct {
 func parseInsecureFlag(v string) bool {
 	return v == "1" || strings.EqualFold(v, "true")
 }
+func decodeBase64Loose(raw string) ([]byte, error) {
+	clean := strings.TrimSpace(raw)
+	clean = strings.Map(func(r rune) rune {
+		switch r {
+		case ' ', '\t', '\r', '\n':
+			return -1
+		default:
+			return r
+		}
+	}, clean)
+	encodings := []*base64.Encoding{
+		base64.StdEncoding,
+		base64.RawStdEncoding,
+		base64.URLEncoding,
+		base64.RawURLEncoding,
+	}
+	var lastErr error
+	for _, enc := range encodings {
+		decoded, err := enc.DecodeString(clean)
+		if err == nil {
+			return decoded, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
+}
 
 func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
 	if !strings.HasPrefix(rawURL, "vmess://") {
@@ -48,32 +74,29 @@ func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
 	}
 
 	b64 := strings.TrimPrefix(rawURL, "vmess://")
-	decoded, err := base64.StdEncoding.DecodeString(b64)
-	if err != nil {
-		decoded, err = base64.RawStdEncoding.DecodeString(b64)
-	}
+	decoded, err := decodeBase64Loose(b64)
 	if err != nil {
 		return nil, fmt.Errorf("vmess base64 decode: %w", err)
 	}
 
 	var vmess struct {
-		V            string `json:"v"`
-		Remark       string `json:"ps"`
-		Address      string `json:"add"`
-		Port         string `json:"port"`
-		ID           string `json:"id"`
-		Aid          string `json:"aid"`
-		Security     string `json:"scy"`
-		Network      string `json:"net"`
-		Type         string `json:"type"`
-		Host         string `json:"host"`
-		Path         string `json:"path"`
-		TLS          string `json:"tls"`
-		SNI          string `json:"sni"`
-		ALPN         string `json:"alpn"`
-		Fingerprint  string `json:"fp"`
+		V             string `json:"v"`
+		Remark        string `json:"ps"`
+		Address       string `json:"add"`
+		Port          string `json:"port"`
+		ID            string `json:"id"`
+		Aid           string `json:"aid"`
+		Security      string `json:"scy"`
+		Network       string `json:"net"`
+		Type          string `json:"type"`
+		Host          string `json:"host"`
+		Path          string `json:"path"`
+		TLS           string `json:"tls"`
+		SNI           string `json:"sni"`
+		ALPN          string `json:"alpn"`
+		Fingerprint   string `json:"fp"`
 		AllowInsecure string `json:"allowInsecure"`
-		Flow         string `json:"flow"`
+		Flow          string `json:"flow"`
 	}
 
 	if err := json.Unmarshal(decoded, &vmess); err != nil {
@@ -113,22 +136,22 @@ func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
 	}
 
 	cfg := &ProxyConfig{
-		Protocol:      "vmess",
-		UUID:          vmess.ID,
-		Address:       vmess.Address,
-		Port:          port,
-		Encryption:    vmess.Security,
-		Security:      security,
-		SNI:           sni,
-		Fingerprint:   vmess.Fingerprint,
-		Network:       netType,
-		Host:          vmess.Host,
-		Path:          path,
-		Flow:          vmess.Flow,
-		Remark:        vmess.Remark,
-		HeaderType:    vmess.Type,
-		ALPN:          vmess.ALPN,
-		RawURL:        rawURL,
+		Protocol:    "vmess",
+		UUID:        vmess.ID,
+		Address:     vmess.Address,
+		Port:        port,
+		Encryption:  vmess.Security,
+		Security:    security,
+		SNI:         sni,
+		Fingerprint: vmess.Fingerprint,
+		Network:     netType,
+		Host:        vmess.Host,
+		Path:        path,
+		Flow:        vmess.Flow,
+		Remark:      vmess.Remark,
+		HeaderType:  vmess.Type,
+		ALPN:        vmess.ALPN,
+		RawURL:      rawURL,
 	}
 
 	if parseInsecureFlag(vmess.AllowInsecure) {
@@ -352,14 +375,14 @@ func (c *ProxyConfig) GenerateShareURL() string {
 
 func (c *ProxyConfig) generateVMessShareURL() string {
 	vmess := map[string]interface{}{
-		"v":   "2",
-		"ps":  c.Remark,
-		"add": c.Address,
+		"v":    "2",
+		"ps":   c.Remark,
+		"add":  c.Address,
 		"port": fmt.Sprintf("%d", c.Port),
-		"id":  c.UUID,
-		"aid": "0",
-		"scy": c.Encryption,
-		"net": c.Network,
+		"id":   c.UUID,
+		"aid":  "0",
+		"scy":  c.Encryption,
+		"net":  c.Network,
 		"type": c.HeaderType,
 		"host": c.Host,
 		"path": c.Path,
@@ -390,8 +413,8 @@ type VLESSOutboundSettings struct {
 }
 
 type VNextServer struct {
-	Address string     `json:"address"`
-	Port    int        `json:"port"`
+	Address string      `json:"address"`
+	Port    int         `json:"port"`
 	Users   []VLessUser `json:"users"`
 }
 
@@ -419,14 +442,14 @@ type VMessOutboundSettings struct {
 }
 
 type StreamSettings struct {
-	Network            string           `json:"network"`
-	Security           string           `json:"security"`
-	TLSSettings        json.RawMessage  `json:"tlsSettings,omitempty"`
-	RealitySettings    json.RawMessage  `json:"realitySettings,omitempty"`
-	WSSettings         json.RawMessage  `json:"wsSettings,omitempty"`
-	GRPCSettings       json.RawMessage  `json:"grpcSettings,omitempty"`
-	KCPSettings        json.RawMessage  `json:"kcpSettings,omitempty"`
-	RawSettings        json.RawMessage  `json:"rawSettings,omitempty"`
+	Network             string          `json:"network"`
+	Security            string          `json:"security"`
+	TLSSettings         json.RawMessage `json:"tlsSettings,omitempty"`
+	RealitySettings     json.RawMessage `json:"realitySettings,omitempty"`
+	WSSettings          json.RawMessage `json:"wsSettings,omitempty"`
+	GRPCSettings        json.RawMessage `json:"grpcSettings,omitempty"`
+	KCPSettings         json.RawMessage `json:"kcpSettings,omitempty"`
+	RawSettings         json.RawMessage `json:"rawSettings,omitempty"`
 	HTTPUpgradeSettings json.RawMessage `json:"httpupgradeSettings,omitempty"`
 }
 

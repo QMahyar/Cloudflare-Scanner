@@ -217,9 +217,16 @@ func startServer(xrayPath string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("listen: %w", err)
 	}
+	srv := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 
 	go func() {
-		if err := http.Serve(listener, mux); err != nil && !errors.Is(err, net.ErrClosed) {
+		if err := srv.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
 			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		}
 	}()
@@ -367,8 +374,6 @@ func runScan(job *ScanJob, xrayPath, workDir string) {
 		scanner.Concurrency = job.Concurrency
 	}
 
-	var mu sync.Mutex
-	var results []ScanResult
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, scanner.Concurrency)
 
@@ -395,14 +400,9 @@ func runScan(job *ScanJob, xrayPath, workDir string) {
 
 			result := scanner.testEndpointAttempts(ctx, endpoint, job.Attempts)
 
-			mu.Lock()
-			results = append(results, result)
-			progress := len(results)
-			mu.Unlock()
-
 			job.mu.Lock()
-			job.Results = results
-			job.Progress = progress
+			job.Results = append(job.Results, result)
+			job.Progress = len(job.Results)
 			_ = idx
 			job.mu.Unlock()
 		}(ep, i)
@@ -415,16 +415,16 @@ func runScan(job *ScanJob, xrayPath, workDir string) {
 	case <-done:
 	case <-ctx.Done():
 		wg.Wait()
-		mu.Lock()
 		job.mu.Lock()
 		job.Status = "cancelled"
-		job.Results = results
-		job.Progress = len(results)
+		job.Progress = len(job.Results)
 		job.mu.Unlock()
-		mu.Unlock()
 		return
 	}
 
+	job.mu.Lock()
+	results := append([]ScanResult(nil), job.Results...)
+	job.mu.Unlock()
 	sortScanResults(results)
 
 	job.mu.Lock()
@@ -499,7 +499,7 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 	}
 
 	job.mu.Lock()
-	results := job.Results
+	results := append([]ScanResult(nil), job.Results...)
 	outCount := job.OutCount
 	status := job.Status
 	job.mu.Unlock()
@@ -619,8 +619,17 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 		outputDir = exeDir
 	}
 	outputDir = filepath.Clean(outputDir)
+	if !filepath.IsAbs(outputDir) && (strings.HasPrefix(outputDir, "/") || strings.HasPrefix(outputDir, `\\`)) {
+		jsonError(w, "output_dir must be relative to app directory or an absolute path inside it", 400)
+		return
+	}
 	if !filepath.IsAbs(outputDir) {
 		outputDir = filepath.Join(exeDir, outputDir)
+	}
+	rel, err := filepath.Rel(exeDir, outputDir)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		jsonError(w, "output_dir must stay inside the app directory", 400)
+		return
 	}
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -872,10 +881,10 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 
 	job.mu.Lock()
 	status := job.Status
-	phase1Results := job.Phase1Results
-	phase2Results := job.Phase2Results
-	nearbyPhase1Results := job.NearbyPhase1Results
-	nearbyPhase2Results := job.NearbyPhase2Results
+	phase1Results := append([]CleanIPResult(nil), job.Phase1Results...)
+	phase2Results := append([]CleanIPResult(nil), job.Phase2Results...)
+	nearbyPhase1Results := append([]CleanIPResult(nil), job.NearbyPhase1Results...)
+	nearbyPhase2Results := append([]CleanIPResult(nil), job.NearbyPhase2Results...)
 	phase1Progress := job.Phase1Progress
 	phase1Total := job.Phase1Total
 	skipPhase2 := job.SkipPhase2

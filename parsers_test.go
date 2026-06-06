@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -42,6 +43,27 @@ Endpoint   = 162.159.192.1:2408
 	}
 	if cfg.MTU != 1420 {
 		t.Errorf("wrong MTU: %d", cfg.MTU)
+	}
+}
+
+func TestParseSubscription_URLSafeBase64(t *testing.T) {
+	plain := "vless://uuid@1.2.3.4:443?security=tls#one\n"
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(plain))
+	configs, err := ParseSubscription(encoded)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(configs) != 1 {
+		t.Fatalf("expected 1 config, got %d", len(configs))
+	}
+	if configs[0].Protocol != "vless" {
+		t.Errorf("wrong protocol: %s", configs[0].Protocol)
+	}
+	if configs[0].Address != "1.2.3.4" {
+		t.Errorf("wrong address: %s", configs[0].Address)
+	}
+	if configs[0].Port != 443 {
+		t.Errorf("wrong port: %d", configs[0].Port)
 	}
 }
 
@@ -194,6 +216,26 @@ func TestParseProxyURL_AllowInsecure(t *testing.T) {
 	}
 }
 
+func TestParseProxyURL_VMessURLSafeBase64(t *testing.T) {
+	payload := `{"v":"2","ps":"remark","add":"1.2.3.4","port":"443","id":"uuid-1234","aid":"0","scy":"auto","net":"ws","type":"none","host":"example.com","path":"/ws","tls":"tls","sni":"example.com"}`
+	raw := "vmess://" + base64.RawURLEncoding.EncodeToString([]byte(payload))
+	cfg, err := ParseProxyURL(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Protocol != "vmess" {
+		t.Errorf("wrong protocol: %s", cfg.Protocol)
+	}
+	if cfg.Address != "1.2.3.4" {
+		t.Errorf("wrong Address: %s", cfg.Address)
+	}
+	if cfg.Port != 443 {
+		t.Errorf("wrong Port: %d", cfg.Port)
+	}
+	if cfg.SNI != "example.com" {
+		t.Errorf("wrong SNI: %s", cfg.SNI)
+	}
+}
 func TestParseProxyURL_UnsupportedScheme(t *testing.T) {
 	_, err := ParseProxyURL("ss://whatever@host:1234")
 	if err == nil {
