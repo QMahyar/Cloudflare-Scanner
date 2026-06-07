@@ -3,46 +3,67 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#f6821f">
 <title>Cloudflare Scanner</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23f6821f'/%3E%3Cpath d='M17 17.5H7.3a3.8 3.8 0 0 1-.6-7.55A5 5 0 0 1 16.6 9.3a3.1 3.1 0 0 1 .4 8.2Z' fill='%23fff'/%3E%3Ccircle cx='12' cy='12.2' r='1.4' fill='%23f6821f'/%3E%3Cpath d='M8.2 12.2a3.8 3.8 0 0 1 7.6 0' stroke='%23f6821f' stroke-width='1' fill='none'/%3E%3C/svg%3E">
 <style>
 /* ─── Design Tokens ─── */
 :root {
-  --bg-body: #090d14;
-  --bg-surface: rgba(13, 17, 23, 0.72);
-  --bg-card: rgba(22, 27, 34, 0.82);
-  --bg-input: rgba(33, 38, 45, 0.9);
-  --bg-hover: rgba(31, 41, 55, 0.62);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(139, 148, 158, 0.28);
-  --text-primary: #e6edf3;
-  --text-secondary: #8b949e;
-  --text-heading: #f0f6fc;
-  --accent: #58a6ff;
-  --accent-hover: #79b8ff;
+  /* Surfaces — near-black slate, layered for depth (Linear/Vercel-style) */
+  --bg-body: #08090c;
+  --bg-surface: rgba(17, 19, 24, 0.74);
+  --bg-card: rgba(24, 27, 34, 0.78);
+  --bg-input: rgba(32, 36, 44, 0.85);
+  --bg-hover: rgba(40, 45, 55, 0.55);
+  --bg-raised: rgba(46, 52, 63, 0.9);
+
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(160, 168, 182, 0.22);
+  --border-accent: rgba(244, 129, 32, 0.45);
+
+  --text-primary: #e8eaed;
+  --text-secondary: #9aa1ad;
+  --text-tertiary: #6b7280;
+  --text-heading: #f7f8fa;
+
+  /* Brand — Cloudflare orange, the product's true identity */
+  --accent: #f6821f;
+  --accent-2: #faae40;
+  --accent-hover: #ff9838;
+  --accent-soft: rgba(246, 130, 31, 0.12);
+  --accent-soft-strong: rgba(246, 130, 31, 0.2);
+  --accent-glow: rgba(246, 130, 31, 0.28);
+
   --success: #3fb950;
-  --success-bg: #1b2d1f;
+  --success-bg: rgba(46, 160, 67, 0.13);
   --danger: #f85149;
-  --danger-bg: #2d1b1b;
-  --warning: #d29922;
-  --btn-primary: #238636;
-  --btn-primary-hover: #2ea043;
-  --btn-danger: #da3633;
-  --btn-danger-hover: #f85149;
-  --btn-accent: #1f6feb;
-  --btn-accent-hover: #388bfd;
-  --radius-sm: 8px;
+  --danger-bg: rgba(248, 81, 73, 0.12);
+  --warning: #e3b341;
+
+  /* Action buttons */
+  --btn-primary: linear-gradient(180deg, #f89b3c 0%, #f6821f 100%);
+  --btn-primary-hover: linear-gradient(180deg, #ffa84d 0%, #fb8c24 100%);
+  --btn-danger: #d33a36;
+  --btn-danger-hover: #ec4742;
+  --btn-accent: linear-gradient(180deg, #f89b3c 0%, #f6821f 100%);
+  --btn-accent-hover: linear-gradient(180deg, #ffa84d 0%, #fb8c24 100%);
+
+  --radius-sm: 9px;
   --radius-md: 14px;
   --radius-lg: 20px;
-  --shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
-  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --radius-full: 999px;
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-accent: 0 6px 22px rgba(246, 130, 31, 0.28);
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
   --space-lg: 16px;
   --space-xl: 24px;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'Cascadia Mono', 'Consolas', 'SFMono-Regular', monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Cascadia Mono', 'Consolas', 'SFMono-Regular', ui-monospace, monospace;
   --font-fa: 'Segoe UI', Tahoma, sans-serif;
 }
 
@@ -52,15 +73,18 @@ html { scroll-behavior: smooth; }
 body {
   font-family: var(--font-sans);
   background:
-    radial-gradient(circle at top left, rgba(88, 166, 255, 0.16), transparent 32rem),
-    radial-gradient(circle at 85% 8%, rgba(63, 185, 80, 0.10), transparent 26rem),
-    linear-gradient(180deg, #0d1117 0%, var(--bg-body) 42%, #070a10 100%);
+    radial-gradient(ellipse 60rem 30rem at 50% -8%, rgba(246, 130, 31, 0.13), transparent 70%),
+    radial-gradient(circle at 88% 4%, rgba(250, 174, 64, 0.08), transparent 28rem),
+    radial-gradient(circle at 6% 96%, rgba(88, 130, 255, 0.06), transparent 30rem),
+    linear-gradient(180deg, #0c0e13 0%, var(--bg-body) 46%, #05060a 100%);
   background-attachment: fixed;
   color: var(--text-primary);
   padding: var(--space-md);
   min-height: 100dvh;
   -webkit-tap-highlight-color: transparent;
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 body[dir="rtl"] { font-family: var(--font-fa); }
 @media (min-width: 640px) { body { padding: 20px; } }
@@ -74,8 +98,8 @@ body[dir="rtl"] { font-family: var(--font-fa); }
   border-radius: var(--radius-lg);
   padding: var(--space-md);
   box-shadow: var(--shadow), var(--shadow-inset);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
 }
 @media (min-width: 640px) { .app-shell { padding: var(--space-xl); } }
 
@@ -83,20 +107,36 @@ body[dir="rtl"] { font-family: var(--font-fa); }
 .header-row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
-  padding: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, rgba(88, 166, 255, 0.12), rgba(63, 185, 80, 0.05) 48%, rgba(22, 27, 34, 0.45));
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(246, 130, 31, 0.16), transparent 60%),
+    linear-gradient(135deg, rgba(246, 130, 31, 0.08), rgba(24, 27, 34, 0.4) 55%);
   box-shadow: var(--shadow-inset);
 }
+.header-brand { display: flex; align-items: center; gap: var(--space-md); min-width: 0; }
+.header-logo {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #faae40, #f6821f);
+  box-shadow: var(--shadow-accent), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.header-logo svg { width: 26px; height: 26px; display: block; }
+@media (max-width: 480px) { .header-logo { width: 36px; height: 36px; border-radius: 10px; } .header-logo svg { width: 21px; height: 21px; } }
 .header-row h1 {
-  font-size: clamp(1.45rem, 4vw, 2.2rem);
-  font-weight: 600;
+  font-size: clamp(1.35rem, 3.6vw, 2rem);
+  font-weight: 700;
   color: var(--text-heading);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
 }
 .subtitle {
   color: var(--text-secondary);
@@ -110,60 +150,63 @@ body[dir="rtl"] { font-family: var(--font-fa); }
 
 /* ─── Language Button ─── */
 .lang-btn {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
+  padding: 7px 16px;
+  border-radius: var(--radius-full);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s var(--ease);
   white-space: nowrap;
   min-height: 36px;
   touch-action: manipulation;
+  flex-shrink: 0;
 }
 .lang-btn:hover {
-  border-color: var(--accent);
+  border-color: var(--border-accent);
   color: var(--accent);
-  background: rgba(88, 166, 255, 0.08);
+  background: var(--accent-soft);
 }
 
 /* ─── Cards ─── */
 .card {
   position: relative;
-  background: linear-gradient(180deg, rgba(22, 27, 34, 0.88), rgba(13, 17, 23, 0.78));
+  background: linear-gradient(180deg, rgba(26, 29, 37, 0.82), rgba(17, 19, 24, 0.7));
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   padding: var(--space-md);
   margin-bottom: var(--space-md);
-  box-shadow: var(--shadow-inset), 0 10px 34px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-inset), 0 12px 38px rgba(0, 0, 0, 0.28);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transition: border-color 0.2s var(--ease);
+  transition: border-color 0.25s var(--ease), transform 0.25s var(--ease);
 }
-.card:hover { border-color: rgba(88, 166, 255, 0.18); }
+.card:hover { border-color: var(--border-accent); }
 @media (min-width: 640px) { .card { padding: var(--space-lg); margin-bottom: var(--space-lg); } }
 
 .card::before {
   content: '';
   position: absolute;
-  inset: -1px;
-  border-radius: calc(var(--radius-md) + 1px);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  inset: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.03);
   pointer-events: none;
 }
 
 .card h2 {
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: var(--space-sm);
   color: var(--text-heading);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  letter-spacing: -0.01em;
 }
-@media (min-width: 640px) { .card h2 { font-size: 1rem; margin-bottom: var(--space-md); } }
+.card h2 svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; }
+@media (min-width: 640px) { .card h2 { font-size: 0.9375rem; margin-bottom: var(--space-md); } }
 
 .card h3 {
   font-size: 0.8125rem;
@@ -220,9 +263,12 @@ input[type="text"], select, textarea {
   min-height: 44px;
   font-family: var(--font-sans);
 }
+input[type="text"]::placeholder, textarea::placeholder { color: var(--text-tertiary); }
+input[type="text"]:hover, select:hover, textarea:hover { border-color: rgba(160, 168, 182, 0.34); }
 input[type="text"]:focus, select:focus, textarea:focus {
   border-color: var(--accent);
-  box-shadow: var(--shadow-inset), 0 0 0 3px rgba(88, 166, 255, 0.12);
+  background: rgba(32, 36, 44, 0.95);
+  box-shadow: var(--shadow-inset), 0 0 0 3px var(--accent-soft);
 }
 textarea {
   font-family: var(--font-mono);
@@ -293,7 +339,7 @@ body[dir="rtl"] select { background-position: left 10px center; padding-right: 1
   border-radius: 50%;
   transition: 0.3s var(--ease);
 }
-.toggle input:checked + .slider { background: var(--btn-accent); }
+.toggle input:checked + .slider { background: var(--accent); box-shadow: 0 0 12px var(--accent-glow); }
 .toggle input:checked + .slider::before {
   background: #fff;
   transform: translateX(16px);
@@ -308,7 +354,7 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
 .port-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .port-cb-label { display: flex; align-items: center; gap: 5px; padding: 4px 10px; background: var(--bg-input); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-secondary); cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s; user-select: none; }
 .port-cb-label:hover { border-color: var(--accent); color: var(--text-primary); }
-.port-cb-label:has(input:checked) { border-color: var(--accent); background: rgba(88,166,255,0.12); color: var(--accent); }
+.port-cb-label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .port-cb-label input[type=checkbox] { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
 .port-section-label { font-size: 0.6875rem; color: var(--text-secondary); margin: 8px 0 2px; }
 
@@ -318,9 +364,9 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
   border: none;
   border-radius: var(--radius-sm);
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s var(--ease);
+  transition: all 0.18s var(--ease);
   min-height: 44px;
   touch-action: manipulation;
   user-select: none;
@@ -330,18 +376,22 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
   gap: 6px;
   will-change: transform;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
+.btn svg { width: 15px; height: 15px; flex-shrink: 0; }
 .btn:active:not(:disabled) { transform: scale(0.97); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
-.btn-primary { background: var(--btn-primary); color: #fff; box-shadow: var(--shadow-inset); }
-.btn-primary:hover:not(:disabled) { background: var(--btn-primary-hover); }
+.btn-primary { background: var(--btn-primary); color: #1a1205; box-shadow: var(--shadow-accent), var(--shadow-inset); }
+.btn-primary:hover:not(:disabled) { background: var(--btn-primary-hover); box-shadow: 0 8px 26px var(--accent-glow), var(--shadow-inset); transform: translateY(-1px); }
+.btn-primary:active:not(:disabled) { transform: scale(0.97); }
 .btn-danger { background: var(--btn-danger); color: #fff; box-shadow: var(--shadow-inset); }
 .btn-danger:hover:not(:disabled) { background: var(--btn-danger-hover); }
-.btn-secondary { background: var(--bg-input); color: var(--text-primary); border: 1px solid var(--border-strong); }
-.btn-secondary:hover:not(:disabled) { background: var(--border-strong); }
-.btn-accent { background: var(--btn-accent); color: #fff; box-shadow: var(--shadow-inset); }
-.btn-accent:hover:not(:disabled) { background: var(--btn-accent-hover); }
+.btn-secondary { background: var(--bg-raised); color: var(--text-primary); border: 1px solid var(--border-strong); }
+.btn-secondary:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--border-accent); color: var(--text-heading); }
+.btn-accent { background: var(--btn-accent); color: #1a1205; box-shadow: var(--shadow-accent), var(--shadow-inset); }
+.btn-accent:hover:not(:disabled) { background: var(--btn-accent-hover); box-shadow: 0 8px 26px var(--accent-glow), var(--shadow-inset); transform: translateY(-1px); }
+.btn-accent:active:not(:disabled) { transform: scale(0.97); }
 
 .btn-sm { padding: 6px 12px; font-size: 0.6875rem; min-height: 32px; }
 @media (min-width: 640px) { .btn-sm { padding: 6px 14px; font-size: 0.75rem; } }
@@ -361,43 +411,52 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
   gap: 4px;
   margin-bottom: var(--space-lg);
   padding: 5px;
-  background: rgba(13, 17, 23, 0.72);
+  background: rgba(10, 11, 15, 0.66);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   width: fit-content;
-  box-shadow: var(--shadow-inset);
+  box-shadow: var(--shadow-inset), inset 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 @media (min-width: 640px) { .tab-bar { margin-bottom: var(--space-xl); } }
 
 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   padding: 8px 14px;
   background: transparent;
   border: none;
-  border-radius: calc(var(--radius-sm) + 1px);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s var(--ease);
-  min-height: 36px;
+  min-height: 38px;
   touch-action: manipulation;
   white-space: nowrap;
   position: relative;
 }
-@media (min-width: 640px) { .tab { padding: 8px 20px; font-size: 0.8125rem; } }
+.tab svg { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.85; }
+@media (min-width: 640px) { .tab { padding: 9px 20px; font-size: 0.8125rem; } }
 
-.tab:hover { color: var(--text-primary); }
-.tab.active { background: linear-gradient(180deg, rgba(88, 166, 255, 0.18), rgba(88, 166, 255, 0.08)); color: var(--text-heading); box-shadow: var(--shadow-inset), 0 8px 20px rgba(31,111,235,0.16); }
+.tab:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.03); }
+.tab.active {
+  background: linear-gradient(180deg, rgba(246, 130, 31, 0.18), rgba(246, 130, 31, 0.08));
+  color: var(--accent-2);
+  box-shadow: var(--shadow-inset), 0 4px 14px rgba(246, 130, 31, 0.14);
+}
+.tab.active svg { opacity: 1; }
 
 .tab-badge {
   display: none;
-  margin-left: 4px;
-  padding: 1px 6px;
-  border-radius: 10px;
+  margin-left: 2px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
   font-size: 0.625rem;
-  font-weight: 600;
-  background: rgba(88, 166, 255, 0.15);
-  color: var(--accent);
+  font-weight: 700;
+  background: var(--accent-soft-strong);
+  color: var(--accent-2);
   vertical-align: middle;
 }
 .tab-badge.show { display: inline-block; }
@@ -429,8 +488,8 @@ body[dir="rtl"] .tab-badge { margin-left: 0; margin-right: 4px; }
 .input-method-bar button:last-child { border-right: none; }
 .input-method-bar button:hover { color: var(--text-primary); }
 .input-method-bar button.active {
-  background: rgba(31, 111, 235, 0.15);
-  color: var(--accent);
+  background: var(--accent-soft-strong);
+  color: var(--accent-2);
 }
 @media (min-width: 640px) { .input-method-bar button { font-size: 0.8125rem; padding: 10px 16px; } }
 
@@ -450,26 +509,34 @@ body[dir="rtl"] .tab-badge { margin-left: 0; margin-right: 4px; }
   touch-action: manipulation;
   white-space: nowrap;
 }
-.preset-btn:hover { border-color: var(--accent); color: var(--text-primary); }
-.preset-btn.active { background: rgba(31, 111, 235, 0.15); border-color: var(--btn-accent); color: var(--accent); }
-.preset-btn.active:hover { background: rgba(31, 111, 235, 0.22); }
+.preset-btn:hover { border-color: var(--border-accent); color: var(--text-primary); background: var(--bg-hover); }
+.preset-btn.active { background: var(--accent-soft-strong); border-color: var(--border-accent); color: var(--accent-2); }
+.preset-btn.active:hover { background: var(--accent-soft-strong); }
+
+/* ─── Direct / Nearby segmented toggle ─── */
+.method-btn.active {
+  background: var(--accent-soft-strong);
+  border-color: var(--border-accent);
+  color: var(--accent-2);
+}
 
 /* ─── Progress ─── */
 .progress-wrap { margin: var(--space-md) 0; display: none; }
 .progress-wrap.active { display: block; }
 .progress-bar {
-  height: 6px;
-  background: var(--bg-input);
-  border-radius: 3px;
+  height: 7px;
+  background: rgba(10, 11, 15, 0.7);
+  border-radius: var(--radius-full);
   overflow: hidden;
   margin-bottom: var(--space-sm);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 .progress-fill {
   height: 100%;
   width: 0%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--btn-accent), var(--btn-primary));
-  box-shadow: 0 0 12px rgba(31, 111, 235, 0.25);
+  border-radius: var(--radius-full);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 14px var(--accent-glow);
   transition: width 0.5s var(--ease);
 }
 .progress-fill.cancelled { background: var(--btn-danger); box-shadow: none; }
@@ -556,7 +623,7 @@ body[dir="rtl"] .results-table th .sort-icon { margin-left: 0; margin-right: 2px
   white-space: nowrap;
   border: 1px solid transparent;
 }
-.results-table td .tag:hover { border-color: var(--accent); background: rgba(88, 166, 255, 0.08); }
+.results-table td .tag:hover { border-color: var(--border-accent); background: var(--accent-soft); color: var(--accent-2); }
 .results-table td .tag.copied { background: var(--success-bg); border-color: var(--success); color: var(--success); }
 
 /* ─── Badges & Tags ─── */
@@ -582,6 +649,13 @@ body[dir="rtl"] .results-table th .sort-icon { margin-left: 0; margin-right: 2px
   padding: var(--space-xl) var(--space-md);
   color: var(--text-secondary);
   font-size: 0.8125rem;
+}
+.empty-state svg {
+  width: 40px; height: 40px;
+  color: var(--text-tertiary);
+  margin: 0 auto var(--space-md);
+  display: block;
+  opacity: 0.55;
 }
 .empty-state p { max-width: 320px; margin: 0 auto; line-height: 1.5; }
 
@@ -616,19 +690,19 @@ body[dir="rtl"] .results-table th .sort-icon { margin-left: 0; margin-right: 2px
   padding: var(--space-md);
   transition: all 0.2s var(--ease);
 }
-.app-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+.app-card:hover { border-color: var(--border-accent); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 .app-card h3 { font-size: 0.8125rem; color: var(--text-heading); margin-bottom: 3px; font-weight: 600; }
 .app-card p { font-size: 0.6875rem; color: var(--text-secondary); margin-bottom: var(--space-sm); line-height: 1.5; }
 .app-card .os-tag {
   display: inline-block;
   font-size: 0.625rem;
-  padding: 2px 6px;
-  border-radius: 3px;
-  background: rgba(88, 166, 255, 0.12);
-  color: var(--accent);
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent-2);
   margin-right: 3px;
   margin-bottom: 3px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* ─── Links ─── */
@@ -673,18 +747,19 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.74);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s var(--ease);
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .qr-overlay.open { opacity: 1; pointer-events: auto; }
 .qr-modal {
-  background: #161b22;
+  background: linear-gradient(180deg, #1c2027, #14171c);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
@@ -692,7 +767,10 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
   width: 90%;
   text-align: center;
   box-shadow: var(--shadow);
+  transform: scale(0.94);
+  transition: transform 0.25s var(--ease);
 }
+.qr-overlay.open .qr-modal { transform: scale(1); }
 .qr-modal h3 { font-size: 0.875rem; color: var(--text-heading); margin-bottom: var(--space-md); }
 #qrCode { display: flex; justify-content: center; margin-bottom: var(--space-md); }
 #qrCode img, #qrCode canvas { border-radius: var(--radius-sm); }
@@ -711,22 +789,34 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
   max-width: 400px;
 }
 .toast {
-  background: var(--btn-primary);
-  color: #fff;
+  background: linear-gradient(180deg, #2a2f38, #1c2027);
+  color: var(--text-heading);
+  border: 1px solid var(--border-strong);
   padding: 12px 24px;
   border-radius: var(--radius-md);
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 600;
   opacity: 0;
   transform: translateY(12px);
   transition: all 0.3s var(--ease);
   pointer-events: auto;
-  box-shadow: 0 8px 32px rgba(35, 134, 54, 0.3);
+  box-shadow: var(--shadow);
   text-align: center;
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.toast::before {
+  content: '';
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--success); box-shadow: 0 0 8px var(--success);
+  flex-shrink: 0;
 }
 .toast.show { opacity: 1; transform: translateY(0); }
-.toast.error { background: var(--btn-danger); box-shadow: 0 8px 32px rgba(218, 54, 51, 0.3); }
+.toast.error { border-color: rgba(248, 81, 73, 0.4); }
+.toast.error::before { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
 
 /* ─── Noise Overlay ─── */
 .noise-overlay {
@@ -797,8 +887,8 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
 .help-panel { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0 var(--space-sm) var(--space-sm); background: var(--bg-input); }
 .help-panel > summary { padding-top: var(--space-sm); margin: 0 calc(var(--space-xs) * -1); padding-left: var(--space-xs); padding-right: var(--space-xs); }
 .help-panel h3 { margin: var(--space-sm) 0 8px; font-size: 0.75rem; letter-spacing: 0.01em; color: var(--text-heading); }
-.help-panel .help-list > div { padding: 6px 8px; border-radius: var(--radius-sm); background: rgba(88, 166, 255, 0.04); border: 1px solid rgba(88, 166, 255, 0.08); }
-.help-panel .help-list > div:hover { border-color: rgba(88, 166, 255, 0.2); background: rgba(88, 166, 255, 0.08); }
+.help-panel .help-list > div { padding: 7px 10px; border-radius: var(--radius-sm); background: var(--accent-soft); border: 1px solid rgba(246, 130, 31, 0.1); transition: all 0.15s var(--ease); }
+.help-panel .help-list > div:hover { border-color: var(--border-accent); background: var(--accent-soft-strong); }
 
 /* ─── Focus Accessibility ─── */
 :focus-visible {
@@ -862,30 +952,42 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 
   <!-- Header -->
   <div class="header-row">
-    <div>
-      <h1 data-t="title">Cloudflare Scanner</h1>
-      <p class="subtitle" data-t="subtitle">Scan Cloudflare Warp endpoints & batch-apply to configs</p>
+    <div class="header-brand">
+      <div class="header-logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M17.5 18H7a4.5 4.5 0 0 1-.7-8.94A6 6 0 0 1 18 9.5a3.75 3.75 0 0 1-.5 8.5Z" fill="#fff" fill-opacity="0.95"/>
+          <circle cx="12" cy="12.3" r="1.6" fill="#f6821f"/>
+          <path d="M9.7 12.3a2.3 2.3 0 0 1 4.6 0M8 12.3a4 4 0 0 1 8 0" stroke="#f6821f" stroke-width="1.1" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1 data-t="title">Cloudflare Scanner</h1>
+        <p class="subtitle" data-t="subtitle">Scan Cloudflare Warp endpoints & batch-apply to configs</p>
+      </div>
     </div>
     <button class="lang-btn" id="langBtn" onclick="App.toggleLang()">فارسی</button>
   </div>
 
   <!-- Tabs -->
   <div class="tab-bar" role="tablist" aria-label="Scanner tabs">
-    <button class="tab active" id="tabEndpoint" onclick="App.switchTab('endpoint')" role="tab" aria-selected="true" data-t="tab.endpoint">
-      Endpoint Scanner<span class="tab-badge" id="badgeEndpoint"></span>
+    <button class="tab active" id="tabEndpoint" onclick="App.switchTab('endpoint')" role="tab" aria-selected="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <span data-t="tab.endpoint">Endpoint Scanner</span><span class="tab-badge" id="badgeEndpoint"></span>
     </button>
-    <button class="tab" id="tabClean" onclick="App.switchTab('clean')" role="tab" aria-selected="false" data-t="tab.clean">
-      IP Scanner<span class="tab-badge" id="badgeClean"></span>
+    <button class="tab" id="tabClean" onclick="App.switchTab('clean')" role="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <span data-t="tab.clean">IP Scanner</span><span class="tab-badge" id="badgeClean"></span>
     </button>
-    <button class="tab" id="tabReplacer" onclick="App.switchTab('replacer')" role="tab" aria-selected="false" data-t="tab.replacer">
-      IP Replacer<span class="tab-badge" id="badgeReplacer"></span>
+    <button class="tab" id="tabReplacer" onclick="App.switchTab('replacer')" role="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      <span data-t="tab.replacer">IP Replacer</span><span class="tab-badge" id="badgeReplacer"></span>
     </button>
   </div>
 
   <!-- ═════ Endpoint Scanner Tab ═════ -->
   <div id="endpointTab" role="tabpanel">
     <div class="card">
-      <h2 data-t="config.header">Config</h2>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span data-t="config.header">Config</span></h2>
       <div class="row">
         <div class="col">
           <div class="toggle-wrap" style="padding-top:0">
@@ -907,7 +1009,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
 
     <div class="card">
-      <h2 data-t="settings.header">Settings</h2>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-t="settings.header">Settings</span></h2>
       <div class="row">
         <div class="col">
           <label data-t="settings.scanDepth" data-t-title="settings.depthTitle">Scan depth</label>
@@ -956,7 +1058,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 
     <div class="card" id="resultsCard">
       <div class="section-header">
-        <h2 data-t="results.header">Results</h2>
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg><span data-t="results.header">Results</span></h2>
         <div class="compact-control">
           <label for="outCount" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
           <input class="compact-input" type="text" id="outCount" data-t-title="settings.outCountTitle" value="0" inputmode="numeric">
@@ -969,6 +1071,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
       </div>
 
       <div class="empty-state" id="emptyState">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         <p data-t="results.empty">Select a config and start scanning</p>
       </div>
       <div id="resultsContent" class="hidden"></div>
@@ -1068,7 +1171,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
   <!-- ═════ Clean IP Scanner Tab ═════ -->
   <div id="cleanTab" class="hidden" role="tabpanel">
     <div class="card">
-      <h2 data-t="config.header">Config</h2>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span data-t="config.header">Config</span></h2>
       <div class="row">
         <div class="col">
           <div class="toggle-wrap" style="padding-top:0">
@@ -1087,7 +1190,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
 
     <div class="card">
-      <h2 data-t="settings.header">Settings</h2>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-t="settings.header">Settings</span></h2>
       <div class="row">
         <div class="col">
           <label data-t="settings.scanDepth" data-t-title="clean.depthTitle">Scan depth</label>
@@ -1196,7 +1299,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 
     <div class="card" id="cleanResultsCard">
       <div class="section-header">
-        <h2 data-t="results.header">Results</h2>
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg><span data-t="results.header">Results</span></h2>
         <div class="compact-control">
           <label for="cleanOutCount" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
           <input class="compact-input" type="text" id="cleanOutCount" data-t-title="settings.outCountTitle" value="0" inputmode="numeric">
@@ -1221,7 +1324,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
   <!-- ═════ IP Replacer Tab ═════ -->
   <div id="replacerTab" class="hidden" role="tabpanel">
     <div class="card">
-      <h2 data-t="replacer.header">IP Replacer</h2>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span data-t="replacer.header">IP Replacer</span></h2>
       <p class="desc" data-t="replacer.desc">Deduplicate configs and replace IP:port with clean endpoints.</p>
       <div class="input-method-bar">
         <button class="method-btn active" data-method="url" onclick="App.selectReplacerMethod('url')" data-t="replacer.methodURL">Subscription URL</button>
@@ -1252,7 +1355,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
 
     <div class="card hidden" id="replacerConfigsCard">
-      <h2 data-t="replacer.configsHeader">Unique Configs</h2>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg><span data-t="replacer.configsHeader">Unique Configs</span></h2>
       <p class="desc" id="replacerConfigCount"></p>
       <div class="results-table-wrap scrollable-list" id="replacerConfigsWrap"></div>
       <div id="replacerConfigActions" class="hidden status-slot">
@@ -1262,7 +1365,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
 
     <div class="card" id="replacerEndpointsCard">
-      <h2 data-t="replacer.endpointsHeader">Endpoints</h2>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span data-t="replacer.endpointsHeader">Endpoints</span></h2>
       <p class="desc" data-t="replacer.endpointsDesc">Paste IP:port endpoints (one per line) from Clean IP scan results.</p>
       <textarea id="replacerEndpoints" rows="4" data-t-placeholder="replacer.endpointsPlaceholder" data-t-title="replacer.endpointsTitle" placeholder="162.159.90.249:443&#10;162.159.82.8:443&#10;..."></textarea>
       <div class="status-slot">
@@ -1272,7 +1375,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
 
     <div class="card hidden" id="replacerResultsCard">
-      <h2 data-t="replacer.resultsHeader">Generated Configs</h2>
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-t="replacer.resultsHeader">Generated Configs</span></h2>
       <p class="desc" id="replacerResultsCount"></p>
       <div class="results-table-wrap scrollable-list" id="replacerResultsWrap"></div>
       <div class="results-actions" id="replacerResultsActions" class="status-slot">
@@ -2766,10 +2869,7 @@ const App = (function() {
   function selectReplacerMethod(method) {
     state.replacer.method = method;
     $$('.input-method-bar button').forEach(b => {
-      const active = b.dataset.method === method;
-      b.classList.toggle('active', active);
-      b.style.background = active ? 'rgba(31,111,235,0.15)' : 'transparent';
-      b.style.color = active ? 'var(--accent)' : 'var(--text-secondary)';
+      b.classList.toggle('active', b.dataset.method === method);
     });
     $('#replacerURLWrap').classList.toggle('hidden', method !== 'url');
     $('#replacerPasteWrap').classList.toggle('hidden', method !== 'paste');
