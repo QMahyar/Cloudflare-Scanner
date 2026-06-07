@@ -10,6 +10,7 @@
 ## فهرست
 
 - [کامپایل سریع](#کامپایل-سریع)
+- [اسکریپت‌های ساخت (همه پلتفرم‌ها)](#اسکریپت‌های-ساخت-همه-پلتفرم‌ها)
 - [کامپایل کراس‌پلتفرم](#کامپایل-کراس‌پلتفرم)
 - [پیش‌نیازها](#پیش‌نیازها)
 - [ساختار پروژه](#ساختار-پروژه)
@@ -34,6 +35,79 @@ go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
 ```
 
 فایل باینری `ui/index.html` را از طریق `//go:embed` توکار می‌کند — بدون نیاز به فایل خارجی.
+
+## اسکریپت‌های ساخت (همه پلتفرم‌ها)
+
+پوشه `scripts/` شامل دو اسکریپت کامل است که دقیقاً همان کاری را می‌کنند که CI انجام می‌دهد:
+Go را در صورت نبود نصب می‌کند، باینری را کامپایل می‌کند، xray-core مربوطه را دانلود می‌کند
+و آرشیو نهایی تولید می‌کند.
+
+### لینوکس / مک / Termux — `scripts/build.sh`
+
+```bash
+# ساخت برای پلتفرم میزبان (تشخیص خودکار)
+./scripts/build.sh
+
+# ساخت همه پلتفرم‌های پشتیبانی‌شده
+./scripts/build.sh all
+
+# ساخت یک یا چند پلتفرم مشخص
+./scripts/build.sh linux-amd64
+./scripts/build.sh linux-amd64 darwin-arm64
+```
+
+### ویندوز — `scripts/build.ps1`
+
+```powershell
+# ساخت برای پلتفرم میزبان (تشخیص خودکار)
+.\scripts\build.ps1
+
+# ساخت همه پلتفرم‌های پشتیبانی‌شده
+.\scripts\build.ps1 all
+
+# ساخت یک یا چند پلتفرم مشخص
+.\scripts\build.ps1 windows-amd64
+.\scripts\build.ps1 windows-amd64 linux-amd64
+```
+
+### کلیدهای پلتفرم پشتیبانی‌شده
+
+| کلید | سیستم‌عامل | معماری |
+|------|-----------|-------|
+| `windows-amd64` | ویندوز | x86-64 |
+| `windows-arm64` | ویندوز | ARM64 |
+| `linux-amd64` | لینوکس | x86-64 |
+| `linux-arm64` | لینوکس / Raspberry Pi | ARM64 |
+| `termux-arm64` | اندروید (Termux) | ARM64 |
+| `darwin-amd64` | مک | Intel |
+| `darwin-arm64` | مک | Apple Silicon |
+
+### متغیرهای محیطی
+
+| متغیر | پیش‌فرض | توضیح |
+|-------|---------|-------|
+| `VERSION` | `git describe --tags` | نسخه‌ای که در باینری ذخیره می‌شود |
+| `XRAY_VERSION` | `v1.8.24` | نسخه xray-core برای بسته‌بندی |
+| `NO_XRAY=1` | — | بدون دانلود xray (فقط باینری) |
+| `NO_ARCHIVE=1` | — | فایل‌های loose در `dist/<platform>/` بدون آرشیو |
+| `GO_VERSION` | `1.26.2` | نسخه Go برای نصب خودکار در صورت نبود |
+
+### خروجی اسکریپت‌ها
+
+```
+dist/
+├── windows-amd64/
+│   ├── Cloudflare-Scanner.exe
+│   └── xray.exe
+├── linux-amd64/
+│   ├── Cloudflare-Scanner
+│   └── xray
+├── Cloudflare-Scanner-v3.0.1-windows-amd64.zip
+├── Cloudflare-Scanner-v3.0.1-linux-amd64.tar.gz
+└── ...
+```
+
+خروجی‌ها از نظر ساختاری با دانلودهای GitHub Release یکسان هستند.
 
 ## کامپایل کراس‌پلتفرم
 

@@ -941,16 +941,18 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 			}
 			nearbyEntries = append(nearbyEntries, cleanEntry(r))
 		}
+		phase2Failures := len(phase2Results) - len(entries)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"entries":        entries,
-			"raw":            raw,
-			"total":          len(entries),
-			"scanned":        len(phase2Results),
-			"status":         status,
-			"phase":          "phase2",
-			"phase1":         phase1Progress,
-			"nearby_entries": nearbyEntries,
+			"entries":         entries,
+			"raw":             raw,
+			"total":           len(entries),
+			"scanned":         len(phase2Results),
+			"phase2_failures": phase2Failures,
+			"status":          status,
+			"phase":           "phase2",
+			"phase1":          phase1Progress,
+			"nearby_entries":  nearbyEntries,
 		})
 		return
 	}

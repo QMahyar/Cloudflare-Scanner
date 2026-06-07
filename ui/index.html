@@ -2722,7 +2722,11 @@ const App = (function() {
 
     if (!hasDirect) {
       if (data.phase === 'phase2' && data.status === 'done') {
-        container.innerHTML = '<div class="empty-state"><p>' + t('clean.noResults') + '</p></div>';
+        let msg = t('clean.noResults');
+        if (data.scanned > 0 && data.phase2_failures > 0) {
+          msg += ' (' + data.scanned + ' tested via xray, all failed)';
+        }
+        container.innerHTML = '<div class="empty-state"><p>' + msg + '</p></div>';
         container.classList.remove('hidden');
       }
       return;

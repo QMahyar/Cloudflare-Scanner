@@ -10,6 +10,7 @@ architecture, or extend the app. For user installation instructions see [README.
 ## Table of Contents
 
 - [Quick Build](#quick-build)
+- [Build Scripts (All Platforms)](#build-scripts-all-platforms)
 - [Cross-Platform Builds](#cross-platform-builds)
 - [Prerequisites](#prerequisites)
 - [Project Structure](#project-structure)
@@ -37,6 +38,79 @@ go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
 ```
 
 The binary embeds `ui/index.html` via Go's `//go:embed` directive — no external files needed at runtime.
+
+## Build Scripts (All Platforms)
+
+The `scripts/` directory contains two batteries-included scripts that replicate
+what CI does: auto-install Go if needed, compile the binary, download the
+matching xray-core sidecar, and produce a release-identical archive.
+
+### Linux / macOS / Termux — `scripts/build.sh`
+
+```bash
+# Build for the current host platform (auto-detected)
+./scripts/build.sh
+
+# Build every supported platform
+./scripts/build.sh all
+
+# Build one or more specific platforms
+./scripts/build.sh linux-amd64
+./scripts/build.sh linux-amd64 darwin-arm64
+```
+
+### Windows — `scripts/build.ps1`
+
+```powershell
+# Build for the current host platform (auto-detected)
+.\scripts\build.ps1
+
+# Build every supported platform
+.\scripts\build.ps1 all
+
+# Build one or more specific platforms
+.\scripts\build.ps1 windows-amd64
+.\scripts\build.ps1 windows-amd64 linux-amd64
+```
+
+### Supported platform keys
+
+| Key | OS | Arch |
+|-----|----|------|
+| `windows-amd64` | Windows | x86-64 |
+| `windows-arm64` | Windows | ARM64 |
+| `linux-amd64` | Linux | x86-64 |
+| `linux-arm64` | Linux / Raspberry Pi | ARM64 |
+| `termux-arm64` | Android (Termux) | ARM64 |
+| `darwin-amd64` | macOS | Intel |
+| `darwin-arm64` | macOS | Apple Silicon |
+
+### Environment overrides
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VERSION` | `git describe --tags` | Version string baked into the binary |
+| `XRAY_VERSION` | `v1.8.24` | xray-core release to bundle |
+| `NO_XRAY=1` | — | Skip xray download (binary only) |
+| `NO_ARCHIVE=1` | — | Leave loose files in `dist/<platform>/` instead of archiving |
+| `GO_VERSION` | `1.26.2` | Go version to auto-install if Go is absent or too old |
+
+### What the scripts produce
+
+```
+dist/
+├── windows-amd64/
+│   ├── Cloudflare-Scanner.exe
+│   └── xray.exe
+├── linux-amd64/
+│   ├── Cloudflare-Scanner
+│   └── xray
+├── Cloudflare-Scanner-v3.0.1-windows-amd64.zip
+├── Cloudflare-Scanner-v3.0.1-linux-amd64.tar.gz
+└── ...
+```
+
+Artifacts are structurally identical to GitHub Release downloads.
 
 ## Cross-Platform Builds
 

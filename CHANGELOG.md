@@ -9,6 +9,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.0.1] — 2026-06-07
+
+### Fixed
+- **Phase 2 mux interference** — strip `PacketEncoding` (mux/xudp) from the
+  xray config used during Phase 2 clean-IP validation. A single `GET /generate_204`
+  probe through a mux-enabled outbound would stall or mis-report latency because
+  xray never opened the mux sub-connection; Phase 2 now always uses a plain
+  single-stream outbound. (`cleanip.go`)
+- **Phase 2 failure count missing from API** — `/api/clean-results/{id}` now
+  returns `phase2_failures` (count of IPs that went through Phase 2 but produced
+  no valid result). The frontend shows this counter in the "no results" empty
+  state so users know Phase 2 ran but every IP failed — previously the empty
+  message gave no diagnosis. (`server.go`, `ui/index.html`)
+
+### Added
+- **Local build scripts** — `scripts/build.sh` (Linux / macOS / Termux) and
+  `scripts/build.ps1` (Windows PowerShell). Both scripts:
+  - Auto-install Go if missing or too old (reads the required version from `go.mod`)
+  - Download the matching xray-core sidecar for each target
+  - Produce release-identical `.zip` / `.tar.gz` archives under `dist/`
+  - Support building for the host platform, one specific target, or every
+    supported platform (`all`): 7 targets ×
+    `windows-amd64 · windows-arm64 · linux-amd64 · linux-arm64 · termux-arm64 · darwin-amd64 · darwin-arm64`
+  - Accept env-var overrides: `VERSION`, `XRAY_VERSION`, `NO_XRAY`, `NO_ARCHIVE`, `GO_VERSION`
+
+---
+
 ## [v3.0.0] — 2026-06-07
 
 ### Added

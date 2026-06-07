@@ -1,1 +1,0 @@
-40d7360d9857271e448c4f1ff23dc58976e104f01af88b22737822ce2681e439  Cloudflare-Scanner-v2.2.1-windows-amd64.zip

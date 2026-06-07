@@ -797,6 +797,12 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		return
 	}
 
+	// For the HTTP validation probe, mux/xudp can interfere with the single
+	// test request (GET /generate_204). Strip PacketEncoding so xray never
+	// enables mux concurrency during Phase 2.
+	validationCfg := *job.Config
+	validationCfg.PacketEncoding = ""
+
 	var portCounter atomic.Int32
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -833,7 +839,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			}
 
 			socksPort := int(portCounter.Add(10)) + 20799
-			result := validateWithXrayAttempts(ctx, job.Config, ep, xrayPath, socksPort, phase2Timeout, 2)
+			result := validateWithXrayAttempts(ctx, &validationCfg, ep, xrayPath, socksPort, phase2Timeout, 2)
 
 			mu.Lock()
 			phase2Results = append(phase2Results, result)
@@ -876,7 +882,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 				}
 
 				socksPort := int(portCounter.Add(10)) + 20799
-				result := validateWithXrayAttempts(ctx, job.Config, ep, xrayPath, socksPort, phase2Timeout, 2)
+				result := validateWithXrayAttempts(ctx, &validationCfg, ep, xrayPath, socksPort, phase2Timeout, 2)
 
 				mu.Lock()
 				nearbyPhase2Results = append(nearbyPhase2Results, result)

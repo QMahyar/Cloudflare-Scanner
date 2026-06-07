@@ -156,6 +156,24 @@ Each tab has built-in guidance and tooltips — start with **Endpoint Scanner** 
 
 ---
 
+## Build from Source
+
+Developers can build locally using the included scripts — no manual Go or xray setup needed:
+
+```bash
+# Linux / macOS / Termux
+./scripts/build.sh           # host platform
+./scripts/build.sh all       # all 7 platforms
+
+# Windows PowerShell
+.\scripts\build.ps1          # host platform
+.\scripts\build.ps1 all      # all 7 platforms
+```
+
+The scripts auto-install Go if missing, compile the binary, download the matching xray-core sidecar, and produce release-identical archives under `dist/`. See [BUILD.md](BUILD.md) for full options (custom version, skip xray, cross-compile targets, env overrides).
+
+---
+
 ## Documentation
 
 | Guide | Audience | Description |
