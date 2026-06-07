@@ -69,7 +69,7 @@
 
 /* ─── Reset & Base ─── */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 body {
   font-family: var(--font-sans);
   background:
@@ -85,9 +85,25 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 body[dir="rtl"] { font-family: var(--font-fa); }
 @media (min-width: 640px) { body { padding: 20px; } }
+/* Safe-area insets for notched phones (iPhone X+, Android punch-hole) */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(var(--space-md), env(safe-area-inset-left));
+    padding-right: max(var(--space-md), env(safe-area-inset-right));
+    padding-bottom: max(var(--space-md), env(safe-area-inset-bottom));
+  }
+  @media (min-width: 640px) {
+    body {
+      padding-left: max(20px, env(safe-area-inset-left));
+      padding-right: max(20px, env(safe-area-inset-right));
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+  }
+}
 
 /* ─── Layout ─── */
 .container { max-width: 1040px; margin: 0 auto; position: relative; z-index: 1; }
@@ -352,7 +368,7 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
 
 /* ─── Port selection grid ─── */
 .port-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.port-cb-label { display: flex; align-items: center; gap: 5px; padding: 4px 10px; background: var(--bg-input); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-secondary); cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s; user-select: none; }
+.port-cb-label { display: flex; align-items: center; gap: 5px; padding: 4px 10px; background: var(--bg-input); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-secondary); cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s; user-select: none; min-height: 36px; touch-action: manipulation; }
 .port-cb-label:hover { border-color: var(--accent); color: var(--text-primary); }
 .port-cb-label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .port-cb-label input[type=checkbox] { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
@@ -403,6 +419,7 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
   margin-bottom: var(--space-sm);
 }
 .btn-bar .btn { flex: 1; min-width: 80px; text-align: center; }
+@media (min-width: 640px) { .btn-bar .btn { flex: 0 0 auto; min-width: 110px; } }
 @media (max-width: 480px) { .btn-bar .btn { min-width: 60px; font-size: 0.75rem; padding: 8px 10px; } }
 
 /* ─── Tabs ─── */
@@ -416,7 +433,12 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
   border-radius: var(--radius-md);
   width: fit-content;
   box-shadow: var(--shadow-inset), inset 0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.tab-bar::-webkit-scrollbar { display: none; }
 @media (min-width: 640px) { .tab-bar { margin-bottom: var(--space-xl); } }
 
 .tab {
@@ -438,6 +460,8 @@ body[dir="rtl"] .toggle input:checked + .slider::before { transform: translateX(
   position: relative;
 }
 .tab svg { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.85; }
+/* Clip tab labels with ellipsis if too narrow */
+.tab > span:not(.tab-badge) { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 @media (min-width: 640px) { .tab { padding: 9px 20px; font-size: 0.8125rem; } }
 
 .tab:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.03); }
@@ -778,7 +802,7 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
 /* ─── Toast ─── */
 .toast-container {
   position: fixed;
-  bottom: 20px;
+  bottom: max(20px, env(safe-area-inset-bottom, 20px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -903,8 +927,10 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 /* ─── Mobile < 480px ─── */
 @media (max-width: 480px) {
   body { padding: var(--space-sm); }
+  .app-shell { border-radius: var(--radius-md); padding: var(--space-sm); }
   .card { padding: var(--space-sm); border-radius: var(--radius-sm); }
   .card h2 { font-size: 0.8125rem; }
+  .header-row { padding: 10px var(--space-md); gap: var(--space-sm); }
   .header-row h1 { font-size: clamp(1rem, 4vw, 1.25rem); }
   .subtitle { font-size: 0.7rem; margin-bottom: var(--space-md); }
   .lang-btn { padding: 4px 10px; font-size: 0.6875rem; min-height: 32px; }
@@ -913,7 +939,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
   .tab-badge { font-size: 0.5625rem; padding: 1px 4px; }
   .preset-btn { font-size: 0.625rem; padding: 6px 8px; min-height: 36px; }
   .input-method-bar button { font-size: 0.6875rem; padding: 8px 8px; min-height: 40px; }
-  .btn-bar .btn { min-width: 0; font-size: 0.6875rem; padding: 8px 6px; }
+  .btn-bar .btn { min-width: 0; font-size: 0.6875rem; padding: 8px 6px; flex: 1; }
   .results-table { min-width: 0; font-size: 0.625rem; }
   .results-table th, .results-table td { padding: 8px 4px; }
   .results-table td .tag { font-size: 0.625rem; padding: 2px 6px; max-width: 140px; }
@@ -933,6 +959,31 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
   .output-path-row .btn { width: 100%; }
   .apply-config-item-actions .btn { font-size: 0.625rem; padding: 4px 8px; }
   .apply-config-content-box { font-size: 0.5625rem; min-height: 48px; }
+  /* Stack section header vertically to prevent crowding */
+  .section-header { align-items: flex-start; }
+  /* Port checkboxes: more breathing room on mobile */
+  .port-cb-label { min-height: 40px; padding: 6px 10px; }
+  /* Full-width solo action buttons when stacked on mobile */
+  #replacerURLWrap .col[style*="flex:none"] { width: 100%; }
+  #fetchBtn { width: 100%; }
+}
+
+/* ─── Very small phones < 380px ─── */
+@media (max-width: 380px) {
+  /* Icon-only tabs to fit 3 tabs without overflow */
+  .tab > span:not(.tab-badge) { display: none; }
+  .tab { gap: 0; justify-content: center; padding: 10px 8px; }
+  .tab svg { width: 18px; height: 18px; opacity: 1; }
+  /* Tighter gaps */
+  .btn-bar { gap: 4px; }
+  .header-row h1 { font-size: 1rem; }
+}
+
+/* ─── Tablet 640px–768px ─── */
+@media (min-width: 640px) and (max-width: 768px) {
+  /* On narrow tablets, let the 3rd col in a 3-col row wrap to its own line */
+  .row { flex-wrap: wrap; }
+  .row .col { min-width: min(200px, 100%); }
 }
 
 /* ─── Reduced Motion ─── */

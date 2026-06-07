@@ -9,6 +9,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.0.0] — 2026-06-07
+
+### Added
+- **Fully responsive UI** — phone, tablet, and PC all supported with a single adaptive layout
+- **Safe-area insets** — `env(safe-area-inset-*)` padding on body and toast; correct display on notched phones (iPhone X+, Android punch-hole/island)
+- **Icon-only tabs on very small phones (≤ 380 px)** — all three tabs fit at 320 px without overflow; labels reappear above 381 px
+- **Tab bar overflow scrolling** — hidden scrollbar, `-webkit-overflow-scrolling: touch`; tabs never clip on any screen width
+- **Tablet column wrapping (640–768 px)** — 3-column settings rows (Phase 1/2 probes + Phase 2 count) wrap to 2 + 1 when columns would be too narrow to read
+
+### Changed
+- **Button bar** — buttons use natural content width on desktop/tablet (≥ 640 px) instead of stretching to fill the full 1040 px container; equal-width fill is kept on mobile for easy tapping
+- **Fetch button** — full-width on mobile (≤ 480 px) to match the URL input above it in the stacked layout
+- **App shell** — border-radius reduced on mobile; inner padding tightened
+- **Header row** — padding reduced on mobile while keeping the logo and language button readable
+- **Port checkboxes** — `min-height: 36 px` + `touch-action: manipulation` for reliable tap targets; bumped to 40 px on narrow phones
+- **Overflow prevention** — `overflow-x: hidden` on `html` and `body` stops accidental horizontal scroll bleed
+- **Tab text overflow** — ellipsis clip on tab labels so long names never push the tab bar wider than the viewport
+- **AGENTS.md** — added source-file map table and clarified CI/two-xray-temp-dir behaviour
+
+---
+
 ## [v2.0.1] — 2026-06-03
 
 ### Fixed
