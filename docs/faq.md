@@ -6,7 +6,7 @@
 
 It has three tools:
 1. **Endpoint Scanner** — Finds Cloudflare Warp endpoints where your WireGuard config works
-2. **IP Scanner** — Finds Cloudflare IPs that work as proxies with your VLESS URL
+2. **IP Scanner** — Finds Cloudflare IPs that work as proxies with your VLESS/Trojan URL
 3. **IP Replacer** — Generates all combinations of your subscription configs with a list of clean endpoints
 
 ### Which platforms are supported?
@@ -17,14 +17,18 @@ Windows (Intel and ARM), Linux (Intel and ARM), macOS (Intel and Apple Silicon),
 
 No. The app bundles xray-core v1.8.24. Everything is self-contained in the archive.
 
+### Does it work on phones?
+
+Yes. The web UI is fully responsive down to 360 px. Open `http://127.0.0.1:PORT` in your phone's browser after launching the app on a desktop/server, or run it directly in Termux on Android.
+
 ## Running
 
 ### The browser doesn't open automatically
 
-Look at the terminal output. You'll see a line like:
+Look at the terminal output. You'll see a banner like:
 
 ```
-Web UI: http://127.0.0.1:53671
+  ➜  http://127.0.0.1:53671
 ```
 
 Copy that address and paste it into your browser manually.
@@ -45,15 +49,19 @@ Yes. The web UI runs on `127.0.0.1` by default. You can port-forward with SSH (`
 
 ### What is UDP Noise?
 
-Some ISPs block or throttle WireGuard traffic on port 2408 (Cloudflare Warp's default port). UDP Noise sends a random 50-100 byte packet followed by a 1-5ms delay before the actual WireGuard handshake, making the traffic look non-standard to Deep Packet Inspection (DPI) systems.
+Some ISPs block or throttle WireGuard traffic on port 2408 (Cloudflare Warp's default port). UDP Noise sends a random 50–100 byte packet followed by a 1–5 ms delay before the actual WireGuard handshake, making the traffic look non-standard to Deep Packet Inspection (DPI) systems.
 
 ### What config formats are supported?
 
-Standard WireGuard `.conf` files and Hogwarts-style configs with fields like S1, S2, S3, S4, Jc, Jmin, H1-H4, I1, I2.
+Standard WireGuard `.conf` files and Hogwarts-style configs with fields like S1, S2, S3, S4, Jc, Jmin, H1–H4, I1, I2.
+
+### Can I scan without a config file?
+
+Yes. Disable **Use Real Config**. The scan degrades to a plain TCP dial — no xray validation. Good for quickly finding reachable endpoints.
 
 ### How do I get a Warp config?
 
-Scroll down on the Endpoint Scanner tab. The app includes links to online generators, Telegram bots, CLI tools, and client apps. Popular options:
+Scroll down on the Endpoint Scanner tab. The **Getting Warp Configs** panel has links to online generators, Telegram bots, CLI tools, and client apps. Popular options:
 
 - **warp-generator.github.io/warp/** — browser-based config generator
 - **@warp_generator_bot** — Telegram bot with 54k+ users
@@ -63,12 +71,21 @@ Scroll down on the Endpoint Scanner tab. The app includes links to online genera
 
 ### What's the difference between Phase 1 and Phase 2?
 
-- **Phase 1** — TCP dial test. Checks if the IP:port accepts TCP connections. Fast, large scale (500 concurrent workers).
+- **Phase 1** — TCP dial test. Checks if the IP:port accepts TCP connections. Fast, large scale (configurable up to 2,000 concurrent workers, default 500).
 - **Phase 2** — xray validation. Runs xray-core with your VLESS config against the endpoint and sends an HTTP request through it. Confirms the IP actually proxies traffic.
+
+### What's the difference between "Phase 2 count" and "Phase 2 probes"?
+
+- **Phase 2 count** — how many of the top Phase 1 results to validate (e.g. top 20)
+- **Phase 2 probes** — how many concurrent xray validations run simultaneously (e.g. 12 at a time)
 
 ### Can I use IP Scanner without a VLESS URL?
 
-Yes. Enable **1-phase mode** and leave the VLESS URL field empty. Only Phase 1 (TCP probe) will run, using port 443.
+Yes. Disable **Use Real Config** — only Phase 1 (TCP probe) will run. Choose your ports manually in the port selection grid.
+
+### What does "Push to Replacer" do?
+
+After a scan, **Push to Replacer** sends all working `ip:port` pairs directly to the IP Replacer tab's endpoints field, so you can generate new configs immediately without copying/pasting.
 
 ### How are IPs generated?
 
@@ -78,7 +95,7 @@ From **25 IPv4 CIDR ranges** and **91 IPv6 CIDR ranges** covering Cloudflare's o
 
 ### What config formats does it accept?
 
-`vless://` and `trojan://` share URLs only. Other protocols are ignored.
+`vless://`, `trojan://`, and `vmess://` share URLs. Other protocols are ignored.
 
 ### What separators work when pasting?
 
@@ -88,7 +105,7 @@ Newlines, spaces, commas, semicolons, and pipes: `, ; |`. You can mix them.
 
 Check that:
 - Your subscription URL is accessible (not behind a login page or expired)
-- Your pasted text contains valid `vless://` or `trojan://` URLs
+- Your pasted text contains valid `vless://`, `trojan://`, or `vmess://` URLs
 - The subscription response is not empty or HTML (some providers return a login page)
 
 ## Troubleshooting
@@ -103,6 +120,7 @@ Make sure `xray` (or `xray.exe` on Windows) is in the same folder as the app. Ch
 - Your ISP may be blocking the connection
 - Try increasing scan depth
 - Enable UDP Noise if you suspect DPI blocking
+- In IP Scanner, try "HTTPS (6)" or "All (13)" port presets instead of 443 only
 
 ### App port keeps changing
 

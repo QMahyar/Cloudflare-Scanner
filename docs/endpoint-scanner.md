@@ -6,9 +6,9 @@ Finds Cloudflare Warp endpoints where your WireGuard config works. Uses xray-cor
 
 ## Step-by-Step
 
-### Step 1 — Select a Config File
+### Step 1 — Select a Config File (or disable)
 
-Click **Choose config...** and pick a WireGuard `.conf` file.
+Toggle **Use Real Config** on (default). Click **Choose config...** and pick a WireGuard `.conf` file.
 
 Supported formats:
 
@@ -17,25 +17,26 @@ Supported formats:
 
 The app shows the filename in green once a valid config is selected. The **Start Scan** button becomes enabled.
 
+**Without a config:** Disable "Use Real Config". The scan degrades to a plain TCP dial check — no xray validation, just connectivity. Useful for quickly finding reachable endpoints.
+
 ### Step 2 — Set Scan Depth
 
 Choose how many endpoints to test:
 
 | Option | Endpoints | When to use |
-|---|---|---|
+|--------|-----------|-------------|
 | Quick | 100 | Quick check, just want one working endpoint |
-| Normal | 500 | Good balance of speed and coverage |
-| Deep | 1000 | Thorough scan |
-| Insane | 5000 | Very thorough, takes longer |
-| Massive | 10000 | Comprehensive, expect several minutes |
-| Absolutely Insane | 50000 | Maximum, can take 10+ minutes |
+| Normal (default) | 500 | Good balance of speed and coverage |
+| Deep | 1,000 | Thorough scan |
+| Insane | 5,000 | Very thorough, takes longer |
+| Massive | 10,000 | Comprehensive, expect several minutes |
 | Custom | (you enter) | Enter any number manually |
 
 ### Step 3 — Choose IP Version
 
 | Option | What it scans |
-|---|---|
-| IPv4 only | Default. 162.159.192.0/24 and similar ranges |
+|--------|--------------|
+| IPv4 only (default) | 162.159.x.x, 188.114.x.x and similar Warp ranges |
 | IPv6 only | Warp IPv6 endpoints |
 | IPv4 + IPv6 | Both, split evenly |
 
@@ -45,7 +46,7 @@ Enter a number to limit how many successful results are displayed. `0` = show al
 
 ### Step 5 — Toggle UDP Noise
 
-If your ISP blocks or throttles Warp traffic on port 2408, keep **UDP Noise** enabled (default). This sends a random 50–100 byte packet with a 1–5ms delay before the WireGuard handshake, making the traffic look non-standard to DPI systems.
+If your ISP blocks or throttles Warp traffic on port 2408, keep **UDP Noise** enabled (default). This sends a random 50–100 byte packet with a 1–5 ms delay before the WireGuard handshake, making the traffic look non-standard to Deep Packet Inspection (DPI) systems.
 
 Disable if you don't need it (may be slightly faster).
 
@@ -53,13 +54,13 @@ Disable if you don't need it (may be slightly faster).
 
 Click **Start Scan**. Each endpoint is tested:
 
-1. xray-core starts with your config behind a SOCKS5 proxy on a random port
+1. xray-core starts with your config behind a SOCKS5 proxy on a random local port
 2. The endpoint is dialed through the SOCKS5 proxy
-3. If the connection succeeds, the endpoint passes
+3. An HTTP `GET /generate_204` is sent — HTTP 204 means success
 
 Results appear **live** — successful endpoints show up in the table as they're found, with their latency.
 
-You can click **Stop** at any time, or **Reset** to clear everything.
+You can click **Stop** at any time to cancel (partial results are kept), or **Reset** to clear everything.
 
 ### Step 7 — Apply an Endpoint to Config Files
 
@@ -68,7 +69,8 @@ Once you have results:
 1. Click any endpoint in the results table to copy it to the **Endpoint to apply** field (or paste one manually)
 2. Click **Choose config(s)...** to select one or more `.conf` files to update
 3. Optionally set an **Output folder path** (leave empty to save next to the app)
-4. Click **Generate Configs**
+4. Click **Browse** to pick an output folder using a folder picker (if your browser supports it)
+5. Click **Generate Configs**
 
 The app modifies the `Endpoint` line in each file's `[Peer]` section and saves the result. A status message shows how many files were saved and where.
 
@@ -76,6 +78,7 @@ The app modifies the `Endpoint` line in each file's `[Peer]` section and saves t
 
 ## Tips
 
-- **Rescan** re-runs with the same config on the same endpoints, useful if some endpoints were temporarily down
-- **Results to show** only affects display — all results are kept, and when you apply an endpoint, the full list is available
-- The scan uses **4 concurrent workers** by default (from `Scanner.Concurrency`), balancing speed and reliability
+- **Rescan** re-runs with the same config and the same endpoint pool — useful if some endpoints were temporarily down
+- **Results to show** only affects display — all results are kept in memory; when you apply an endpoint the full list is still available
+- Scans run with multiple concurrent workers to balance speed and reliability
+- The app downloads links to online Warp config generators inside the **Getting Warp Configs** panel at the bottom of this tab

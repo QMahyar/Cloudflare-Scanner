@@ -1,6 +1,6 @@
 # IP Replacer
 
-Takes VLESS/Trojan configs (from a subscription URL or pasted directly), deduplicates them by fingerprint (ignoring IP:port and remark), then generates every combination with a list of clean endpoints.
+Takes VLESS/Trojan/VMess configs (from a subscription URL or pasted directly), deduplicates them by fingerprint (ignoring IP:port and remark), then generates every combination with a list of clean endpoints.
 
 Perfect for refreshing a stale subscription with fresh IPs from the IP Scanner.
 
@@ -25,7 +25,7 @@ Generate: every config × every endpoint
 Each gets remark " @ endpoint"
        │
        ▼
-Copy all or download as text file
+Copy all, download as text file, or scan QR
 ```
 
 ---
@@ -40,13 +40,13 @@ Toggle between **Subscription URL** and **Paste Configs**. Only one input is vis
 
 1. Enter a subscription URL like `https://example.com/sub?token=xxxx`
 2. Click **Fetch**
-3. The app downloads the subscription, decodes any base64 content, extracts all `vless://` and `trojan://` URLs, and deduplicates them
+3. The app downloads the subscription, decodes any base64 content, extracts all `vless://`, `trojan://`, and `vmess://` URLs, and deduplicates them
 
 #### Option B: Paste Configs
 
 1. Paste raw share URLs into the textarea, one per line (or separated by commas, semicolons, pipes, spaces)
 2. Click **Parse**
-3. The app extracts valid `vless://` and `trojan://` URLs and ignores everything else
+3. The app extracts valid `vless://`, `trojan://`, and `vmess://` URLs and ignores everything else
 
 **Delimiter examples** — all of these work:
 
@@ -62,7 +62,7 @@ vless://aaa...|trojan://bbb...
 After fetching or parsing, you see a list of unique config templates. Configs that differ only by IP:port or remark are grouped into one entry.
 
 Each entry shows:
-- Protocol (vless / trojan)
+- Protocol (vless / trojan / vmess)
 - UUID / password
 - Original address and port
 - SNI, security, network type
@@ -75,7 +75,8 @@ Check the boxes next to configs you want to include. Use **Select All** / **Dese
 
 Enter one `ip:port` per line in the endpoints textarea. These come from:
 
-- IP Scanner results (export the working endpoints)
+- **IP Scanner** — click **Push to Replacer** after a clean scan to send working IPs here automatically
+- IP Scanner results exported manually (Copy All / Export Configs)
 - Any other source of working proxy endpoints
 - Manually entered addresses
 
@@ -90,10 +91,11 @@ Original remark: "US Server"
 Generated remark: "US Server @ 162.159.90.249:443"
 ```
 
-### Step 5 — Copy or Download
+### Step 5 — Copy, Download, or QR
 
 - **Copy All** — copies all generated URLs to your clipboard, one per line
 - **Download** — saves them as a `.txt` file
+- **QR** — shows a QR code for the first generated URL (scan with a phone to import instantly)
 
 ---
 
@@ -101,13 +103,13 @@ Generated remark: "US Server @ 162.159.90.249:443"
 
 Configs are considered identical (and deduplicated) when they share the same:
 
-- Protocol (vless / trojan)
+- Protocol (vless / trojan / vmess)
 - UUID
 - Encryption
 - Security
 - SNI
 - Fingerprint
-- Network (tcp / ws / grpc)
+- Network (tcp / ws / grpc / httpupgrade / kcp)
 - Host
 - Path
 - Packet encoding
@@ -118,6 +120,6 @@ IP:port and remark are **not** part of the fingerprint, so a config pointing to 
 
 ## Tips
 
-- **Use with IP Scanner:** Run a Clean IP scan first, export the working IPs, then copy them into the IP Replacer endpoints field
+- **Use with IP Scanner:** Run a Clean IP scan, then click **Push to Replacer** — the working endpoints are sent directly to this tab's endpoints field
 - **Large combinations:** If you have 5 configs and 100 endpoints, you get 500 URLs. The app handles this efficiently but your clipboard may have limits — use Download instead of Copy All for very large outputs
-- **Fetch timeout:** Subscription URLs have a 30-second HTTP timeout. If your subscription is slow, ensure it responds within that window
+- **Fetch timeout:** Subscription URLs have a 10 MB body limit and a generous HTTP timeout. If your subscription returns an error, check that the URL is accessible and not behind a login

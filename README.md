@@ -15,7 +15,7 @@
 
 ## Overview
 
-Cloudflare Scanner is a **cross-platform desktop tool** for finding healthy Cloudflare WARP endpoints and clean proxy IPs, plus batch-applying them to your config files. It bundles [xray-core](https://github.com/XTLS/Xray-core) for realistic validation — no separate prox圏 setup needed.
+Cloudflare Scanner is a **cross-platform desktop tool** for finding healthy Cloudflare WARP endpoints and clean proxy IPs, plus batch-applying them to your config files. It bundles [xray-core](https://github.com/XTLS/Xray-core) for realistic validation — no separate proxy setup needed.
 
 **Start here if you're new.** Download, extract, run, and a browser tab opens. Three tabs do the whole job.
 

@@ -9,18 +9,18 @@ Finds Cloudflare proxy IPs that respond to TCP connections and optionally valida
 The scan runs in two phases:
 
 ```
-Phase 1: TCP Probe       Phase 2: xray Validation
-────────────────────     ────────────────────────
-Generate IPs from  ──>   Take top N from
-Cloudflare CIDRs         Phase 1 results
-      │                          │
-TCP Dial to each        Start xray with your
-IP:port with 500        VLESS config, connect
-concurrent workers      via SOCKS5, send HTTP
-      │                  request to gstatic.com
-Collect successful      Keep endpoints that
-responses, sort         return HTTP 204/200
-by latency              (12 concurrent workers)
+Phase 1: TCP Probe            Phase 2: xray Validation
+─────────────────────         ────────────────────────
+Generate IPs from         ──> Take top N from
+Cloudflare CIDRs               Phase 1 results
+      │                               │
+TCP dial to each              Start xray with your
+IP:port (configurable         VLESS config, connect
+concurrent workers)           via SOCKS5, send HTTP
+      │                       request to gstatic.com
+Collect successful            Keep endpoints that
+responses, sort by            return HTTP 204/200
+latency, detect colo          (configurable workers)
 ```
 
 ---
@@ -31,62 +31,103 @@ by latency              (12 concurrent workers)
 
 Paste a `vless://...` or `trojan://...` share URL. This URL is used in Phase 2 to validate endpoints through xray-core.
 
-- **If you enter a URL:** Phase 2 will run after Phase 1 completes. Each endpoint is tested by running xray-core with this config and checking if a proxy connection succeeds.
-- **If you leave it empty:** Only Phase 1 (TCP probe) runs. You should also check **1-phase mode**.
+- **If you enter a URL:** Phase 2 runs after Phase 1 completes. Each endpoint is tested by running xray-core with this config and checking if a proxy connection succeeds.
+- **If you leave it empty (and disable "Use Real Config"):** Only Phase 1 (TCP probe) runs.
 
-The port from the URL is used for both phases.
+The port from the URL is also used as the default port for the "Config port" preset in Port Selection.
 
-### Step 2 — Toggle 1-Phase Mode
+### Step 2 — Set Scan Depth
 
-- **Unchecked (default):** Full two-phase scan. Phase 1 finds responsive IPs, Phase 2 validates the best ones.
-- **Checked:** Only TCP probe runs. Useful if you just want a list of Cloudflare IPs that accept TCP connections. The default port is 443 when no VLESS URL is provided.
+Choose how many IPs to probe:
 
-### Step 3 — Set Scan Depth
+| Option | IPs to test | When to use |
+|--------|-------------|-------------|
+| Quick | 100 | Fast check |
+| Normal (default) | 500 | Good balance |
+| Deep | 1,000 | Thorough |
+| Insane | 5,000 | Very thorough |
+| Massive | 10,000 | Comprehensive |
+| Custom | (you enter) | Any number |
 
-| Option | IPs to test |
-|---|---|
-| Fast | 500 |
-| Normal (default) | 1000 |
-| Deep | 2000 |
-| Max | 5000 |
+### Step 3 — Set Phase 1 Probes
 
-### Step 4 — Set Phase 2 Probes
+Number of **concurrent TCP workers** during Phase 1:
 
-How many of the top Phase 1 results to validate through xray-core:
+| Option | Concurrent workers |
+|--------|--------------------|
+| 100 | Light |
+| 250 | Moderate |
+| 500 (default) | Standard |
+| 1,000 | Aggressive |
+| 2,000 | Maximum |
 
-| Option | Probes | When to use |
-|---|---|---|
-| 10 | — | Quick validation |
-| 20 (default) | — | Good balance |
-| 30 | — | More thorough |
-| 50 | — | Comprehensive |
+Higher values finish faster but use more CPU/memory.
 
-### Step 5 — Choose IP Version
+### Step 4 — Set Phase 2 Count and Probes
+
+**Phase 2 count** — how many of the top Phase 1 results to validate:
+
+| Option | Count |
+|--------|-------|
+| 10 | Quick validation |
+| 20 (default) | Good balance |
+| 30 | More thorough |
+| 50 | Comprehensive |
+
+**Phase 2 probes** — concurrent xray validations:
+
+| Option | Concurrent |
+|--------|-----------|
+| 5 | Light |
+| 12 (default) | Standard |
+| 25 | Fast |
+| 50 | Aggressive |
+| 100 | Maximum |
+
+### Step 5 — Choose Ports to Scan
+
+Select which Cloudflare CDN ports to probe. Use the quick-select presets:
+
+| Preset | Ports |
+|--------|-------|
+| 443 only | HTTPS 443 |
+| HTTPS (6) | 443, 8443, 2053, 2083, 2087, 2096 |
+| HTTP (7) | 80, 8080, 8880, 2052, 2082, 2086, 2095 |
+| All (13) | All 13 Cloudflare CDN ports |
+| Config port | Port extracted from your VLESS URL |
+
+You can also check/uncheck individual ports in the grid below the presets.
+
+### Step 6 — Choose IP Version
 
 | Option | What it scans |
-|---|---|
+|--------|--------------|
 | IPv4 only (default) | Cloudflare IPv4 ranges (25 CIDRs) |
 | IPv6 only | Cloudflare IPv6 ranges (91 CIDRs) |
 | IPv4 + IPv6 | Both, mixed |
 
-### Step 6 — Start Clean Scan
+### Step 7 — Enable Nearby Scan (optional)
+
+Toggle **Scan nearby ranges** to expand around any working Phase 1 IPs. For each working IPv4 address, the full `/24` subnet is probed; for IPv6 the `/64`. Results from the nearby scan appear in a separate **Nearby** list.
+
+### Step 8 — Start Clean Scan
 
 Click **Start Clean Scan**.
 
-During **Phase 1**, you see live progress (`Phase 1: TCP probe — X / Y`). Endpoints that respond appear in the results area with their latency.
+During **Phase 1**, you see live progress (`Phase 1: TCP probe — X / Y`). Endpoints that respond appear in the results area with their latency and Cloudflare colo (e.g. `FRA`, `AMS`, `IAD`).
 
-During **Phase 2**, you see `Phase 2: xray validation — X / Y`. Results update as each endpoint is validated.
+During **Phase 2**, you see `Phase 2: Proxy validation — X / Y`. Results update as each endpoint is validated.
 
-Click **Stop** at any time to cancel.
+Click **Stop** at any time to cancel — partial results are kept.
 
-### Step 7 — Export Results
+### Step 9 — Export or Push Results
 
 Once the scan completes:
 
-1. Click **Download VLESS Configs** to get a text file with each working IP as a share URL
-2. Click **Download IP List** to get a plain list of `ip:port` pairs (one per line)
-
-The VLESS export preserves all original config parameters (SNI, path, encryption, etc.) — only the IP and port are replaced with each working endpoint.
+- **Copy All** — copies all `ip:port` pairs to your clipboard
+- **Copy Selected** — copies only the checked rows
+- **Export Configs** — generates VLESS/Trojan share URLs with working endpoints substituted in
+- **Push to Replacer** — sends all working endpoints directly to the IP Replacer tab
 
 ---
 
@@ -104,7 +145,8 @@ Each generated IP is unique — duplicates are skipped.
 
 ## Technical Notes
 
-- **Phase 1:** Uses `net.DialTimeout` with a 3-second timeout, 500 concurrent goroutines, semaphore-limited
-- **Phase 2:** Each endpoint gets a dedicated xray process with a unique SOCKS5 port (starting from 20800). 12 concurrent validations. 5-second test timeout.
+- **Phase 1:** Uses `net.DialTimeout` with a 3-second timeout, configurable concurrent goroutines (default 500), semaphore-limited
+- **Phase 2:** Each endpoint gets a dedicated xray process with a unique SOCKS5 port. Configurable concurrent validations (default 12). 5-second test timeout.
 - **Validation:** xray connects to the endpoint, then the app sends an HTTP request through the SOCKS5 proxy to `www.gstatic.com/generate_204`. HTTP 204 or 200 counts as success.
+- **Colo detection:** After Phase 1, each responsive IP is probed at `/cdn-cgi/trace` to identify the Cloudflare data center.
 - **TCP-only:** Phase 1 only checks TCP connectivity. It does not send any data — just establishes and closes the connection.
