@@ -1242,6 +1242,36 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 
     <div class="card">
       <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg><span data-t="settings.header">Settings</span></h2>
+      <label data-t="clean.sourceLabel" data-t-title="clean.sourceTitle">IP source</label>
+      <div class="input-method-bar" style="margin-bottom:var(--space-md)">
+        <button id="cleanSrcPool" class="active" onclick="App.selectCleanSource('pool', this)" data-t="clean.sourcePool" data-t-title="clean.sourceTitle">Cloudflare pool</button>
+        <button id="cleanSrcCustom" onclick="App.selectCleanSource('custom', this)" data-t="clean.sourceCustom" data-t-title="clean.sourceTitle">Custom ranges</button>
+      </div>
+      <div id="cleanCustomWrap" class="hidden" style="margin-bottom:var(--space-md)">
+        <div class="preset-bar" style="margin-bottom:8px">
+          <button class="preset-btn" onclick="App.addRangePreset('104.16.0.0/13', this)">104.16.0.0/13</button>
+          <button class="preset-btn" onclick="App.addRangePreset('104.24.0.0/14', this)">104.24.0.0/14</button>
+          <button class="preset-btn" onclick="App.addRangePreset('172.64.0.0/13', this)">172.64.0.0/13</button>
+          <button class="preset-btn" onclick="App.addRangePreset('162.159.0.0/16', this)">162.159.0.0/16</button>
+          <button class="preset-btn" onclick="App.addRangePreset('188.114.96.0/20', this)">188.114.96.0/20</button>
+          <button class="preset-btn" onclick="App.addRangePreset('198.41.128.0/17', this)">198.41.128.0/17</button>
+          <button class="preset-btn" onclick="App.addRangePreset('2606:4700::/32', this)">2606:4700::/32</button>
+          <button class="preset-btn" onclick="App.addRangePreset('__cf_v4__', this)" data-t="clean.presetAllV4">All CF IPv4</button>
+          <button class="preset-btn" onclick="App.addRangePreset('__cf_v6__', this)" data-t="clean.presetAllV6">All CF IPv6</button>
+        </div>
+        <textarea id="cleanCustomRanges" rows="4" data-t-placeholder="clean.customPlaceholder" placeholder="104.16.0.0/13&#10;104.16.0.0-104.16.5.255&#10;162.159.1.1"></textarea>
+        <div class="file-input-wrap" style="margin-top:8px">
+          <label class="file-label" id="cleanRangesFileLabel" for="cleanRangesFile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span data-t="clean.rangesFile">Load ranges from file…</span>
+          </label>
+          <input type="file" id="cleanRangesFile" accept=".txt,.csv,.list,text/plain">
+        </div>
+        <details class="scan-desc" style="margin-top:8px">
+          <summary style="cursor:pointer" data-t="clean.rangesHelpSummary">Supported formats</summary>
+          <div style="margin-top:6px" data-t="clean.rangesHelp">CIDR · range (a-b) · single IP · IPv6 · # comments.</div>
+        </details>
+      </div>
       <div class="row">
         <div class="col">
           <label data-t="settings.scanDepth" data-t-title="clean.depthTitle">Scan depth</label>
@@ -1554,6 +1584,15 @@ const App = (function() {
       'clean.copyAllTitle': 'Copy all working endpoints to clipboard',
       'clean.copySelectedTitle': 'Copy selected endpoints to clipboard',
       'clean.errNoURL': 'Please enter a VLESS URL',
+      'clean.sourceLabel': 'IP source', 'clean.sourcePool': 'Cloudflare pool', 'clean.sourceCustom': 'Custom ranges',
+      'clean.sourceTitle': 'Scan the built-in Cloudflare ranges, or your own CIDR/IP ranges',
+      'clean.customPlaceholder': '104.16.0.0/13\n104.16.0.0-104.16.5.255\n162.159.1.1',
+      'clean.presetAllV4': 'All CF IPv4', 'clean.presetAllV6': 'All CF IPv6',
+      'clean.rangesFile': 'Load ranges from file…',
+      'clean.rangesHelpSummary': 'Supported formats',
+      'clean.rangesHelp': 'CIDR (104.16.0.0/13) · range (104.16.0.0-104.16.5.255 or short 104.16.0.0-255) · single IP (104.16.1.1) · IPv6 too · # for comments. Small ranges are scanned in full; large ones are sampled to the scan-depth count. The IP-version selector is ignored in custom mode — exactly the addresses you provide are scanned.',
+      'clean.errNoRanges': 'Enter at least one IP range (or switch to Cloudflare pool)',
+      'clean.rangeExists': 'Already added', 'clean.rangesLoaded': 'Ranges loaded from file',
       'clean.errStart': 'Failed to start scan: {msg}',
       'clean.errNoSelection': 'Select at least one endpoint',
       'clean.errExport': 'Export failed: {msg}',
@@ -1613,7 +1652,7 @@ const App = (function() {
       'clean.onePhaseTitle': 'Skip xray validation - TCP probe only',
       'clean.depthTitle': 'Number of Cloudflare IPs to probe',
       'clean.phase2Title': 'Number of best Phase 1 results to validate through xray',
-      'clean.nearbyTitle': 'After phase 1, scan adjacent IPs near working endpoints',
+      'clean.nearbyTitle': 'After phase 1, scan adjacent IPs near every working endpoint found',
       'clean.probesTitle': 'Concurrent TCP connections during phase 1',
       'clean.ipTitle': 'IPv4 only, IPv6 only, or both',
       'clean.startTitle': 'Begin scanning Cloudflare IPs',
@@ -1741,6 +1780,15 @@ const App = (function() {
       'clean.copyAllTitle': 'کپی همه اندپوینت‌ها در کلیپ‌بورد',
       'clean.copySelectedTitle': 'کپی اندپوینت‌های انتخاب شده در کلیپ‌بورد',
       'clean.errNoURL': 'لطفاً یک لینک VLESS وارد کنید',
+      'clean.sourceLabel': 'منبع IP', 'clean.sourcePool': 'مخزن Cloudflare', 'clean.sourceCustom': 'محدوده‌های دلخواه',
+      'clean.sourceTitle': 'محدوده‌های پیش‌فرض Cloudflare یا محدوده‌های CIDR/IP خودتان را اسکن کنید',
+      'clean.customPlaceholder': '104.16.0.0/13\n104.16.0.0-104.16.5.255\n162.159.1.1',
+      'clean.presetAllV4': 'همه IPv4 کلاودفلر', 'clean.presetAllV6': 'همه IPv6 کلاودفلر',
+      'clean.rangesFile': 'بارگذاری محدوده‌ها از فایل…',
+      'clean.rangesHelpSummary': 'فرمت‌های پشتیبانی‌شده',
+      'clean.rangesHelp': 'CIDR (104.16.0.0/13) · محدوده (104.16.0.0-104.16.5.255 یا کوتاه 104.16.0.0-255) · تک‌آی‌پی (104.16.1.1) · IPv6 هم پشتیبانی می‌شود · # برای توضیحات. محدوده‌های کوچک کامل اسکن می‌شوند؛ محدوده‌های بزرگ تا تعداد عمق اسکن نمونه‌برداری می‌شوند. در حالت دلخواه انتخاب نسخه IP نادیده گرفته می‌شود — دقیقاً همان آدرس‌هایی که می‌دهید اسکن می‌شوند.',
+      'clean.errNoRanges': 'حداقل یک محدوده IP وارد کنید (یا به مخزن Cloudflare تغییر دهید)',
+      'clean.rangeExists': 'قبلاً اضافه شده', 'clean.rangesLoaded': 'محدوده‌ها از فایل بارگذاری شد',
       'clean.errStart': 'شروع اسکن ناموفق بود: {msg}',
       'clean.errNoSelection': 'حداقل یک اندپوینت انتخاب کنید',
       'clean.errExport': 'خروجی ناموفق بود: {msg}',
@@ -1804,7 +1852,7 @@ const App = (function() {
       'clean.onePhaseTitle': 'رد شدن از اعتبارسنجی xray - فقط پروب TCP',
       'clean.depthTitle': 'تعداد آی‌پی‌های کلاودفلر برای پروب',
       'clean.phase2Title': 'تعداد بهترین نتایج فاز ۱ برای اعتبارسنجی با xray',
-      'clean.nearbyTitle': 'بعد از فاز ۱، آی‌پی‌های مجاور اندپوینت‌های working را اسکن کن',
+      'clean.nearbyTitle': 'بعد از فاز ۱، آی‌پی‌های مجاور هر اندپوینت working پیداشده را اسکن کن',
       'clean.probesTitle': 'اتصالات همزمان TCP در فاز ۱',
       'clean.ipTitle': 'فقط IPv4، فقط IPv6، یا هر دو',
       'clean.startTitle': 'شروع اسکن آی‌پی‌های کلاودفلر',
@@ -1897,7 +1945,7 @@ const App = (function() {
   // ─── State ───
   const state = {
     endpoint: { jobId: null, statusTimer: null, resultsTimer: null, raw: [], lastStatus: 'idle', sort: { field: 'num', dir: 'asc' } },
-    clean: { jobId: null, statusTimer: null, resultsTimer: null, data: null, phase2: [], list: 'direct', sort: { field: 'latency', dir: 'asc' } },
+    clean: { jobId: null, statusTimer: null, resultsTimer: null, data: null, phase2: [], list: 'direct', source: 'pool', sort: { field: 'latency', dir: 'asc' } },
     replacer: { configs: [], generated: [], method: 'url', sort: { field: 'num', dir: 'asc' } },
     apply: { results: [], dirHandle: null },
     qr: null
@@ -2505,6 +2553,52 @@ const App = (function() {
   const cleanStartBtn = $('#cleanStartBtn'), cleanStopBtn = $('#cleanStopBtn'), cleanRescanBtn = $('#cleanRescanBtn');
   const cleanProgressWrap = $('#cleanProgressWrap'), cleanProgressFill = $('#cleanProgressFill'), cleanProgressText = $('#cleanProgressText');
 
+  // ─── Clean IP scan source (Cloudflare pool vs custom ranges) ───
+  // Official published Cloudflare ranges (cloudflare.com/ips).
+  const CF_V4_RANGES = ['173.245.48.0/20','103.21.244.0/22','103.22.200.0/22','103.31.4.0/22','141.101.64.0/18','108.162.192.0/18','190.93.240.0/20','188.114.96.0/20','197.234.240.0/22','198.41.128.0/17','162.158.0.0/15','104.16.0.0/13','104.24.0.0/14','172.64.0.0/13','131.0.72.0/22'];
+  const CF_V6_RANGES = ['2400:cb00::/32','2606:4700::/32','2803:f800::/32','2405:b500::/32','2405:8100::/32','2a06:98c0::/29','2c0f:f248::/32'];
+
+  function selectCleanSource(method, btn) {
+    state.clean.source = method;
+    $('#cleanSrcPool').classList.toggle('active', method === 'pool');
+    $('#cleanSrcCustom').classList.toggle('active', method === 'custom');
+    $('#cleanCustomWrap').classList.toggle('hidden', method !== 'custom');
+  }
+
+  function appendRangesToTextarea(lines) {
+    const ta = $('#cleanCustomRanges');
+    const existing = new Set(ta.value.split('\n').map(s => s.trim()).filter(Boolean));
+    const fresh = lines.filter(v => v && !existing.has(v));
+    if (!fresh.length) return 0;
+    const prefix = (ta.value && !ta.value.endsWith('\n')) ? ta.value + '\n' : ta.value;
+    ta.value = prefix + fresh.join('\n') + '\n';
+    return fresh.length;
+  }
+
+  function addRangePreset(value, btn) {
+    const lines = value === '__cf_v4__' ? CF_V4_RANGES : value === '__cf_v6__' ? CF_V6_RANGES : [value];
+    const added = appendRangesToTextarea(lines);
+    if (added === 0) { showToast(t('clean.rangeExists')); return; }
+    if (btn) { btn.classList.add('active'); setTimeout(() => btn.classList.remove('active'), 400); }
+  }
+
+  $('#cleanRangesFile').addEventListener('change', function() {
+    const f = this.files && this.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const lines = String(reader.result || '').split('\n').map(s => s.trim()).filter(Boolean);
+      appendRangesToTextarea(lines);
+      const lbl = $('#cleanRangesFileLabel');
+      lbl.classList.add('selected');
+      const span = lbl.querySelector('span');
+      if (span) span.textContent = f.name;
+      showToast(t('clean.rangesLoaded'));
+    };
+    reader.readAsText(f);
+    this.value = '';
+  });
+
   function switchCleanList(list) {
     state.clean.list = list;
     $('#cleanListDirect').classList.toggle('active', list === 'direct');
@@ -2519,6 +2613,11 @@ const App = (function() {
     const vlessURL = useConfig ? $('#vlessURL').value.trim() : '';
     if (!onePhase && !vlessURL) {
       $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errNoURL') + '</div>';
+      return;
+    }
+    const customRanges = state.clean.source === 'custom' ? $('#cleanCustomRanges').value.trim() : '';
+    if (state.clean.source === 'custom' && !customRanges) {
+      $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errNoRanges') + '</div>';
       return;
     }
     state.clean.jobId = null;
@@ -2560,7 +2659,8 @@ const App = (function() {
           ipv4: ipVer === '4' || ipVer === '46', ipv6: ipVer === '6' || ipVer === '46',
           phase2_count: phase2, one_phase: onePhase, nearby_scan: nearby,
           nearby_count: 10, phase1_probes: p1Probes, phase2_probes: p2Probes,
-          port_mode: 'custom', ports: scanPorts.length ? scanPorts : [443]
+          port_mode: 'custom', ports: scanPorts.length ? scanPorts : [443],
+          custom_ranges: customRanges
         })
       });
       state.clean.jobId = data.id;
@@ -2923,7 +3023,9 @@ const App = (function() {
   // ═══════════════════════════════════════════════════════════════
   function selectReplacerMethod(method) {
     state.replacer.method = method;
-    $$('.input-method-bar button').forEach(b => {
+    // Scope to the replacer's own bar — a global '.input-method-bar button'
+    // query would also strip the active state off the IP-scanner source toggle.
+    $$('#replacerTab .input-method-bar button').forEach(b => {
       b.classList.toggle('active', b.dataset.method === method);
     });
     $('#replacerURLWrap').classList.toggle('hidden', method !== 'url');
@@ -3180,6 +3282,7 @@ const App = (function() {
     },
     updateCleanPortMode() {},
     switchCleanList, sortClean, copyCleanPhase1IPs, downloadCleanPhase1IPs,
+    selectCleanSource, addRangePreset,
     selectAllClean, copyCleanPhase2IPs, copyCleanSelectedIPs, exportCleanIPs,
     copyNearbyIPs, downloadNearbyIPs, exportNearbyIPs, pushNearbyToReplacer, pushCleanToReplacer,
     selectReplacerMethod, replacerParse, replacerFetch, replacerGenerate,

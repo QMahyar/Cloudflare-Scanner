@@ -52,6 +52,10 @@ var cfIPv4CIDRs = []string{
 // HTTPS: 443, 8443, 2053, 2083, 2087, 2096
 var CFCDNPorts = []int{80, 443, 2052, 2053, 2082, 2083, 2086, 2087, 2095, 2096, 8080, 8443, 8880}
 
+// maxNearbyEndpoints bounds the total endpoints the nearby pass emits, so that
+// seeding from every Phase-1 responder (× countPerIP × ports) can't explode.
+const maxNearbyEndpoints = 4096
+
 var cfIPv6CIDRs = []string{
 	"2400:cb00:2049::/48",
 	"2400:cb00:f00e::/48",
@@ -285,6 +289,9 @@ func generateNearbyIPs(working []CleanIPResult, countPerIP int, ports []int) []s
 	var result []string
 
 	maxResults := len(working) * countPerIP * len(ports)
+	if maxResults > maxNearbyEndpoints {
+		maxResults = maxNearbyEndpoints
+	}
 
 	for _, wr := range working {
 		ep := wr.Endpoint
@@ -414,7 +421,7 @@ func (j *CleanIPJob) stop() {
 	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
-func runCleanPhase1TCP(endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob, concurrency int) []CleanIPResult {
+func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob, concurrency int) []CleanIPResult {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	if concurrency <= 0 {
@@ -453,7 +460,7 @@ func runCleanPhase1TCP(endpoints []string, timeout time.Duration, cancel chan st
 			conn.Close()
 			latency := time.Since(start)
 
-			colo, loc := probeCloudflareTrace(context.Background(), endpoint, 2*time.Second)
+			colo, loc := probeCloudflareTrace(ctx, endpoint, 2*time.Second)
 			result := CleanIPResult{
 				Endpoint: endpoint,
 				Latency:  latency,
@@ -706,7 +713,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	job.Phase2Progress = 0
 	job.mu.Unlock()
 
-	phase1Results := runCleanPhase1TCP(job.Endpoints, phase1Timeout, job.Cancel, job, p1Probes)
+	phase1Results := runCleanPhase1TCP(ctx, job.Endpoints, phase1Timeout, job.Cancel, job, p1Probes)
 
 	select {
 	case <-job.Cancel:
@@ -728,11 +735,10 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		if nearbyCount <= 0 {
 			nearbyCount = 10
 		}
-		// take top 10 working IPs to expand around
+		// Expand around every working IP found in Phase 1 (not just the
+		// fastest few). generateNearbyIPs caps the total it emits so this
+		// stays bounded even with many responders.
 		topForNearby := phase1Results
-		if len(topForNearby) > 10 {
-			topForNearby = topForNearby[:10]
-		}
 		// use job's selected ports for nearby scan
 		nearbyPorts := job.ScanPorts
 		if len(nearbyPorts) == 0 {
@@ -748,7 +754,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			savedPhase1Progress := job.Phase1Progress
 			job.mu.Unlock()
 
-			nearbyPhase1Results = runCleanPhase1TCP(nearbyIPs, phase1Timeout, job.Cancel, nil, p1Probes)
+			nearbyPhase1Results = runCleanPhase1TCP(ctx, nearbyIPs, phase1Timeout, job.Cancel, nil, p1Probes)
 
 			// restore job progress to original (nearby is extra)
 			job.mu.Lock()

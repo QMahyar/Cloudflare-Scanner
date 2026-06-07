@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 )
 
 // Version is set at build time via -ldflags "-X main.Version=vX.Y.Z"
@@ -51,7 +53,20 @@ func main() {
 
 	openBrowser(url)
 
-	select {}
+	waitForShutdown(workDir)
+}
+
+// waitForShutdown blocks until an interrupt/terminate signal arrives, then
+// removes the xray work dirs left behind by in-flight scans and exits cleanly.
+func waitForShutdown(workDir string) {
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	<-sig
+
+	fmt.Println("\n  Shutting down — cleaning up xray work dirs...")
+	os.RemoveAll(filepath.Join(workDir, "_xray_work"))
+	os.RemoveAll(filepath.Join(os.TempDir(), "_xray_clean"))
+	os.Exit(0)
 }
 
 func isTermux() bool {

@@ -36,6 +36,22 @@ Paste a `vless://...` or `trojan://...` share URL. This URL is used in Phase 2 t
 
 The port from the URL is also used as the default port for the "Config port" preset in Port Selection.
 
+### IP Source — Cloudflare pool or custom ranges
+
+By default the scanner samples from Cloudflare's published CIDR pool. Switch the **IP source** toggle to **Custom ranges** to scan your own list instead. Paste one entry per line (or load a `.txt` file), using any mix of:
+
+| Format | Example |
+|--------|---------|
+| CIDR | `104.16.0.0/13` |
+| Range | `104.16.0.0-104.16.5.255` |
+| Short range | `104.16.0.0-255` (replaces the last octet) |
+| Single IP | `104.16.1.1` |
+| Comment | text after `#` or `;` is ignored |
+
+IPv6 works in every format too (`2606:4700::/32`, `2606:4700::-ffff`). The preset chips insert common Cloudflare ranges with one click, including **All CF IPv4** / **All CF IPv6** (the full published lists).
+
+**Smart selection:** if your ranges hold no more than the scan-depth count, every address is tested; larger inputs are randomly sampled (weighted by range size) down to the scan depth. In custom mode the IP-version selector is ignored — exactly the families you provide are scanned.
+
 ### Step 2 — Set Scan Depth
 
 Choose how many IPs to probe:
@@ -108,7 +124,7 @@ You can also check/uncheck individual ports in the grid below the presets.
 
 ### Step 7 — Enable Nearby Scan (optional)
 
-Toggle **Scan nearby ranges** to expand around any working Phase 1 IPs. For each working IPv4 address, the full `/24` subnet is probed; for IPv6 the `/64`. Results from the nearby scan appear in a separate **Nearby** list.
+Toggle **Scan nearby ranges** to expand around **every** working Phase 1 IP (all TCP responders, not just the fastest few). For each working IPv4 address, IPs in the surrounding `/24` are probed; for IPv6 the `/64`. The total number of nearby probes is capped (currently 4096) so seeding from many responders stays bounded. Results from the nearby scan appear in a separate **Nearby** list.
 
 ### Step 8 — Start Clean Scan
 
@@ -140,6 +156,8 @@ IPv4 uses **weighted random selection** — larger ranges (e.g. `/12`) get propo
 IPv6 uses **uniform random selection** from all 91 CIDRs.
 
 Each generated IP is unique — duplicates are skipped.
+
+When **Custom ranges** is selected, IPs come from your own input instead of the Cloudflare pool: ranges are parsed into inclusive address spans and either fully enumerated (small inputs) or weighted-sampled by span size (large inputs), then crossed with the selected ports.
 
 ---
 

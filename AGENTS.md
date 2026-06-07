@@ -31,6 +31,7 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 | `endpoint.go` | WARP endpoint generator (curated `188.114.*`/`162.159.*` prefixes + WARP UDP ports) |
 | `config.go` | Parse WARP `.conf` (`[Interface]`/`[Peer]`, `S1/S2/S3` → `Reserved`) |
 | `cleanip.go` | Clean-IP two-phase scan, CF CIDR pools (`cfIPv4CIDRs`/`cfIPv6CIDRs`), `CFCDNPorts`, weighted IP gen, nearby expansion, `/cdn-cgi/trace` colo probe |
+| `iprange.go` | Custom-range scanning: `ParseIPRanges` (CIDR/dash/short/single, v4+v6 via `math/big`) + `GenerateFromRanges` (smart enumerate-vs-sample). Used when the IP Scanner is given custom ranges instead of the CF pool |
 | `proxy.go` | `ProxyConfig`; parse vless/trojan/vmess URLs; build xray outbound + stream settings (tls/reality/xtls; ws/grpc/kcp/httpupgrade/raw); `GenerateShareURL` |
 | `replacer.go` | Subscription fetch (http/https only), base64 sub decode, parse raw configs, fingerprint dedupe, IP×config replacement |
 | `noise.go` | UDP noise config + validation (rand/base64/hex/str, count 1–50) |

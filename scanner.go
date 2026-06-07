@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -49,10 +48,6 @@ func NewScanner(cfg *WarpConfig, noise NoiseConfig, xrayPath, workDir string) *S
 
 func (s *Scanner) nextPort() int {
 	return int(s.portCounter.Add(1))
-}
-
-func (s *Scanner) testEndpoint(ctx context.Context, endpoint string) ScanResult {
-	return s.testEndpointAttempts(ctx, endpoint, 1)
 }
 
 func (s *Scanner) testEndpointAttempts(ctx context.Context, endpoint string, attempts int) ScanResult {
@@ -218,42 +213,4 @@ func socks5Handshake(conn net.Conn, host string, port int) error {
 	io.ReadFull(conn, make([]byte, 2))
 
 	return nil
-}
-
-func (s *Scanner) Run(endpoints []string) []ScanResult {
-	var (
-		mu      sync.Mutex
-		results []ScanResult
-		wg      sync.WaitGroup
-		sem     = make(chan struct{}, s.Concurrency)
-	)
-
-	for _, ep := range endpoints {
-		wg.Add(1)
-		go func(endpoint string) {
-			defer wg.Done()
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			default:
-				sem <- struct{}{}
-				defer func() { <-sem }()
-			}
-
-			result := s.testEndpointAttempts(context.Background(), endpoint, 2)
-
-			mu.Lock()
-			results = append(results, result)
-			mu.Unlock()
-
-			if result.Success {
-				fmt.Printf("  \x1b[32m✓\x1b[0m %-30s %v\n", endpoint, result.Latency.Round(time.Millisecond))
-			} else {
-				fmt.Printf("  \x1b[31m✗\x1b[0m %-30s %s\n", endpoint, result.Error)
-			}
-		}(ep)
-	}
-
-	wg.Wait()
-	return results
 }

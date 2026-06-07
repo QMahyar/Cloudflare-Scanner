@@ -723,6 +723,7 @@ type cleanScanRequest struct {
 	Phase1Probes int    `json:"phase1_probes"`
 	Phase2Probes int    `json:"phase2_probes"`
 	Ports        []int  `json:"ports"`
+	CustomRanges string `json:"custom_ranges"`
 }
 
 func handleCleanScanStart(xrayPath string) http.HandlerFunc {
@@ -776,7 +777,17 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 		}
 
 		gen := NewCleanIPGenerator()
-		endpoints := gen.GenerateIPs(req.Count, req.IPv4, req.IPv6, scanPorts)
+		var endpoints []string
+		if strings.TrimSpace(req.CustomRanges) != "" {
+			ranges, _ := ParseIPRanges(req.CustomRanges)
+			if len(ranges) == 0 {
+				jsonError(w, "no valid IP ranges found in custom input", 400)
+				return
+			}
+			endpoints = GenerateFromRanges(ranges, req.Count, scanPorts, newRangeRNG())
+		} else {
+			endpoints = gen.GenerateIPs(req.Count, req.IPv4, req.IPv6, scanPorts)
+		}
 
 		cleanJobsMu.Lock()
 		cleanJobCounter++
@@ -1059,6 +1070,63 @@ type replacerConfigEntry struct {
 	ServiceName   string `json:"service_name,omitempty"`
 }
 
+// proxyConfigToEntry / toProxyConfig are the single source of truth for the
+// ProxyConfig <-> replacerConfigEntry mapping used by the replacer handlers.
+func proxyConfigToEntry(c *ProxyConfig) replacerConfigEntry {
+	return replacerConfigEntry{
+		Fingerprint:   ConfigFingerprint(c),
+		Protocol:      c.Protocol,
+		UUID:          c.UUID,
+		Address:       c.Address,
+		Port:          c.Port,
+		Encryption:    c.Encryption,
+		Security:      c.Security,
+		SNI:           c.SNI,
+		FingerprintFP: c.Fingerprint,
+		Network:       c.Network,
+		Host:          c.Host,
+		Path:          c.Path,
+		PacketEnc:     c.PacketEncoding,
+		Remark:        c.Remark,
+		Flow:          c.Flow,
+		PublicKey:     c.PublicKey,
+		ShortId:       c.ShortId,
+		SpiderX:       c.SpiderX,
+		AllowInsecure: c.AllowInsecure,
+		ALPN:          c.ALPN,
+		HeaderType:    c.HeaderType,
+		Mode:          c.Mode,
+		ServiceName:   c.ServiceName,
+	}
+}
+
+func (e replacerConfigEntry) toProxyConfig() *ProxyConfig {
+	return &ProxyConfig{
+		Protocol:       e.Protocol,
+		UUID:           e.UUID,
+		Address:        e.Address,
+		Port:           e.Port,
+		Encryption:     e.Encryption,
+		Security:       e.Security,
+		SNI:            e.SNI,
+		Fingerprint:    e.FingerprintFP,
+		Network:        e.Network,
+		Host:           e.Host,
+		Path:           e.Path,
+		PacketEncoding: e.PacketEnc,
+		Remark:         e.Remark,
+		Flow:           e.Flow,
+		PublicKey:      e.PublicKey,
+		ShortId:        e.ShortId,
+		SpiderX:        e.SpiderX,
+		AllowInsecure:  e.AllowInsecure,
+		ALPN:           e.ALPN,
+		HeaderType:     e.HeaderType,
+		Mode:           e.Mode,
+		ServiceName:    e.ServiceName,
+	}
+}
+
 func handleReplacerFetch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		jsonError(w, "POST required", 405)
@@ -1098,31 +1166,7 @@ func handleReplacerFetch(w http.ResponseWriter, r *http.Request) {
 
 	entries := make([]replacerConfigEntry, 0, len(unique))
 	for _, c := range unique {
-		entries = append(entries, replacerConfigEntry{
-			Fingerprint:   ConfigFingerprint(c),
-			Protocol:      c.Protocol,
-			UUID:          c.UUID,
-			Address:       c.Address,
-			Port:          c.Port,
-			Encryption:    c.Encryption,
-			Security:      c.Security,
-			SNI:           c.SNI,
-			FingerprintFP: c.Fingerprint,
-			Network:       c.Network,
-			Host:          c.Host,
-			Path:          c.Path,
-			PacketEnc:     c.PacketEncoding,
-			Remark:        c.Remark,
-			Flow:          c.Flow,
-			PublicKey:     c.PublicKey,
-			ShortId:       c.ShortId,
-			SpiderX:       c.SpiderX,
-			AllowInsecure: c.AllowInsecure,
-			ALPN:          c.ALPN,
-			HeaderType:    c.HeaderType,
-			Mode:          c.Mode,
-			ServiceName:   c.ServiceName,
-		})
+		entries = append(entries, proxyConfigToEntry(c))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1166,31 +1210,7 @@ func handleReplacerParse(w http.ResponseWriter, r *http.Request) {
 
 	entries := make([]replacerConfigEntry, 0, len(unique))
 	for _, c := range unique {
-		entries = append(entries, replacerConfigEntry{
-			Fingerprint:   ConfigFingerprint(c),
-			Protocol:      c.Protocol,
-			UUID:          c.UUID,
-			Address:       c.Address,
-			Port:          c.Port,
-			Encryption:    c.Encryption,
-			Security:      c.Security,
-			SNI:           c.SNI,
-			FingerprintFP: c.Fingerprint,
-			Network:       c.Network,
-			Host:          c.Host,
-			Path:          c.Path,
-			PacketEnc:     c.PacketEncoding,
-			Remark:        c.Remark,
-			Flow:          c.Flow,
-			PublicKey:     c.PublicKey,
-			ShortId:       c.ShortId,
-			SpiderX:       c.SpiderX,
-			AllowInsecure: c.AllowInsecure,
-			ALPN:          c.ALPN,
-			HeaderType:    c.HeaderType,
-			Mode:          c.Mode,
-			ServiceName:   c.ServiceName,
-		})
+		entries = append(entries, proxyConfigToEntry(c))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1230,30 +1250,7 @@ func handleReplacerApply(w http.ResponseWriter, r *http.Request) {
 
 	configs := make([]*ProxyConfig, 0, len(req.Configs))
 	for _, e := range req.Configs {
-		configs = append(configs, &ProxyConfig{
-			Protocol:       e.Protocol,
-			UUID:           e.UUID,
-			Address:        e.Address,
-			Port:           e.Port,
-			Encryption:     e.Encryption,
-			Security:       e.Security,
-			SNI:            e.SNI,
-			Fingerprint:    e.FingerprintFP,
-			Network:        e.Network,
-			Host:           e.Host,
-			Path:           e.Path,
-			PacketEncoding: e.PacketEnc,
-			Remark:         e.Remark,
-			Flow:           e.Flow,
-			PublicKey:      e.PublicKey,
-			ShortId:        e.ShortId,
-			SpiderX:        e.SpiderX,
-			AllowInsecure:  e.AllowInsecure,
-			ALPN:           e.ALPN,
-			HeaderType:     e.HeaderType,
-			Mode:           e.Mode,
-			ServiceName:    e.ServiceName,
-		})
+		configs = append(configs, e.toProxyConfig())
 	}
 
 	urls := GenerateReplacedConfigs(configs, req.Endpoints)

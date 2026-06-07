@@ -109,9 +109,10 @@ Each tab has built-in guidance and tooltips — start with **Endpoint Scanner** 
 |---------|---------|
 | **WARP endpoint scanning** | Tests WireGuard endpoints via SOCKS5 through real xray-core outbound |
 | **Clean IP scanning** | Two-phase: fast TCP probe → Xray validation (VLESS/Trojan) |
+| **Custom ranges** | Scan your own CIDR / `a-b` ranges / single IPs (or a file) instead of the CF pool — small ranges scanned in full, large ones sampled |
 | **Port selection** | All 13 official CF CDN ports (HTTP + HTTPS) |
 | **UDP noise** | Random padding + jitter to bypass DPI-based blocking |
-| **Nearby scan** | Expands around working clean IPs to find adjacent targets |
+| **Nearby scan** | Expands around every working clean IP to find adjacent targets |
 | **Subscription replacer** | Fetch → deduplicate → inject fresh IP:port into VLESS/Trojan configs |
 | **Batch apply** | Update many `.conf` files at once with a single endpoint |
 | **Multi-attempt validation** | Each endpoint tested multiple times, median latency reported |

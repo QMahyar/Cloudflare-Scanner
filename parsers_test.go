@@ -243,6 +243,55 @@ func TestParseProxyURL_UnsupportedScheme(t *testing.T) {
 	}
 }
 
+// ─── Share URL round-trip ────────────────────────────────────────────────────
+
+// Parsing a share URL, regenerating it, and parsing again must preserve the
+// load-bearing fields. (Host is intentionally excluded: GenerateShareURL fills
+// an empty ws Host from the SNI, so it is not round-trip-stable by design.)
+func TestShareURLRoundTrip(t *testing.T) {
+	vmessPayload := `{"v":"2","ps":"r","add":"1.2.3.4","port":"443","id":"uuid-1234","aid":"0","scy":"auto","net":"ws","type":"none","host":"example.com","path":"/ws","tls":"tls","sni":"example.com"}`
+	cases := []string{
+		"vless://uuid-1234@1.2.3.4:443?security=tls&sni=example.com&fp=chrome&type=ws&host=example.com&path=/ws#remark",
+		"trojan://password123@192.168.1.1:8443?security=tls&sni=host.example",
+		"vmess://" + base64.RawURLEncoding.EncodeToString([]byte(vmessPayload)),
+	}
+	for _, raw := range cases {
+		c1, err := ParseProxyURL(raw)
+		if err != nil {
+			t.Fatalf("parse %q: %v", raw, err)
+		}
+		regen := c1.GenerateShareURL()
+		c2, err := ParseProxyURL(regen)
+		if err != nil {
+			t.Fatalf("re-parse %q: %v", regen, err)
+		}
+		if c1.Protocol != c2.Protocol {
+			t.Errorf("%s: Protocol %q -> %q", c1.Protocol, c1.Protocol, c2.Protocol)
+		}
+		if c1.Address != c2.Address {
+			t.Errorf("%s: Address %q -> %q", c1.Protocol, c1.Address, c2.Address)
+		}
+		if c1.Port != c2.Port {
+			t.Errorf("%s: Port %d -> %d", c1.Protocol, c1.Port, c2.Port)
+		}
+		if c1.UUID != c2.UUID {
+			t.Errorf("%s: UUID %q -> %q", c1.Protocol, c1.UUID, c2.UUID)
+		}
+		if c1.Security != c2.Security {
+			t.Errorf("%s: Security %q -> %q", c1.Protocol, c1.Security, c2.Security)
+		}
+		if c1.Network != c2.Network {
+			t.Errorf("%s: Network %q -> %q", c1.Protocol, c1.Network, c2.Network)
+		}
+		if c1.SNI != c2.SNI {
+			t.Errorf("%s: SNI %q -> %q", c1.Protocol, c1.SNI, c2.SNI)
+		}
+		if c1.Path != c2.Path {
+			t.Errorf("%s: Path %q -> %q", c1.Protocol, c1.Path, c2.Path)
+		}
+	}
+}
+
 // ─── GenerateReplacedConfigs ────────────────────────────────────────────────
 
 func TestGenerateReplacedConfigs_Basic(t *testing.T) {

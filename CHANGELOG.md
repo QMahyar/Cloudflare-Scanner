@@ -9,6 +9,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.1.0] — 2026-06-07
+
+### Added
+- **Custom-range scanning (IP Scanner)** — a new **IP source** toggle lets you
+  scan your own ranges instead of the built-in Cloudflare pool. Accepts CIDR
+  (`104.16.0.0/13`), dash ranges (`104.16.0.0-104.16.5.255` and short
+  `104.16.0.0-255`), and single IPs — IPv4 and IPv6, one entry per line, with
+  `#`/`;` comments. Preset chips insert common Cloudflare ranges (plus **All CF
+  IPv4** / **All CF IPv6**), a file picker loads ranges from a `.txt`, and an
+  inline help panel lists every supported format. Small ranges are enumerated in
+  full; large ones are weighted-sampled to the scan-depth count. New `iprange.go`
+  (`ParseIPRanges` + `GenerateFromRanges`); wired through `/api/clean-scan` via a
+  `custom_ranges` field. (`iprange.go`, `server.go`, `ui/index.html`)
+
+### Changed
+- **Nearby scan now expands around *every* working Phase-1 responder**, not just
+  the fastest 10 (the previous hardcoded cap). A new `maxNearbyEndpoints` ceiling
+  keeps the total bounded when many IPs respond. (`cleanip.go`)
+- **Graceful shutdown** — the server now traps `SIGINT`/`SIGTERM` and removes the
+  `_xray_work` / `_xray_clean` work dirs before exiting, instead of blocking on
+  `select{}` forever. (`main.go`)
+
+### Fixed
+- **Clean-IP `/cdn-cgi/trace` colo probe is now cancellable** — it honors the
+  job context instead of `context.Background()`, so stopping a scan no longer
+  leaves trace probes running. (`cleanip.go`)
+- **IP-scanner source toggle losing its active state** — `selectReplacerMethod`
+  used a global `.input-method-bar button` selector that stripped the active
+  class off the new source toggle on load; scoped it to the replacer tab.
+  (`ui/index.html`)
+
+### Internal
+- Removed dead code (`Scanner.Run`, `Scanner.testEndpoint`, `XrayManager.WaitForPort`).
+- Deduplicated the replacer `ProxyConfig` ↔ entry mapping into shared helpers. (`server.go`)
+- Added tests: `iprange_test.go` (range parsing + smart selection) and a
+  share-URL round-trip test for vless/trojan/vmess. (`parsers_test.go`)
+
+---
+
 ## [v3.0.1] — 2026-06-07
 
 ### Fixed

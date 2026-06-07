@@ -200,10 +200,6 @@ func (xm *XrayManager) StartXray(configPath string) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-func (xm *XrayManager) WaitForPort(port int, timeout time.Duration) bool {
-	return xm.WaitForPortCtx(context.Background(), port, timeout)
-}
-
 func (xm *XrayManager) WaitForPortCtx(ctx context.Context, port int, timeout time.Duration) bool {
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	deadline := time.Now().Add(timeout)
