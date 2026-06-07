@@ -1,0 +1,79 @@
+- generic [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - generic [ref=e11]:
+          - heading "اسکنر کلاودفلر" [level=1] [ref=e134]
+          - paragraph [ref=e13]: اسکن اندپوینت‌های واپ کلاودفلر و اعمال دسته‌جمعی به کانفیگ‌ها
+      - button "English" [active] [ref=e135] [cursor=pointer]
+    - tablist "Scanner tabs" [ref=e15]:
+      - tab [selected] [ref=e100] [cursor=pointer]:
+        - img [ref=e17]
+      - tab [ref=e101] [cursor=pointer]:
+        - img [ref=e21]
+      - tab [ref=e102] [cursor=pointer]:
+        - img [ref=e26]
+    - tabpanel [ref=e32]:
+      - generic [ref=e33]:
+        - heading "کانفیگ" [level=2] [ref=e136]:
+          - img [ref=e35]
+          - generic [ref=e38]: کانفیگ
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic "Toggle config usage" [ref=e42] [cursor=pointer]:
+              - checkbox "Toggle config usage" [checked]
+            - generic [ref=e44]: استفاده از کانفیگ واقعی
+          - generic [ref=e45]:
+            - generic "یک فایل کانفیگ WireGuard (.conf) برای اسکن انتخاب کنید" [ref=e137]: فایل کانفیگ WireGuard (.conf)
+            - generic "برای انتخاب فایل کانفیگ کلیک کنید" [ref=e138] [cursor=pointer]: انتخاب کانفیگ...
+      - generic [ref=e49]:
+        - heading "تنظیمات" [level=2] [ref=e139]:
+          - img [ref=e51]
+          - generic [ref=e54]: تنظیمات
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic "تعداد اندپوینت‌های تولید و تست شده" [ref=e140]: تعداد اسکن
+            - generic [ref=e58]:
+              - button "سریع (۱۰۰ اندپوینت)" [ref=e141] [cursor=pointer]
+              - button "معمولی (۵۰۰ اندپوینت)" [ref=e142] [cursor=pointer]
+              - button "عمیق (۱۰۰۰ اندپوینت)" [ref=e143] [cursor=pointer]
+              - button "وحشتناک (۵۰۰۰ اندپوینت)" [ref=e144] [cursor=pointer]
+              - button "عظیم (۱۰۰۰۰ اندپوینت)" [ref=e145] [cursor=pointer]
+              - button "دلخواه" [ref=e146] [cursor=pointer]
+          - generic [ref=e65]:
+            - generic "فقط IPv4، فقط IPv6، یا هر دو" [ref=e147]: ورژن آی‌پی
+            - combobox "ورژن آی‌پی" [ref=e148] [cursor=pointer]:
+              - option "فقط IPv4" [selected]
+              - option "فقط IPv6"
+              - option "IPv4 + IPv6"
+        - generic [ref=e70]:
+          - generic "Toggle UDP noise" [ref=e71] [cursor=pointer]:
+            - checkbox "Toggle UDP noise" [checked]
+          - generic "ارسال بسته‌های تصادفی UDP برای عبور از محدودیت ISP" [ref=e149]: نویز UDP (عبور از مسدودسازی ISP)
+        - generic [ref=e74]: اسکن کامل — هر اندپوینت از طریق کانفیگ WireGuard و پروکسی xray تست می‌شود. تأخیر از پاسخ تونل پروکسی اندازه‌گیری می‌شود.
+      - generic [ref=e75]:
+        - button "شروع اسکن" [disabled] [ref=e150]
+        - button "توقف" [disabled] [ref=e151]
+        - button "اسکن مجدد" [disabled] [ref=e152]
+        - button "ریست" [ref=e153] [cursor=pointer]
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - heading "نتایج" [level=2] [ref=e154]:
+            - img [ref=e83]
+            - generic [ref=e86]: نتایج
+          - generic [ref=e87]:
+            - generic "محدودیت نمایش نتایج (۰ = نمایش همه)" [ref=e155]: نتایج برای نمایش
+            - textbox "نتایج برای نمایش" [ref=e156]: "0"
+        - generic [ref=e90]:
+          - img [ref=e91]
+          - paragraph [ref=e94]: یک کانفیگ انتخاب کنید و اسکن را شروع کنید
+        - group [ref=e95]:
+          - generic "▶ اعمال اندپوینت به کانفیگ‌ها" [ref=e157] [cursor=pointer]
+      - group [ref=e98]:
+        - generic "▶ دریافت کانفیگ واپ" [ref=e158] [cursor=pointer]
+  - generic:
+    - dialog "QR Code":
+      - heading "کد QR" [level=3]
+      - paragraph
+      - button "بستن"

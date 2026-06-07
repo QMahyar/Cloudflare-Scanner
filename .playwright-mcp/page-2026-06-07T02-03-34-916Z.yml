@@ -1,0 +1,938 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - generic [ref=e11]:
+          - heading "Cloudflare Scanner" [level=1] [ref=e12]
+          - paragraph [ref=e13]: Scan Cloudflare Warp endpoints & batch-apply to configs
+      - button "فارسی" [ref=e14] [cursor=pointer]
+    - tablist "Scanner tabs" [ref=e15]:
+      - tab "Endpoint Scanner 93" [selected] [ref=e893] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e19]: Endpoint Scanner
+        - generic [ref=e105]: "93"
+      - tab "IP Scanner" [ref=e20] [cursor=pointer]:
+        - img [ref=e21]
+        - generic [ref=e24]: IP Scanner
+      - tab "IP Replacer" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - generic [ref=e31]: IP Replacer
+    - tabpanel [ref=e32]:
+      - generic [ref=e33]:
+        - heading "Config" [level=2] [ref=e34]:
+          - img [ref=e35]
+          - generic [ref=e38]: Config
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic "Toggle config usage" [ref=e42] [cursor=pointer]:
+              - checkbox "Toggle config usage" [checked]
+            - generic [ref=e44]: Use Real Config
+          - generic [ref=e45]:
+            - generic "Select a WireGuard config file (.conf) to scan" [ref=e46]: WireGuard config file (.conf)
+            - generic "Click to choose a config file" [ref=e48] [cursor=pointer]: WARPGermany.conf
+      - generic [ref=e49]:
+        - heading "Settings" [level=2] [ref=e50]:
+          - img [ref=e51]
+          - generic [ref=e54]: Settings
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic "Number of endpoints to generate and test" [ref=e57]: Scan depth
+            - generic [ref=e58]:
+              - button "Quick (100)" [ref=e59] [cursor=pointer]
+              - button "Normal (500)" [ref=e60] [cursor=pointer]
+              - button "Deep (1K)" [ref=e61] [cursor=pointer]
+              - button "Insane (5K)" [ref=e62] [cursor=pointer]
+              - button "Massive (10K)" [ref=e63] [cursor=pointer]
+              - button "Custom" [ref=e64] [cursor=pointer]
+          - generic [ref=e65]:
+            - generic "IPv4 only, IPv6 only, or both combined" [ref=e66]: IP version
+            - combobox "IP version" [ref=e67] [cursor=pointer]:
+              - option "IPv4 only" [selected]
+              - option "IPv6 only"
+              - option "IPv4 + IPv6"
+        - generic [ref=e70]:
+          - generic "Toggle UDP noise" [ref=e71] [cursor=pointer]:
+            - checkbox "Toggle UDP noise" [checked]
+          - generic "Send random UDP packets to bypass ISP throttling" [ref=e73]: UDP Noise (bypass ISP blocking)
+        - generic [ref=e74]: Full scan — runs each endpoint through your WireGuard config via xray proxy. Measures latency from the proxy tunnel response.
+      - generic [ref=e75]:
+        - button "Start Scan" [ref=e894] [cursor=pointer]
+        - button "Stop" [disabled] [ref=e77]
+        - button "Rescan" [ref=e78] [cursor=pointer]
+        - button "Reset" [ref=e79] [cursor=pointer]
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - heading "Results" [level=2] [ref=e82]:
+            - img [ref=e83]
+            - generic [ref=e86]: Results
+          - generic [ref=e87]:
+            - generic "Limit results shown (0 = show all successful)" [ref=e88]: Results to show
+            - textbox "Results to show" [ref=e89]: "0"
+        - generic [ref=e103]: 100 / 100 endpoints tested
+        - generic [ref=e107]:
+          - table [ref=e896]:
+            - rowgroup [ref=e897]:
+              - row "# ▲ Endpoint Latency" [ref=e898]:
+                - columnheader "# ▲" [ref=e899] [cursor=pointer]:
+                  - text: "#"
+                  - generic [ref=e900]: ▲
+                - columnheader "Endpoint" [ref=e901] [cursor=pointer]
+                - columnheader "Latency" [ref=e902] [cursor=pointer]
+                - columnheader [ref=e903]
+                - columnheader [ref=e904]
+            - rowgroup [ref=e905]:
+              - row "1 188.114.98.183:934 707ms Use" [ref=e906]:
+                - cell "1" [ref=e907]
+                - cell "188.114.98.183:934" [ref=e908]:
+                  - generic "Endpoint" [ref=e909] [cursor=pointer]: 188.114.98.183:934
+                - cell "707ms" [ref=e910]
+                - cell "Use" [ref=e911]:
+                  - button "Use" [ref=e912] [cursor=pointer]
+                - cell [ref=e913]:
+                  - checkbox [ref=e914] [cursor=pointer]
+              - row "2 162.159.192.88:943 733ms Use" [ref=e915]:
+                - cell "2" [ref=e916]
+                - cell "162.159.192.88:943" [ref=e917]:
+                  - generic "Endpoint" [ref=e918] [cursor=pointer]: 162.159.192.88:943
+                - cell "733ms" [ref=e919]
+                - cell "Use" [ref=e920]:
+                  - button "Use" [ref=e921] [cursor=pointer]
+                - cell [ref=e922]:
+                  - checkbox [ref=e923] [cursor=pointer]
+              - row "3 8.39.125.240:878 734ms Use" [ref=e924]:
+                - cell "3" [ref=e925]
+                - cell "8.39.125.240:878" [ref=e926]:
+                  - generic "Endpoint" [ref=e927] [cursor=pointer]: 8.39.125.240:878
+                - cell "734ms" [ref=e928]
+                - cell "Use" [ref=e929]:
+                  - button "Use" [ref=e930] [cursor=pointer]
+                - cell [ref=e931]:
+                  - checkbox [ref=e932] [cursor=pointer]
+              - row "4 8.39.125.217:7281 737ms Use" [ref=e933]:
+                - cell "4" [ref=e934]
+                - cell "8.39.125.217:7281" [ref=e935]:
+                  - generic "Endpoint" [ref=e936] [cursor=pointer]: 8.39.125.217:7281
+                - cell "737ms" [ref=e937]
+                - cell "Use" [ref=e938]:
+                  - button "Use" [ref=e939] [cursor=pointer]
+                - cell [ref=e940]:
+                  - checkbox [ref=e941] [cursor=pointer]
+              - row "5 8.35.211.62:1074 739ms Use" [ref=e942]:
+                - cell "5" [ref=e943]
+                - cell "8.35.211.62:1074" [ref=e944]:
+                  - generic "Endpoint" [ref=e945] [cursor=pointer]: 8.35.211.62:1074
+                - cell "739ms" [ref=e946]
+                - cell "Use" [ref=e947]:
+                  - button "Use" [ref=e948] [cursor=pointer]
+                - cell [ref=e949]:
+                  - checkbox [ref=e950] [cursor=pointer]
+              - row "6 188.114.98.154:3476 745ms Use" [ref=e951]:
+                - cell "6" [ref=e952]
+                - cell "188.114.98.154:3476" [ref=e953]:
+                  - generic "Endpoint" [ref=e954] [cursor=pointer]: 188.114.98.154:3476
+                - cell "745ms" [ref=e955]
+                - cell "Use" [ref=e956]:
+                  - button "Use" [ref=e957] [cursor=pointer]
+                - cell [ref=e958]:
+                  - checkbox [ref=e959] [cursor=pointer]
+              - row "7 8.39.204.151:894 749ms Use" [ref=e960]:
+                - cell "7" [ref=e961]
+                - cell "8.39.204.151:894" [ref=e962]:
+                  - generic "Endpoint" [ref=e963] [cursor=pointer]: 8.39.204.151:894
+                - cell "749ms" [ref=e964]
+                - cell "Use" [ref=e965]:
+                  - button "Use" [ref=e966] [cursor=pointer]
+                - cell [ref=e967]:
+                  - checkbox [ref=e968] [cursor=pointer]
+              - row "8 8.39.204.47:3476 759ms Use" [ref=e969]:
+                - cell "8" [ref=e970]
+                - cell "8.39.204.47:3476" [ref=e971]:
+                  - generic "Endpoint" [ref=e972] [cursor=pointer]: 8.39.204.47:3476
+                - cell "759ms" [ref=e973]
+                - cell "Use" [ref=e974]:
+                  - button "Use" [ref=e975] [cursor=pointer]
+                - cell [ref=e976]:
+                  - checkbox [ref=e977] [cursor=pointer]
+              - row "9 8.39.204.14:500 766ms Use" [ref=e978]:
+                - cell "9" [ref=e979]
+                - cell "8.39.204.14:500" [ref=e980]:
+                  - generic "Endpoint" [ref=e981] [cursor=pointer]: 8.39.204.14:500
+                - cell "766ms" [ref=e982]
+                - cell "Use" [ref=e983]:
+                  - button "Use" [ref=e984] [cursor=pointer]
+                - cell [ref=e985]:
+                  - checkbox [ref=e986] [cursor=pointer]
+              - row "10 8.34.146.204:946 767ms Use" [ref=e987]:
+                - cell "10" [ref=e988]
+                - cell "8.34.146.204:946" [ref=e989]:
+                  - generic "Endpoint" [ref=e990] [cursor=pointer]: 8.34.146.204:946
+                - cell "767ms" [ref=e991]
+                - cell "Use" [ref=e992]:
+                  - button "Use" [ref=e993] [cursor=pointer]
+                - cell [ref=e994]:
+                  - checkbox [ref=e995] [cursor=pointer]
+              - row "11 8.39.214.240:1074 775ms Use" [ref=e996]:
+                - cell "11" [ref=e997]
+                - cell "8.39.214.240:1074" [ref=e998]:
+                  - generic "Endpoint" [ref=e999] [cursor=pointer]: 8.39.214.240:1074
+                - cell "775ms" [ref=e1000]
+                - cell "Use" [ref=e1001]:
+                  - button "Use" [ref=e1002] [cursor=pointer]
+                - cell [ref=e1003]:
+                  - checkbox [ref=e1004] [cursor=pointer]
+              - row "12 162.159.195.123:7103 780ms Use" [ref=e1005]:
+                - cell "12" [ref=e1006]
+                - cell "162.159.195.123:7103" [ref=e1007]:
+                  - generic "Endpoint" [ref=e1008] [cursor=pointer]: 162.159.195.123:7103
+                - cell "780ms" [ref=e1009]
+                - cell "Use" [ref=e1010]:
+                  - button "Use" [ref=e1011] [cursor=pointer]
+                - cell [ref=e1012]:
+                  - checkbox [ref=e1013] [cursor=pointer]
+              - row "13 162.159.195.104:934 789ms Use" [ref=e1014]:
+                - cell "13" [ref=e1015]
+                - cell "162.159.195.104:934" [ref=e1016]:
+                  - generic "Endpoint" [ref=e1017] [cursor=pointer]: 162.159.195.104:934
+                - cell "789ms" [ref=e1018]
+                - cell "Use" [ref=e1019]:
+                  - button "Use" [ref=e1020] [cursor=pointer]
+                - cell [ref=e1021]:
+                  - checkbox [ref=e1022] [cursor=pointer]
+              - row "14 8.39.214.213:1018 793ms Use" [ref=e1023]:
+                - cell "14" [ref=e1024]
+                - cell "8.39.214.213:1018" [ref=e1025]:
+                  - generic "Endpoint" [ref=e1026] [cursor=pointer]: 8.39.214.213:1018
+                - cell "793ms" [ref=e1027]
+                - cell "Use" [ref=e1028]:
+                  - button "Use" [ref=e1029] [cursor=pointer]
+                - cell [ref=e1030]:
+                  - checkbox [ref=e1031] [cursor=pointer]
+              - row "15 188.114.99.112:1014 991ms Use" [ref=e1032]:
+                - cell "15" [ref=e1033]
+                - cell "188.114.99.112:1014" [ref=e1034]:
+                  - generic "Endpoint" [ref=e1035] [cursor=pointer]: 188.114.99.112:1014
+                - cell "991ms" [ref=e1036]
+                - cell "Use" [ref=e1037]:
+                  - button "Use" [ref=e1038] [cursor=pointer]
+                - cell [ref=e1039]:
+                  - checkbox [ref=e1040] [cursor=pointer]
+              - row "16 8.47.69.237:1180 1.181s Use" [ref=e1041]:
+                - cell "16" [ref=e1042]
+                - cell "8.47.69.237:1180" [ref=e1043]:
+                  - generic "Endpoint" [ref=e1044] [cursor=pointer]: 8.47.69.237:1180
+                - cell "1.181s" [ref=e1045]
+                - cell "Use" [ref=e1046]:
+                  - button "Use" [ref=e1047] [cursor=pointer]
+                - cell [ref=e1048]:
+                  - checkbox [ref=e1049] [cursor=pointer]
+              - row "17 8.47.69.112:1843 1.214s Use" [ref=e1050]:
+                - cell "17" [ref=e1051]
+                - cell "8.47.69.112:1843" [ref=e1052]:
+                  - generic "Endpoint" [ref=e1053] [cursor=pointer]: 8.47.69.112:1843
+                - cell "1.214s" [ref=e1054]
+                - cell "Use" [ref=e1055]:
+                  - button "Use" [ref=e1056] [cursor=pointer]
+                - cell [ref=e1057]:
+                  - checkbox [ref=e1058] [cursor=pointer]
+              - row "18 8.39.204.84:1002 1.217s Use" [ref=e1059]:
+                - cell "18" [ref=e1060]
+                - cell "8.39.204.84:1002" [ref=e1061]:
+                  - generic "Endpoint" [ref=e1062] [cursor=pointer]: 8.39.204.84:1002
+                - cell "1.217s" [ref=e1063]
+                - cell "Use" [ref=e1064]:
+                  - button "Use" [ref=e1065] [cursor=pointer]
+                - cell [ref=e1066]:
+                  - checkbox [ref=e1067] [cursor=pointer]
+              - row "19 162.159.193.23:1074 1.268s Use" [ref=e1068]:
+                - cell "19" [ref=e1069]
+                - cell "162.159.193.23:1074" [ref=e1070]:
+                  - generic "Endpoint" [ref=e1071] [cursor=pointer]: 162.159.193.23:1074
+                - cell "1.268s" [ref=e1072]
+                - cell "Use" [ref=e1073]:
+                  - button "Use" [ref=e1074] [cursor=pointer]
+                - cell [ref=e1075]:
+                  - checkbox [ref=e1076] [cursor=pointer]
+              - row "20 8.35.211.175:7281 1.327s Use" [ref=e1077]:
+                - cell "20" [ref=e1078]
+                - cell "8.35.211.175:7281" [ref=e1079]:
+                  - generic "Endpoint" [ref=e1080] [cursor=pointer]: 8.35.211.175:7281
+                - cell "1.327s" [ref=e1081]
+                - cell "Use" [ref=e1082]:
+                  - button "Use" [ref=e1083] [cursor=pointer]
+                - cell [ref=e1084]:
+                  - checkbox [ref=e1085] [cursor=pointer]
+              - row "21 188.114.99.39:864 1.35s Use" [ref=e1086]:
+                - cell "21" [ref=e1087]
+                - cell "188.114.99.39:864" [ref=e1088]:
+                  - generic "Endpoint" [ref=e1089] [cursor=pointer]: 188.114.99.39:864
+                - cell "1.35s" [ref=e1090]
+                - cell "Use" [ref=e1091]:
+                  - button "Use" [ref=e1092] [cursor=pointer]
+                - cell [ref=e1093]:
+                  - checkbox [ref=e1094] [cursor=pointer]
+              - row "22 8.6.112.157:4233 1.363s Use" [ref=e1095]:
+                - cell "22" [ref=e1096]
+                - cell "8.6.112.157:4233" [ref=e1097]:
+                  - generic "Endpoint" [ref=e1098] [cursor=pointer]: 8.6.112.157:4233
+                - cell "1.363s" [ref=e1099]
+                - cell "Use" [ref=e1100]:
+                  - button "Use" [ref=e1101] [cursor=pointer]
+                - cell [ref=e1102]:
+                  - checkbox [ref=e1103] [cursor=pointer]
+              - row "23 162.159.192.136:1701 1.374s Use" [ref=e1104]:
+                - cell "23" [ref=e1105]
+                - cell "162.159.192.136:1701" [ref=e1106]:
+                  - generic "Endpoint" [ref=e1107] [cursor=pointer]: 162.159.192.136:1701
+                - cell "1.374s" [ref=e1108]
+                - cell "Use" [ref=e1109]:
+                  - button "Use" [ref=e1110] [cursor=pointer]
+                - cell [ref=e1111]:
+                  - checkbox [ref=e1112] [cursor=pointer]
+              - row "24 162.159.192.192:988 1.378s Use" [ref=e1113]:
+                - cell "24" [ref=e1114]
+                - cell "162.159.192.192:988" [ref=e1115]:
+                  - generic "Endpoint" [ref=e1116] [cursor=pointer]: 162.159.192.192:988
+                - cell "1.378s" [ref=e1117]
+                - cell "Use" [ref=e1118]:
+                  - button "Use" [ref=e1119] [cursor=pointer]
+                - cell [ref=e1120]:
+                  - checkbox [ref=e1121] [cursor=pointer]
+              - row "25 162.159.192.47:5279 1.395s Use" [ref=e1122]:
+                - cell "25" [ref=e1123]
+                - cell "162.159.192.47:5279" [ref=e1124]:
+                  - generic "Endpoint" [ref=e1125] [cursor=pointer]: 162.159.192.47:5279
+                - cell "1.395s" [ref=e1126]
+                - cell "Use" [ref=e1127]:
+                  - button "Use" [ref=e1128] [cursor=pointer]
+                - cell [ref=e1129]:
+                  - checkbox [ref=e1130] [cursor=pointer]
+              - row "26 162.159.195.229:894 1.414s Use" [ref=e1131]:
+                - cell "26" [ref=e1132]
+                - cell "162.159.195.229:894" [ref=e1133]:
+                  - generic "Endpoint" [ref=e1134] [cursor=pointer]: 162.159.195.229:894
+                - cell "1.414s" [ref=e1135]
+                - cell "Use" [ref=e1136]:
+                  - button "Use" [ref=e1137] [cursor=pointer]
+                - cell [ref=e1138]:
+                  - checkbox [ref=e1139] [cursor=pointer]
+              - row "27 8.47.69.225:7156 1.414s Use" [ref=e1140]:
+                - cell "27" [ref=e1141]
+                - cell "8.47.69.225:7156" [ref=e1142]:
+                  - generic "Endpoint" [ref=e1143] [cursor=pointer]: 8.47.69.225:7156
+                - cell "1.414s" [ref=e1144]
+                - cell "Use" [ref=e1145]:
+                  - button "Use" [ref=e1146] [cursor=pointer]
+                - cell [ref=e1147]:
+                  - checkbox [ref=e1148] [cursor=pointer]
+              - row "28 8.39.125.191:891 1.45s Use" [ref=e1149]:
+                - cell "28" [ref=e1150]
+                - cell "8.39.125.191:891" [ref=e1151]:
+                  - generic "Endpoint" [ref=e1152] [cursor=pointer]: 8.39.125.191:891
+                - cell "1.45s" [ref=e1153]
+                - cell "Use" [ref=e1154]:
+                  - button "Use" [ref=e1155] [cursor=pointer]
+                - cell [ref=e1156]:
+                  - checkbox [ref=e1157] [cursor=pointer]
+              - row "29 8.39.125.5:934 1.453s Use" [ref=e1158]:
+                - cell "29" [ref=e1159]
+                - cell "8.39.125.5:934" [ref=e1160]:
+                  - generic "Endpoint" [ref=e1161] [cursor=pointer]: 8.39.125.5:934
+                - cell "1.453s" [ref=e1162]
+                - cell "Use" [ref=e1163]:
+                  - button "Use" [ref=e1164] [cursor=pointer]
+                - cell [ref=e1165]:
+                  - checkbox [ref=e1166] [cursor=pointer]
+              - row "30 8.47.69.126:903 1.479s Use" [ref=e1167]:
+                - cell "30" [ref=e1168]
+                - cell "8.47.69.126:903" [ref=e1169]:
+                  - generic "Endpoint" [ref=e1170] [cursor=pointer]: 8.47.69.126:903
+                - cell "1.479s" [ref=e1171]
+                - cell "Use" [ref=e1172]:
+                  - button "Use" [ref=e1173] [cursor=pointer]
+                - cell [ref=e1174]:
+                  - checkbox [ref=e1175] [cursor=pointer]
+              - row "31 188.114.98.226:987 1.489s Use" [ref=e1176]:
+                - cell "31" [ref=e1177]
+                - cell "188.114.98.226:987" [ref=e1178]:
+                  - generic "Endpoint" [ref=e1179] [cursor=pointer]: 188.114.98.226:987
+                - cell "1.489s" [ref=e1180]
+                - cell "Use" [ref=e1181]:
+                  - button "Use" [ref=e1182] [cursor=pointer]
+                - cell [ref=e1183]:
+                  - checkbox [ref=e1184] [cursor=pointer]
+              - row "32 8.39.214.18:2371 1.491s Use" [ref=e1185]:
+                - cell "32" [ref=e1186]
+                - cell "8.39.214.18:2371" [ref=e1187]:
+                  - generic "Endpoint" [ref=e1188] [cursor=pointer]: 8.39.214.18:2371
+                - cell "1.491s" [ref=e1189]
+                - cell "Use" [ref=e1190]:
+                  - button "Use" [ref=e1191] [cursor=pointer]
+                - cell [ref=e1192]:
+                  - checkbox [ref=e1193] [cursor=pointer]
+              - row "33 8.39.214.11:890 1.492s Use" [ref=e1194]:
+                - cell "33" [ref=e1195]
+                - cell "8.39.214.11:890" [ref=e1196]:
+                  - generic "Endpoint" [ref=e1197] [cursor=pointer]: 8.39.214.11:890
+                - cell "1.492s" [ref=e1198]
+                - cell "Use" [ref=e1199]:
+                  - button "Use" [ref=e1200] [cursor=pointer]
+                - cell [ref=e1201]:
+                  - checkbox [ref=e1202] [cursor=pointer]
+              - row "34 188.114.98.243:8886 1.499s Use" [ref=e1203]:
+                - cell "34" [ref=e1204]
+                - cell "188.114.98.243:8886" [ref=e1205]:
+                  - generic "Endpoint" [ref=e1206] [cursor=pointer]: 188.114.98.243:8886
+                - cell "1.499s" [ref=e1207]
+                - cell "Use" [ref=e1208]:
+                  - button "Use" [ref=e1209] [cursor=pointer]
+                - cell [ref=e1210]:
+                  - checkbox [ref=e1211] [cursor=pointer]
+              - row "35 8.39.125.152:934 1.501s Use" [ref=e1212]:
+                - cell "35" [ref=e1213]
+                - cell "8.39.125.152:934" [ref=e1214]:
+                  - generic "Endpoint" [ref=e1215] [cursor=pointer]: 8.39.125.152:934
+                - cell "1.501s" [ref=e1216]
+                - cell "Use" [ref=e1217]:
+                  - button "Use" [ref=e1218] [cursor=pointer]
+                - cell [ref=e1219]:
+                  - checkbox [ref=e1220] [cursor=pointer]
+              - row "36 162.159.192.214:890 1.505s Use" [ref=e1221]:
+                - cell "36" [ref=e1222]
+                - cell "162.159.192.214:890" [ref=e1223]:
+                  - generic "Endpoint" [ref=e1224] [cursor=pointer]: 162.159.192.214:890
+                - cell "1.505s" [ref=e1225]
+                - cell "Use" [ref=e1226]:
+                  - button "Use" [ref=e1227] [cursor=pointer]
+                - cell [ref=e1228]:
+                  - checkbox [ref=e1229] [cursor=pointer]
+              - row "37 8.35.211.115:5956 1.511s Use" [ref=e1230]:
+                - cell "37" [ref=e1231]
+                - cell "8.35.211.115:5956" [ref=e1232]:
+                  - generic "Endpoint" [ref=e1233] [cursor=pointer]: 8.35.211.115:5956
+                - cell "1.511s" [ref=e1234]
+                - cell "Use" [ref=e1235]:
+                  - button "Use" [ref=e1236] [cursor=pointer]
+                - cell [ref=e1237]:
+                  - checkbox [ref=e1238] [cursor=pointer]
+              - row "38 188.114.98.101:934 1.512s Use" [ref=e1239]:
+                - cell "38" [ref=e1240]
+                - cell "188.114.98.101:934" [ref=e1241]:
+                  - generic "Endpoint" [ref=e1242] [cursor=pointer]: 188.114.98.101:934
+                - cell "1.512s" [ref=e1243]
+                - cell "Use" [ref=e1244]:
+                  - button "Use" [ref=e1245] [cursor=pointer]
+                - cell [ref=e1246]:
+                  - checkbox [ref=e1247] [cursor=pointer]
+              - row "39 8.39.214.99:894 1.512s Use" [ref=e1248]:
+                - cell "39" [ref=e1249]
+                - cell "8.39.214.99:894" [ref=e1250]:
+                  - generic "Endpoint" [ref=e1251] [cursor=pointer]: 8.39.214.99:894
+                - cell "1.512s" [ref=e1252]
+                - cell "Use" [ref=e1253]:
+                  - button "Use" [ref=e1254] [cursor=pointer]
+                - cell [ref=e1255]:
+                  - checkbox [ref=e1256] [cursor=pointer]
+              - row "40 162.159.192.17:934 1.527s Use" [ref=e1257]:
+                - cell "40" [ref=e1258]
+                - cell "162.159.192.17:934" [ref=e1259]:
+                  - generic "Endpoint" [ref=e1260] [cursor=pointer]: 162.159.192.17:934
+                - cell "1.527s" [ref=e1261]
+                - cell "Use" [ref=e1262]:
+                  - button "Use" [ref=e1263] [cursor=pointer]
+                - cell [ref=e1264]:
+                  - checkbox [ref=e1265] [cursor=pointer]
+              - row "41 162.159.195.228:2506 1.537s Use" [ref=e1266]:
+                - cell "41" [ref=e1267]
+                - cell "162.159.195.228:2506" [ref=e1268]:
+                  - generic "Endpoint" [ref=e1269] [cursor=pointer]: 162.159.195.228:2506
+                - cell "1.537s" [ref=e1270]
+                - cell "Use" [ref=e1271]:
+                  - button "Use" [ref=e1272] [cursor=pointer]
+                - cell [ref=e1273]:
+                  - checkbox [ref=e1274] [cursor=pointer]
+              - row "42 188.114.99.92:7281 1.54s Use" [ref=e1275]:
+                - cell "42" [ref=e1276]
+                - cell "188.114.99.92:7281" [ref=e1277]:
+                  - generic "Endpoint" [ref=e1278] [cursor=pointer]: 188.114.99.92:7281
+                - cell "1.54s" [ref=e1279]
+                - cell "Use" [ref=e1280]:
+                  - button "Use" [ref=e1281] [cursor=pointer]
+                - cell [ref=e1282]:
+                  - checkbox [ref=e1283] [cursor=pointer]
+              - row "43 188.114.96.200:890 1.548s Use" [ref=e1284]:
+                - cell "43" [ref=e1285]
+                - cell "188.114.96.200:890" [ref=e1286]:
+                  - generic "Endpoint" [ref=e1287] [cursor=pointer]: 188.114.96.200:890
+                - cell "1.548s" [ref=e1288]
+                - cell "Use" [ref=e1289]:
+                  - button "Use" [ref=e1290] [cursor=pointer]
+                - cell [ref=e1291]:
+                  - checkbox [ref=e1292] [cursor=pointer]
+              - row "44 188.114.99.16:1070 1.555s Use" [ref=e1293]:
+                - cell "44" [ref=e1294]
+                - cell "188.114.99.16:1070" [ref=e1295]:
+                  - generic "Endpoint" [ref=e1296] [cursor=pointer]: 188.114.99.16:1070
+                - cell "1.555s" [ref=e1297]
+                - cell "Use" [ref=e1298]:
+                  - button "Use" [ref=e1299] [cursor=pointer]
+                - cell [ref=e1300]:
+                  - checkbox [ref=e1301] [cursor=pointer]
+              - row "45 8.34.146.122:1002 1.556s Use" [ref=e1302]:
+                - cell "45" [ref=e1303]
+                - cell "8.34.146.122:1002" [ref=e1304]:
+                  - generic "Endpoint" [ref=e1305] [cursor=pointer]: 8.34.146.122:1002
+                - cell "1.556s" [ref=e1306]
+                - cell "Use" [ref=e1307]:
+                  - button "Use" [ref=e1308] [cursor=pointer]
+                - cell [ref=e1309]:
+                  - checkbox [ref=e1310] [cursor=pointer]
+              - row "46 8.47.69.57:908 1.559s Use" [ref=e1311]:
+                - cell "46" [ref=e1312]
+                - cell "8.47.69.57:908" [ref=e1313]:
+                  - generic "Endpoint" [ref=e1314] [cursor=pointer]: 8.47.69.57:908
+                - cell "1.559s" [ref=e1315]
+                - cell "Use" [ref=e1316]:
+                  - button "Use" [ref=e1317] [cursor=pointer]
+                - cell [ref=e1318]:
+                  - checkbox [ref=e1319] [cursor=pointer]
+              - row "47 8.39.125.249:3854 1.567s Use" [ref=e1320]:
+                - cell "47" [ref=e1321]
+                - cell "8.39.125.249:3854" [ref=e1322]:
+                  - generic "Endpoint" [ref=e1323] [cursor=pointer]: 8.39.125.249:3854
+                - cell "1.567s" [ref=e1324]
+                - cell "Use" [ref=e1325]:
+                  - button "Use" [ref=e1326] [cursor=pointer]
+                - cell [ref=e1327]:
+                  - checkbox [ref=e1328] [cursor=pointer]
+              - row "48 8.39.204.188:987 1.57s Use" [ref=e1329]:
+                - cell "48" [ref=e1330]
+                - cell "8.39.204.188:987" [ref=e1331]:
+                  - generic "Endpoint" [ref=e1332] [cursor=pointer]: 8.39.204.188:987
+                - cell "1.57s" [ref=e1333]
+                - cell "Use" [ref=e1334]:
+                  - button "Use" [ref=e1335] [cursor=pointer]
+                - cell [ref=e1336]:
+                  - checkbox [ref=e1337] [cursor=pointer]
+              - row "49 8.39.214.210:987 1.571s Use" [ref=e1338]:
+                - cell "49" [ref=e1339]
+                - cell "8.39.214.210:987" [ref=e1340]:
+                  - generic "Endpoint" [ref=e1341] [cursor=pointer]: 8.39.214.210:987
+                - cell "1.571s" [ref=e1342]
+                - cell "Use" [ref=e1343]:
+                  - button "Use" [ref=e1344] [cursor=pointer]
+                - cell [ref=e1345]:
+                  - checkbox [ref=e1346] [cursor=pointer]
+              - row "50 8.35.211.41:943 1.614s Use" [ref=e1347]:
+                - cell "50" [ref=e1348]
+                - cell "8.35.211.41:943" [ref=e1349]:
+                  - generic "Endpoint" [ref=e1350] [cursor=pointer]: 8.35.211.41:943
+                - cell "1.614s" [ref=e1351]
+                - cell "Use" [ref=e1352]:
+                  - button "Use" [ref=e1353] [cursor=pointer]
+                - cell [ref=e1354]:
+                  - checkbox [ref=e1355] [cursor=pointer]
+              - row "51 162.159.195.245:7103 1.623s Use" [ref=e1356]:
+                - cell "51" [ref=e1357]
+                - cell "162.159.195.245:7103" [ref=e1358]:
+                  - generic "Endpoint" [ref=e1359] [cursor=pointer]: 162.159.195.245:7103
+                - cell "1.623s" [ref=e1360]
+                - cell "Use" [ref=e1361]:
+                  - button "Use" [ref=e1362] [cursor=pointer]
+                - cell [ref=e1363]:
+                  - checkbox [ref=e1364] [cursor=pointer]
+              - row "52 8.39.214.173:908 1.633s Use" [ref=e1365]:
+                - cell "52" [ref=e1366]
+                - cell "8.39.214.173:908" [ref=e1367]:
+                  - generic "Endpoint" [ref=e1368] [cursor=pointer]: 8.39.214.173:908
+                - cell "1.633s" [ref=e1369]
+                - cell "Use" [ref=e1370]:
+                  - button "Use" [ref=e1371] [cursor=pointer]
+                - cell [ref=e1372]:
+                  - checkbox [ref=e1373] [cursor=pointer]
+              - row "53 188.114.96.130:946 1.638s Use" [ref=e1374]:
+                - cell "53" [ref=e1375]
+                - cell "188.114.96.130:946" [ref=e1376]:
+                  - generic "Endpoint" [ref=e1377] [cursor=pointer]: 188.114.96.130:946
+                - cell "1.638s" [ref=e1378]
+                - cell "Use" [ref=e1379]:
+                  - button "Use" [ref=e1380] [cursor=pointer]
+                - cell [ref=e1381]:
+                  - checkbox [ref=e1382] [cursor=pointer]
+              - row "54 8.35.211.63:7152 1.696s Use" [ref=e1383]:
+                - cell "54" [ref=e1384]
+                - cell "8.35.211.63:7152" [ref=e1385]:
+                  - generic "Endpoint" [ref=e1386] [cursor=pointer]: 8.35.211.63:7152
+                - cell "1.696s" [ref=e1387]
+                - cell "Use" [ref=e1388]:
+                  - button "Use" [ref=e1389] [cursor=pointer]
+                - cell [ref=e1390]:
+                  - checkbox [ref=e1391] [cursor=pointer]
+              - row "55 162.159.192.148:1002 1.7s Use" [ref=e1392]:
+                - cell "55" [ref=e1393]
+                - cell "162.159.192.148:1002" [ref=e1394]:
+                  - generic "Endpoint" [ref=e1395] [cursor=pointer]: 162.159.192.148:1002
+                - cell "1.7s" [ref=e1396]
+                - cell "Use" [ref=e1397]:
+                  - button "Use" [ref=e1398] [cursor=pointer]
+                - cell [ref=e1399]:
+                  - checkbox [ref=e1400] [cursor=pointer]
+              - row "56 8.34.146.78:934 1.701s Use" [ref=e1401]:
+                - cell "56" [ref=e1402]
+                - cell "8.34.146.78:934" [ref=e1403]:
+                  - generic "Endpoint" [ref=e1404] [cursor=pointer]: 8.34.146.78:934
+                - cell "1.701s" [ref=e1405]
+                - cell "Use" [ref=e1406]:
+                  - button "Use" [ref=e1407] [cursor=pointer]
+                - cell [ref=e1408]:
+                  - checkbox [ref=e1409] [cursor=pointer]
+              - row "57 188.114.96.159:903 1.712s Use" [ref=e1410]:
+                - cell "57" [ref=e1411]
+                - cell "188.114.96.159:903" [ref=e1412]:
+                  - generic "Endpoint" [ref=e1413] [cursor=pointer]: 188.114.96.159:903
+                - cell "1.712s" [ref=e1414]
+                - cell "Use" [ref=e1415]:
+                  - button "Use" [ref=e1416] [cursor=pointer]
+                - cell [ref=e1417]:
+                  - checkbox [ref=e1418] [cursor=pointer]
+              - row "58 8.35.211.171:7559 1.719s Use" [ref=e1419]:
+                - cell "58" [ref=e1420]
+                - cell "8.35.211.171:7559" [ref=e1421]:
+                  - generic "Endpoint" [ref=e1422] [cursor=pointer]: 8.35.211.171:7559
+                - cell "1.719s" [ref=e1423]
+                - cell "Use" [ref=e1424]:
+                  - button "Use" [ref=e1425] [cursor=pointer]
+                - cell [ref=e1426]:
+                  - checkbox [ref=e1427] [cursor=pointer]
+              - row "59 188.114.99.99:1070 1.72s Use" [ref=e1428]:
+                - cell "59" [ref=e1429]
+                - cell "188.114.99.99:1070" [ref=e1430]:
+                  - generic "Endpoint" [ref=e1431] [cursor=pointer]: 188.114.99.99:1070
+                - cell "1.72s" [ref=e1432]
+                - cell "Use" [ref=e1433]:
+                  - button "Use" [ref=e1434] [cursor=pointer]
+                - cell [ref=e1435]:
+                  - checkbox [ref=e1436] [cursor=pointer]
+              - row "60 188.114.97.142:878 1.727s Use" [ref=e1437]:
+                - cell "60" [ref=e1438]
+                - cell "188.114.97.142:878" [ref=e1439]:
+                  - generic "Endpoint" [ref=e1440] [cursor=pointer]: 188.114.97.142:878
+                - cell "1.727s" [ref=e1441]
+                - cell "Use" [ref=e1442]:
+                  - button "Use" [ref=e1443] [cursor=pointer]
+                - cell [ref=e1444]:
+                  - checkbox [ref=e1445] [cursor=pointer]
+              - row "61 162.159.192.7:988 1.732s Use" [ref=e1446]:
+                - cell "61" [ref=e1447]
+                - cell "162.159.192.7:988" [ref=e1448]:
+                  - generic "Endpoint" [ref=e1449] [cursor=pointer]: 162.159.192.7:988
+                - cell "1.732s" [ref=e1450]
+                - cell "Use" [ref=e1451]:
+                  - button "Use" [ref=e1452] [cursor=pointer]
+                - cell [ref=e1453]:
+                  - checkbox [ref=e1454] [cursor=pointer]
+              - row "62 8.39.204.177:859 1.735s Use" [ref=e1455]:
+                - cell "62" [ref=e1456]
+                - cell "8.39.204.177:859" [ref=e1457]:
+                  - generic "Endpoint" [ref=e1458] [cursor=pointer]: 8.39.204.177:859
+                - cell "1.735s" [ref=e1459]
+                - cell "Use" [ref=e1460]:
+                  - button "Use" [ref=e1461] [cursor=pointer]
+                - cell [ref=e1462]:
+                  - checkbox [ref=e1463] [cursor=pointer]
+              - row "63 188.114.97.40:946 1.766s Use" [ref=e1464]:
+                - cell "63" [ref=e1465]
+                - cell "188.114.97.40:946" [ref=e1466]:
+                  - generic "Endpoint" [ref=e1467] [cursor=pointer]: 188.114.97.40:946
+                - cell "1.766s" [ref=e1468]
+                - cell "Use" [ref=e1469]:
+                  - button "Use" [ref=e1470] [cursor=pointer]
+                - cell [ref=e1471]:
+                  - checkbox [ref=e1472] [cursor=pointer]
+              - row "64 8.6.112.11:1018 1.768s Use" [ref=e1473]:
+                - cell "64" [ref=e1474]
+                - cell "8.6.112.11:1018" [ref=e1475]:
+                  - generic "Endpoint" [ref=e1476] [cursor=pointer]: 8.6.112.11:1018
+                - cell "1.768s" [ref=e1477]
+                - cell "Use" [ref=e1478]:
+                  - button "Use" [ref=e1479] [cursor=pointer]
+                - cell [ref=e1480]:
+                  - checkbox [ref=e1481] [cursor=pointer]
+              - row "65 8.34.146.114:946 1.777s Use" [ref=e1482]:
+                - cell "65" [ref=e1483]
+                - cell "8.34.146.114:946" [ref=e1484]:
+                  - generic "Endpoint" [ref=e1485] [cursor=pointer]: 8.34.146.114:946
+                - cell "1.777s" [ref=e1486]
+                - cell "Use" [ref=e1487]:
+                  - button "Use" [ref=e1488] [cursor=pointer]
+                - cell [ref=e1489]:
+                  - checkbox [ref=e1490] [cursor=pointer]
+              - row "66 188.114.98.70:5956 1.788s Use" [ref=e1491]:
+                - cell "66" [ref=e1492]
+                - cell "188.114.98.70:5956" [ref=e1493]:
+                  - generic "Endpoint" [ref=e1494] [cursor=pointer]: 188.114.98.70:5956
+                - cell "1.788s" [ref=e1495]
+                - cell "Use" [ref=e1496]:
+                  - button "Use" [ref=e1497] [cursor=pointer]
+                - cell [ref=e1498]:
+                  - checkbox [ref=e1499] [cursor=pointer]
+              - row "67 188.114.98.129:864 1.793s Use" [ref=e1500]:
+                - cell "67" [ref=e1501]
+                - cell "188.114.98.129:864" [ref=e1502]:
+                  - generic "Endpoint" [ref=e1503] [cursor=pointer]: 188.114.98.129:864
+                - cell "1.793s" [ref=e1504]
+                - cell "Use" [ref=e1505]:
+                  - button "Use" [ref=e1506] [cursor=pointer]
+                - cell [ref=e1507]:
+                  - checkbox [ref=e1508] [cursor=pointer]
+              - row "68 188.114.97.43:988 1.859s Use" [ref=e1509]:
+                - cell "68" [ref=e1510]
+                - cell "188.114.97.43:988" [ref=e1511]:
+                  - generic "Endpoint" [ref=e1512] [cursor=pointer]: 188.114.97.43:988
+                - cell "1.859s" [ref=e1513]
+                - cell "Use" [ref=e1514]:
+                  - button "Use" [ref=e1515] [cursor=pointer]
+                - cell [ref=e1516]:
+                  - checkbox [ref=e1517] [cursor=pointer]
+              - row "69 8.39.214.4:7156 1.864s Use" [ref=e1518]:
+                - cell "69" [ref=e1519]
+                - cell "8.39.214.4:7156" [ref=e1520]:
+                  - generic "Endpoint" [ref=e1521] [cursor=pointer]: 8.39.214.4:7156
+                - cell "1.864s" [ref=e1522]
+                - cell "Use" [ref=e1523]:
+                  - button "Use" [ref=e1524] [cursor=pointer]
+                - cell [ref=e1525]:
+                  - checkbox [ref=e1526] [cursor=pointer]
+              - row "70 8.6.112.3:1070 1.881s Use" [ref=e1527]:
+                - cell "70" [ref=e1528]
+                - cell "8.6.112.3:1070" [ref=e1529]:
+                  - generic "Endpoint" [ref=e1530] [cursor=pointer]: 8.6.112.3:1070
+                - cell "1.881s" [ref=e1531]
+                - cell "Use" [ref=e1532]:
+                  - button "Use" [ref=e1533] [cursor=pointer]
+                - cell [ref=e1534]:
+                  - checkbox [ref=e1535] [cursor=pointer]
+              - row "71 162.159.192.206:3138 1.888s Use" [ref=e1536]:
+                - cell "71" [ref=e1537]
+                - cell "162.159.192.206:3138" [ref=e1538]:
+                  - generic "Endpoint" [ref=e1539] [cursor=pointer]: 162.159.192.206:3138
+                - cell "1.888s" [ref=e1540]
+                - cell "Use" [ref=e1541]:
+                  - button "Use" [ref=e1542] [cursor=pointer]
+                - cell [ref=e1543]:
+                  - checkbox [ref=e1544] [cursor=pointer]
+              - row "72 8.34.146.150:8854 1.897s Use" [ref=e1545]:
+                - cell "72" [ref=e1546]
+                - cell "8.34.146.150:8854" [ref=e1547]:
+                  - generic "Endpoint" [ref=e1548] [cursor=pointer]: 8.34.146.150:8854
+                - cell "1.897s" [ref=e1549]
+                - cell "Use" [ref=e1550]:
+                  - button "Use" [ref=e1551] [cursor=pointer]
+                - cell [ref=e1552]:
+                  - checkbox [ref=e1553] [cursor=pointer]
+              - row "73 8.39.204.203:854 1.976s Use" [ref=e1554]:
+                - cell "73" [ref=e1555]
+                - cell "8.39.204.203:854" [ref=e1556]:
+                  - generic "Endpoint" [ref=e1557] [cursor=pointer]: 8.39.204.203:854
+                - cell "1.976s" [ref=e1558]
+                - cell "Use" [ref=e1559]:
+                  - button "Use" [ref=e1560] [cursor=pointer]
+                - cell [ref=e1561]:
+                  - checkbox [ref=e1562] [cursor=pointer]
+              - row "74 162.159.195.208:1014 2.016s Use" [ref=e1563]:
+                - cell "74" [ref=e1564]
+                - cell "162.159.195.208:1014" [ref=e1565]:
+                  - generic "Endpoint" [ref=e1566] [cursor=pointer]: 162.159.195.208:1014
+                - cell "2.016s" [ref=e1567]
+                - cell "Use" [ref=e1568]:
+                  - button "Use" [ref=e1569] [cursor=pointer]
+                - cell [ref=e1570]:
+                  - checkbox [ref=e1571] [cursor=pointer]
+              - row "75 188.114.97.14:1843 2.019s Use" [ref=e1572]:
+                - cell "75" [ref=e1573]
+                - cell "188.114.97.14:1843" [ref=e1574]:
+                  - generic "Endpoint" [ref=e1575] [cursor=pointer]: 188.114.97.14:1843
+                - cell "2.019s" [ref=e1576]
+                - cell "Use" [ref=e1577]:
+                  - button "Use" [ref=e1578] [cursor=pointer]
+                - cell [ref=e1579]:
+                  - checkbox [ref=e1580] [cursor=pointer]
+              - row "76 8.34.146.60:4177 2.024s Use" [ref=e1581]:
+                - cell "76" [ref=e1582]
+                - cell "8.34.146.60:4177" [ref=e1583]:
+                  - generic "Endpoint" [ref=e1584] [cursor=pointer]: 8.34.146.60:4177
+                - cell "2.024s" [ref=e1585]
+                - cell "Use" [ref=e1586]:
+                  - button "Use" [ref=e1587] [cursor=pointer]
+                - cell [ref=e1588]:
+                  - checkbox [ref=e1589] [cursor=pointer]
+              - row "77 8.34.146.171:903 2.046s Use" [ref=e1590]:
+                - cell "77" [ref=e1591]
+                - cell "8.34.146.171:903" [ref=e1592]:
+                  - generic "Endpoint" [ref=e1593] [cursor=pointer]: 8.34.146.171:903
+                - cell "2.046s" [ref=e1594]
+                - cell "Use" [ref=e1595]:
+                  - button "Use" [ref=e1596] [cursor=pointer]
+                - cell [ref=e1597]:
+                  - checkbox [ref=e1598] [cursor=pointer]
+              - row "78 8.39.204.255:968 2.05s Use" [ref=e1599]:
+                - cell "78" [ref=e1600]
+                - cell "8.39.204.255:968" [ref=e1601]:
+                  - generic "Endpoint" [ref=e1602] [cursor=pointer]: 8.39.204.255:968
+                - cell "2.05s" [ref=e1603]
+                - cell "Use" [ref=e1604]:
+                  - button "Use" [ref=e1605] [cursor=pointer]
+                - cell [ref=e1606]:
+                  - checkbox [ref=e1607] [cursor=pointer]
+              - row "79 8.47.69.134:908 2.056s Use" [ref=e1608]:
+                - cell "79" [ref=e1609]
+                - cell "8.47.69.134:908" [ref=e1610]:
+                  - generic "Endpoint" [ref=e1611] [cursor=pointer]: 8.47.69.134:908
+                - cell "2.056s" [ref=e1612]
+                - cell "Use" [ref=e1613]:
+                  - button "Use" [ref=e1614] [cursor=pointer]
+                - cell [ref=e1615]:
+                  - checkbox [ref=e1616] [cursor=pointer]
+              - row "80 188.114.98.163:1018 2.079s Use" [ref=e1617]:
+                - cell "80" [ref=e1618]
+                - cell "188.114.98.163:1018" [ref=e1619]:
+                  - generic "Endpoint" [ref=e1620] [cursor=pointer]: 188.114.98.163:1018
+                - cell "2.079s" [ref=e1621]
+                - cell "Use" [ref=e1622]:
+                  - button "Use" [ref=e1623] [cursor=pointer]
+                - cell [ref=e1624]:
+                  - checkbox [ref=e1625] [cursor=pointer]
+              - row "81 8.34.146.72:890 2.091s Use" [ref=e1626]:
+                - cell "81" [ref=e1627]
+                - cell "8.34.146.72:890" [ref=e1628]:
+                  - generic "Endpoint" [ref=e1629] [cursor=pointer]: 8.34.146.72:890
+                - cell "2.091s" [ref=e1630]
+                - cell "Use" [ref=e1631]:
+                  - button "Use" [ref=e1632] [cursor=pointer]
+                - cell [ref=e1633]:
+                  - checkbox [ref=e1634] [cursor=pointer]
+              - row "82 8.39.204.11:955 2.092s Use" [ref=e1635]:
+                - cell "82" [ref=e1636]
+                - cell "8.39.204.11:955" [ref=e1637]:
+                  - generic "Endpoint" [ref=e1638] [cursor=pointer]: 8.39.204.11:955
+                - cell "2.092s" [ref=e1639]
+                - cell "Use" [ref=e1640]:
+                  - button "Use" [ref=e1641] [cursor=pointer]
+                - cell [ref=e1642]:
+                  - checkbox [ref=e1643] [cursor=pointer]
+              - row "83 188.114.99.151:5956 2.099s Use" [ref=e1644]:
+                - cell "83" [ref=e1645]
+                - cell "188.114.99.151:5956" [ref=e1646]:
+                  - generic "Endpoint" [ref=e1647] [cursor=pointer]: 188.114.99.151:5956
+                - cell "2.099s" [ref=e1648]
+                - cell "Use" [ref=e1649]:
+                  - button "Use" [ref=e1650] [cursor=pointer]
+                - cell [ref=e1651]:
+                  - checkbox [ref=e1652] [cursor=pointer]
+              - row "84 8.6.112.236:4198 2.126s Use" [ref=e1653]:
+                - cell "84" [ref=e1654]
+                - cell "8.6.112.236:4198" [ref=e1655]:
+                  - generic "Endpoint" [ref=e1656] [cursor=pointer]: 8.6.112.236:4198
+                - cell "2.126s" [ref=e1657]
+                - cell "Use" [ref=e1658]:
+                  - button "Use" [ref=e1659] [cursor=pointer]
+                - cell [ref=e1660]:
+                  - checkbox [ref=e1661] [cursor=pointer]
+              - row "85 8.39.214.140:891 2.159s Use" [ref=e1662]:
+                - cell "85" [ref=e1663]
+                - cell "8.39.214.140:891" [ref=e1664]:
+                  - generic "Endpoint" [ref=e1665] [cursor=pointer]: 8.39.214.140:891
+                - cell "2.159s" [ref=e1666]
+                - cell "Use" [ref=e1667]:
+                  - button "Use" [ref=e1668] [cursor=pointer]
+                - cell [ref=e1669]:
+                  - checkbox [ref=e1670] [cursor=pointer]
+              - row "86 8.35.211.48:1014 2.173s Use" [ref=e1671]:
+                - cell "86" [ref=e1672]
+                - cell "8.35.211.48:1014" [ref=e1673]:
+                  - generic "Endpoint" [ref=e1674] [cursor=pointer]: 8.35.211.48:1014
+                - cell "2.173s" [ref=e1675]
+                - cell "Use" [ref=e1676]:
+                  - button "Use" [ref=e1677] [cursor=pointer]
+                - cell [ref=e1678]:
+                  - checkbox [ref=e1679] [cursor=pointer]
+              - row "87 8.34.146.217:3581 2.174s Use" [ref=e1680]:
+                - cell "87" [ref=e1681]
+                - cell "8.34.146.217:3581" [ref=e1682]:
+                  - generic "Endpoint" [ref=e1683] [cursor=pointer]: 8.34.146.217:3581
+                - cell "2.174s" [ref=e1684]
+                - cell "Use" [ref=e1685]:
+                  - button "Use" [ref=e1686] [cursor=pointer]
+                - cell [ref=e1687]:
+                  - checkbox [ref=e1688] [cursor=pointer]
+              - row "88 8.35.211.21:2408 2.186s Use" [ref=e1689]:
+                - cell "88" [ref=e1690]
+                - cell "8.35.211.21:2408" [ref=e1691]:
+                  - generic "Endpoint" [ref=e1692] [cursor=pointer]: 8.35.211.21:2408
+                - cell "2.186s" [ref=e1693]
+                - cell "Use" [ref=e1694]:
+                  - button "Use" [ref=e1695] [cursor=pointer]
+                - cell [ref=e1696]:
+                  - checkbox [ref=e1697] [cursor=pointer]
+              - row "89 188.114.96.132:4500 2.191s Use" [ref=e1698]:
+                - cell "89" [ref=e1699]
+                - cell "188.114.96.132:4500" [ref=e1700]:
+                  - generic "Endpoint" [ref=e1701] [cursor=pointer]: 188.114.96.132:4500
+                - cell "2.191s" [ref=e1702]
+                - cell "Use" [ref=e1703]:
+                  - button "Use" [ref=e1704] [cursor=pointer]
+                - cell [ref=e1705]:
+                  - checkbox [ref=e1706] [cursor=pointer]
+              - row "90 8.35.211.142:854 2.197s Use" [ref=e1707]:
+                - cell "90" [ref=e1708]
+                - cell "8.35.211.142:854" [ref=e1709]:
+                  - generic "Endpoint" [ref=e1710] [cursor=pointer]: 8.35.211.142:854
+                - cell "2.197s" [ref=e1711]
+                - cell "Use" [ref=e1712]:
+                  - button "Use" [ref=e1713] [cursor=pointer]
+                - cell [ref=e1714]:
+                  - checkbox [ref=e1715] [cursor=pointer]
+              - row "91 8.39.214.61:968 2.224s Use" [ref=e1716]:
+                - cell "91" [ref=e1717]
+                - cell "8.39.214.61:968" [ref=e1718]:
+                  - generic "Endpoint" [ref=e1719] [cursor=pointer]: 8.39.214.61:968
+                - cell "2.224s" [ref=e1720]
+                - cell "Use" [ref=e1721]:
+                  - button "Use" [ref=e1722] [cursor=pointer]
+                - cell [ref=e1723]:
+                  - checkbox [ref=e1724] [cursor=pointer]
+              - row "92 8.47.69.232:908 2.229s Use" [ref=e1725]:
+                - cell "92" [ref=e1726]
+                - cell "8.47.69.232:908" [ref=e1727]:
+                  - generic "Endpoint" [ref=e1728] [cursor=pointer]: 8.47.69.232:908
+                - cell "2.229s" [ref=e1729]
+                - cell "Use" [ref=e1730]:
+                  - button "Use" [ref=e1731] [cursor=pointer]
+                - cell [ref=e1732]:
+                  - checkbox [ref=e1733] [cursor=pointer]
+              - row "93 162.159.192.19:500 2.259s Use" [ref=e1734]:
+                - cell "93" [ref=e1735]
+                - cell "162.159.192.19:500" [ref=e1736]:
+                  - generic "Endpoint" [ref=e1737] [cursor=pointer]: 162.159.192.19:500
+                - cell "2.259s" [ref=e1738]
+                - cell "Use" [ref=e1739]:
+                  - button "Use" [ref=e1740] [cursor=pointer]
+                - cell [ref=e1741]:
+                  - checkbox [ref=e1742] [cursor=pointer]
+          - generic [ref=e1743]:
+            - button "Copy All" [ref=e1744] [cursor=pointer]
+            - button "Download Raw" [ref=e1745] [cursor=pointer]
+            - button "QR" [ref=e1746] [cursor=pointer]
+            - button "Copy Selected" [ref=e1747] [cursor=pointer]
+            - button "Select All" [ref=e1748] [cursor=pointer]
+            - button "Deselect All" [ref=e1749] [cursor=pointer]
+          - generic [ref=e1750]: Found 10 working endpoints (scanned 100)
+        - group [ref=e95]:
+          - generic "▶ Apply Endpoint to Configs" [ref=e96] [cursor=pointer]
+      - group [ref=e98]:
+        - generic "▶ Getting Warp Configs" [ref=e99] [cursor=pointer]
+  - generic:
+    - dialog "QR Code":
+      - heading "QR Code" [level=3]
+      - paragraph
+      - button "Close"

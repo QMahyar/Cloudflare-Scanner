@@ -1,0 +1,153 @@
+- generic [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - generic [ref=e11]:
+          - heading "Cloudflare Scanner" [level=1] [ref=e12]
+          - paragraph [ref=e13]: Scan Cloudflare Warp endpoints & batch-apply to configs
+      - button "فارسی" [ref=e14] [cursor=pointer]
+    - tablist "Scanner tabs" [ref=e15]:
+      - tab "Endpoint Scanner 95" [ref=e104] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e19]: Endpoint Scanner
+        - generic [ref=e105]: "95"
+      - tab "IP Scanner" [selected] [ref=e11954] [cursor=pointer]:
+        - img [ref=e21]
+        - generic [ref=e24]: IP Scanner
+      - tab "IP Replacer" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - generic [ref=e31]: IP Replacer
+    - text: ▶ ▶
+    - tabpanel [ref=e1690]:
+      - generic [ref=e1691]:
+        - heading "Config" [level=2] [ref=e1692]:
+          - img [ref=e1693]
+          - generic [ref=e1696]: Config
+        - generic [ref=e1698]:
+          - generic [ref=e1699]:
+            - generic "Toggle config usage" [ref=e1700] [cursor=pointer]:
+              - checkbox "Toggle config usage" [checked]
+            - generic [ref=e1702]: Use Real Config
+          - generic [ref=e1703]:
+            - generic "Paste a VLESS share URL for xray validation" [ref=e1704]: VLESS share URL
+            - textbox "VLESS share URL" [ref=e1705]:
+              - /placeholder: vless://uuid@host:port?...
+              - text: vless://af3fdbed-3c73-465c-8868-37096dbfdcb4@162.159.92.97:2053?encryption=none&security=tls&sni=nova.mahyar.cc.cd&fp=random&type=ws&host=nova.mahyar.cc.cd&path=/&packetEncoding=xudp#Nova-966u6
+      - generic [ref=e1706]:
+        - heading "Settings" [level=2] [ref=e1707]:
+          - img [ref=e1708]
+          - generic [ref=e1711]: Settings
+        - generic [ref=e1712]:
+          - generic [ref=e1713]:
+            - generic "Number of Cloudflare IPs to probe" [ref=e1714]: Scan depth
+            - generic [ref=e1715]:
+              - button "Quick (100)" [ref=e1716] [cursor=pointer]
+              - button "Normal (500)" [ref=e1717] [cursor=pointer]
+              - button "Deep (1K)" [ref=e1718] [cursor=pointer]
+              - button "Insane (5K)" [ref=e1719] [cursor=pointer]
+              - button "Massive (10K)" [ref=e1720] [cursor=pointer]
+              - button "Custom" [ref=e1721] [cursor=pointer]
+          - generic [ref=e1722]:
+            - generic "IPv4 only, IPv6 only, or both" [ref=e1723]: IP version
+            - combobox "IP version" [ref=e1724] [cursor=pointer]:
+              - option "IPv4 only" [selected]
+              - option "IPv6 only"
+              - option "IPv4 + IPv6"
+        - generic [ref=e1725]:
+          - generic [ref=e1726]:
+            - generic "Concurrent TCP connections during phase 1" [ref=e1727]: Phase 1 probes
+            - combobox "Phase 1 probes" [ref=e1728] [cursor=pointer]:
+              - option "100"
+              - option "250"
+              - option "500" [selected]
+              - option "1000"
+              - option "2000"
+          - generic [ref=e1729]:
+            - generic "Number of best Phase 1 results to validate through xray" [ref=e1730]: Phase 2 probes
+            - combobox "Phase 2 probes" [ref=e1731] [cursor=pointer]:
+              - option "5"
+              - option "12" [selected]
+              - option "25"
+              - option "50"
+              - option "100"
+          - generic [ref=e1732]:
+            - generic "Number of best Phase 1 results to validate through xray" [ref=e1733]: Phase 2 count
+            - combobox "Phase 2 count" [ref=e1734] [cursor=pointer]:
+              - option "10"
+              - option "20" [selected]
+              - option "30"
+              - option "50"
+        - generic [ref=e1735]:
+          - generic [ref=e1736]: Ports to scan
+          - generic [ref=e1737]:
+            - button "443 only" [ref=e1738] [cursor=pointer]
+            - button "HTTPS (6)" [ref=e1739] [cursor=pointer]
+            - button "HTTP (7)" [ref=e1740] [cursor=pointer]
+            - button "All (13)" [ref=e1741] [cursor=pointer]
+            - button "Config port" [ref=e1742] [cursor=pointer]
+          - generic [ref=e1743]: HTTPS
+          - generic [ref=e1744]:
+            - generic [ref=e1745] [cursor=pointer]:
+              - checkbox "443" [checked] [ref=e1746]
+              - text: "443"
+            - generic [ref=e1747] [cursor=pointer]:
+              - checkbox "8443" [checked] [ref=e1748]
+              - text: "8443"
+            - generic [ref=e1749] [cursor=pointer]:
+              - checkbox "2053" [checked] [ref=e1750]
+              - text: "2053"
+            - generic [ref=e1751] [cursor=pointer]:
+              - checkbox "2083" [checked] [ref=e1752]
+              - text: "2083"
+            - generic [ref=e1753] [cursor=pointer]:
+              - checkbox "2087" [checked] [ref=e1754]
+              - text: "2087"
+            - generic [ref=e1755] [cursor=pointer]:
+              - checkbox "2096" [checked] [ref=e1756]
+              - text: "2096"
+          - generic [ref=e1757]: HTTP
+          - generic [ref=e1758]:
+            - generic [ref=e1759] [cursor=pointer]:
+              - checkbox "80" [ref=e1760]
+              - text: "80"
+            - generic [ref=e1761] [cursor=pointer]:
+              - checkbox "8080" [ref=e1762]
+              - text: "8080"
+            - generic [ref=e1763] [cursor=pointer]:
+              - checkbox "8880" [ref=e1764]
+              - text: "8880"
+            - generic [ref=e1765] [cursor=pointer]:
+              - checkbox "2052" [ref=e1766]
+              - text: "2052"
+            - generic [ref=e1767] [cursor=pointer]:
+              - checkbox "2082" [ref=e1768]
+              - text: "2082"
+            - generic [ref=e1769] [cursor=pointer]:
+              - checkbox "2086" [ref=e1770]
+              - text: "2086"
+            - generic [ref=e1771] [cursor=pointer]:
+              - checkbox "2095" [ref=e1772]
+              - text: "2095"
+        - generic [ref=e1775]:
+          - generic "Toggle nearby scan" [ref=e1776] [cursor=pointer]:
+            - checkbox "Toggle nearby scan" [checked]
+          - generic "After phase 1, scan adjacent IPs near working endpoints" [ref=e1778]: Scan nearby ranges
+        - generic [ref=e1779]: 2-phase — TCP probes first, then validates the best results through xray with your VLESS URL for full proxy support.
+      - generic [ref=e1780]:
+        - button "Start Clean Scan" [ref=e11951] [cursor=pointer]
+        - button "Stop" [disabled] [ref=e1782]
+        - button "Rescan" [disabled] [ref=e1783]
+        - button "Reset" [active] [ref=e1784] [cursor=pointer]
+      - generic [ref=e1786]:
+        - heading "Results" [level=2] [ref=e1787]:
+          - img [ref=e1788]
+          - generic [ref=e1791]: Results
+        - generic [ref=e1792]:
+          - generic "Limit results shown (0 = show all successful)" [ref=e1793]: Results to show
+          - textbox "Results to show" [ref=e1794]: "0"
+  - generic:
+    - dialog "QR Code":
+      - heading "QR Code" [level=3]
+      - paragraph
+      - button "Close"

@@ -1,0 +1,48 @@
+- generic [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - generic [ref=e11]:
+          - heading "Cloudflare Scanner" [level=1] [ref=e12]
+          - paragraph [ref=e13]: Scan Cloudflare Warp endpoints & batch-apply to configs
+      - button "فارسی" [ref=e14] [cursor=pointer]
+    - tablist "Scanner tabs" [ref=e15]:
+      - tab "Endpoint Scanner" [ref=e103] [cursor=pointer]:
+        - img [ref=e17]
+        - generic [ref=e19]: Endpoint Scanner
+      - tab "IP Scanner" [ref=e104] [cursor=pointer]:
+        - img [ref=e21]
+        - generic [ref=e24]: IP Scanner
+      - tab "IP Replacer" [active] [selected] [ref=e105] [cursor=pointer]:
+        - img [ref=e26]
+        - generic [ref=e31]: IP Replacer
+    - text: ▶ ▶
+    - tabpanel [ref=e211]:
+      - generic [ref=e212]:
+        - heading "IP Replacer" [level=2] [ref=e213]:
+          - img [ref=e214]
+          - generic [ref=e219]: IP Replacer
+        - paragraph [ref=e220]: Deduplicate configs and replace IP:port with clean endpoints.
+        - generic [ref=e221]:
+          - button "Subscription URL" [ref=e222] [cursor=pointer]
+          - button "Paste Configs" [ref=e223] [cursor=pointer]
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - generic "Enter a subscription URL to fetch configs from" [ref=e227]: Subscription URL
+            - textbox "Subscription URL" [ref=e228]:
+              - /placeholder: https://example.com/sub?token=...
+          - button "Fetch" [ref=e231] [cursor=pointer]
+      - generic [ref=e232]:
+        - heading "Endpoints" [level=2] [ref=e233]:
+          - img [ref=e234]
+          - generic [ref=e237]: Endpoints
+        - paragraph [ref=e238]: Paste IP:port endpoints (one per line) from Clean IP scan results.
+        - textbox "Paste IP:port endpoints, one per line" [ref=e239]:
+          - /placeholder: "162.159.90.249:443\n162.159.82.8:443\n..."
+        - button "Generate Configs" [ref=e241] [cursor=pointer]
+  - generic:
+    - dialog "QR Code":
+      - heading "QR Code" [level=3]
+      - paragraph
+      - button "Close"

@@ -1,0 +1,79 @@
+- generic [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - img [ref=e7]
+        - generic [ref=e11]:
+          - heading "Cloudflare Scanner" [level=1] [ref=e12]
+          - paragraph [ref=e13]: Scan Cloudflare Warp endpoints & batch-apply to configs
+      - button "فارسی" [ref=e14] [cursor=pointer]
+    - tablist "Scanner tabs" [ref=e15]:
+      - tab [active] [selected] [ref=e100] [cursor=pointer]:
+        - img [ref=e17]
+      - tab [ref=e101] [cursor=pointer]:
+        - img [ref=e21]
+      - tab [ref=e102] [cursor=pointer]:
+        - img [ref=e26]
+    - tabpanel [ref=e32]:
+      - generic [ref=e33]:
+        - heading "Config" [level=2] [ref=e34]:
+          - img [ref=e35]
+          - generic [ref=e38]: Config
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic "Toggle config usage" [ref=e42] [cursor=pointer]:
+              - checkbox "Toggle config usage" [checked]
+            - generic [ref=e44]: Use Real Config
+          - generic [ref=e45]:
+            - generic "Select a WireGuard config file (.conf) to scan" [ref=e46]: WireGuard config file (.conf)
+            - generic "Click to choose a config file" [ref=e48] [cursor=pointer]: Choose config...
+      - generic [ref=e49]:
+        - heading "Settings" [level=2] [ref=e50]:
+          - img [ref=e51]
+          - generic [ref=e54]: Settings
+        - generic [ref=e55]:
+          - generic [ref=e56]:
+            - generic "Number of endpoints to generate and test" [ref=e57]: Scan depth
+            - generic [ref=e58]:
+              - button "Quick (100)" [ref=e59] [cursor=pointer]
+              - button "Normal (500)" [ref=e60] [cursor=pointer]
+              - button "Deep (1K)" [ref=e61] [cursor=pointer]
+              - button "Insane (5K)" [ref=e62] [cursor=pointer]
+              - button "Massive (10K)" [ref=e63] [cursor=pointer]
+              - button "Custom" [ref=e64] [cursor=pointer]
+          - generic [ref=e65]:
+            - generic "IPv4 only, IPv6 only, or both combined" [ref=e66]: IP version
+            - combobox "IP version" [ref=e67] [cursor=pointer]:
+              - option "IPv4 only" [selected]
+              - option "IPv6 only"
+              - option "IPv4 + IPv6"
+        - generic [ref=e70]:
+          - generic "Toggle UDP noise" [ref=e71] [cursor=pointer]:
+            - checkbox "Toggle UDP noise" [checked]
+          - generic "Send random UDP packets to bypass ISP throttling" [ref=e73]: UDP Noise (bypass ISP blocking)
+        - generic [ref=e74]: Full scan — runs each endpoint through your WireGuard config via xray proxy. Measures latency from the proxy tunnel response.
+      - generic [ref=e75]:
+        - button "Start Scan" [disabled] [ref=e76]
+        - button "Stop" [disabled] [ref=e77]
+        - button "Rescan" [disabled] [ref=e78]
+        - button "Reset" [ref=e79] [cursor=pointer]
+      - generic [ref=e80]:
+        - generic [ref=e81]:
+          - heading "Results" [level=2] [ref=e82]:
+            - img [ref=e83]
+            - generic [ref=e86]: Results
+          - generic [ref=e87]:
+            - generic "Limit results shown (0 = show all successful)" [ref=e88]: Results to show
+            - textbox "Results to show" [ref=e89]: "0"
+        - generic [ref=e90]:
+          - img [ref=e91]
+          - paragraph [ref=e94]: Select a config and start scanning
+        - group [ref=e95]:
+          - generic "▶ Apply Endpoint to Configs" [ref=e96] [cursor=pointer]
+      - group [ref=e98]:
+        - generic "▶ Getting Warp Configs" [ref=e99] [cursor=pointer]
+  - generic:
+    - dialog "QR Code":
+      - heading "QR Code" [level=3]
+      - paragraph
+      - button "Close"
