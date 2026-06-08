@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Cloudflare Scanner — local build script for Windows (PowerShell).
@@ -35,7 +35,13 @@ $XrayVersion = if ($env:XRAY_VERSION) { $env:XRAY_VERSION } else { 'v1.8.24' }
 $GoVersion   = if ($env:GO_VERSION)   { $env:GO_VERSION }   else { '1.26.2' }
 $App         = 'Cloudflare-Scanner'
 
-$RepoRoot = Split-Path -Parent $PSScriptRoot
+# Resolve the repo root from the script's own location, independent of the
+# current working directory. $PSScriptRoot is empty when dot-sourced, so fall
+# back to $MyInvocation; either way the path is relative to this file, so the
+# repo can be moved or the script run from anywhere.
+$ScriptDir = $PSScriptRoot
+if (-not $ScriptDir) { $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
+$RepoRoot = Split-Path -Parent $ScriptDir
 $Dist     = Join-Path $RepoRoot 'dist'
 Set-Location $RepoRoot
 
@@ -65,7 +71,7 @@ function Detect-Host {
 
 # ── Ensure a Go toolchain is available ──────────────────────────────────────
 $script:Go = $null
-$NeedGo = (Select-String -Path 'go.mod' -Pattern '^go (\d+\.\d+)').Matches[0].Groups[1].Value
+$NeedGo = (Select-String -Path (Join-Path $RepoRoot 'go.mod') -Pattern '^go (\d+\.\d+)').Matches[0].Groups[1].Value
 
 function Version-GE ($a, $b) {
   try { return [version]$a -ge [version]$b } catch { return $true }

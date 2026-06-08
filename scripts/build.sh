@@ -28,7 +28,17 @@ XRAY_VERSION="${XRAY_VERSION:-v1.8.24}"
 GO_VERSION="${GO_VERSION:-1.26.2}"
 APP="Cloudflare-Scanner"
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Resolve the repo root from the script's own location — robust to the current
+# working directory, symlinks, and being sourced (./build.sh, `. build.sh`, a
+# symlink on $PATH, or invocation from any directory all resolve the same).
+_src="${BASH_SOURCE[0]:-$0}"
+while [ -h "$_src" ]; do
+  _dir="$(cd -P "$(dirname "$_src")" >/dev/null 2>&1 && pwd)"
+  _src="$(readlink "$_src")"
+  case "$_src" in /*) ;; *) _src="$_dir/$_src" ;; esac
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$_src")" >/dev/null 2>&1 && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DIST="$REPO_ROOT/dist"
 cd "$REPO_ROOT"
 
@@ -83,7 +93,7 @@ detect_host() {
 
 # ── Ensure a Go toolchain (>= go.mod requirement) is available ──────────────
 GO=""
-need_go="$(grep -E '^go [0-9]' go.mod | awk '{print $2}')"
+need_go="$(grep -E '^go [0-9]' "$REPO_ROOT/go.mod" | awk '{print $2}')"
 
 version_ge() {
   # version_ge A B  → 0 (true) if A >= B

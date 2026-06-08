@@ -9,6 +9,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.1.1] — 2026-06-08
+
+### Fixed
+- **`scripts/build.ps1` failed to run on stock Windows PowerShell 5.1** — the file
+  was BOM-less UTF-8, so 5.1 decoded its box-drawing/em-dash characters as ANSI and
+  the script failed to parse (`Unexpected token '}'`). It only worked under
+  PowerShell 7. Added a UTF-8 BOM so it parses and runs on a default Windows install.
+- **Local build scripts now resolve the repo from their own location** so they work
+  no matter where the repo is moved or which directory they are invoked from:
+  - `build.sh` uses `${BASH_SOURCE[0]}` (with symlink resolution) instead of `$0`,
+    so it is correct when sourced, symlinked, or run from any path.
+  - `build.ps1` falls back from `$PSScriptRoot` to `$MyInvocation` when dot-sourced.
+  - Both read `go.mod` via an absolute path rather than a CWD-relative one.
+
+---
+
 ## [v3.1.0] — 2026-06-07
 
 ### Added
