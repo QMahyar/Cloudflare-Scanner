@@ -409,6 +409,8 @@ type CleanIPJob struct {
 	NearbyCount         int
 	Phase1Probes        int
 	Phase2Probes        int
+	TimeoutMs           int
+	Phase2TimeoutMs     int
 	ScanPorts           []int
 	NearbyPhase1Results []CleanIPResult
 	NearbyPhase2Results []CleanIPResult
@@ -782,6 +784,16 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 
 	phase1Timeout := 3 * time.Second
 	phase2Timeout := 5 * time.Second
+	// User-configurable per-probe TCP dial timeout for phase 1 (the reachability
+	// probe). 0 keeps the default. Validated/clamped server-side.
+	if job.TimeoutMs > 0 {
+		phase1Timeout = time.Duration(job.TimeoutMs) * time.Millisecond
+	}
+	// User-configurable per-attempt deadline for the phase-2 xray validation
+	// (SOCKS5 handshake + 204 round-trip). 0 keeps the default.
+	if job.Phase2TimeoutMs > 0 {
+		phase2Timeout = time.Duration(job.Phase2TimeoutMs) * time.Millisecond
+	}
 
 	p1Probes := job.Phase1Probes
 	if p1Probes <= 0 {

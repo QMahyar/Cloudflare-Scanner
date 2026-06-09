@@ -33,6 +33,7 @@ type ScanJob struct {
 	OutCount    int
 	Concurrency int
 	Attempts    int
+	TimeoutMs   int
 	Cancel      chan struct{}
 	cancelOnce  sync.Once
 	mu          sync.Mutex
@@ -186,6 +187,7 @@ type scanRequest struct {
 	OutCount    int         `json:"outCount"`
 	Concurrency int         `json:"concurrency"`
 	Attempts    int         `json:"attempts"`
+	TimeoutMs   int         `json:"timeoutMs"`
 }
 
 func jsonError(w http.ResponseWriter, msg string, code int) {
@@ -212,6 +214,8 @@ func startServer(xrayPath string) (int, error) {
 	mux.HandleFunc("/api/replacer/fetch", handleReplacerFetch)
 	mux.HandleFunc("/api/replacer/parse", handleReplacerParse)
 	mux.HandleFunc("/api/replacer/apply", handleReplacerApply)
+	mux.HandleFunc("/api/version", handleVersion)
+	mux.HandleFunc("/api/update-check", handleUpdateCheck)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -299,6 +303,15 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		if req.Attempts > 5 {
 			req.Attempts = 5
 		}
+		// 0 means "use the scanner default"; otherwise clamp to a sane window.
+		if req.TimeoutMs > 0 {
+			if req.TimeoutMs < 100 {
+				req.TimeoutMs = 100
+			}
+			if req.TimeoutMs > 60000 {
+				req.TimeoutMs = 60000
+			}
+		}
 		if !req.IPv4 && !req.IPv6 {
 			req.IPv4 = true
 		}
@@ -336,6 +349,7 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 			OutCount:    req.OutCount,
 			Concurrency: req.Concurrency,
 			Attempts:    req.Attempts,
+			TimeoutMs:   req.TimeoutMs,
 			Cancel:      make(chan struct{}),
 		}
 
@@ -369,6 +383,9 @@ func runScan(job *ScanJob, xrayPath string) {
 	}
 	if job.Concurrency > 0 {
 		scanner.Concurrency = job.Concurrency
+	}
+	if job.TimeoutMs > 0 {
+		scanner.Timeout = time.Duration(job.TimeoutMs) * time.Millisecond
 	}
 
 	var wg sync.WaitGroup
@@ -709,18 +726,20 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 type cleanScanRequest struct {
-	VLESSURL     string `json:"vless_url"`
-	Count        int    `json:"count"`
-	IPv4         bool   `json:"ipv4"`
-	IPv6         bool   `json:"ipv6"`
-	Phase2Count  int    `json:"phase2_count"`
-	OnePhase     bool   `json:"one_phase"`
-	NearbyScan   bool   `json:"nearby_scan"`
-	NearbyCount  int    `json:"nearby_count"`
-	Phase1Probes int    `json:"phase1_probes"`
-	Phase2Probes int    `json:"phase2_probes"`
-	Ports        []int  `json:"ports"`
-	CustomRanges string `json:"custom_ranges"`
+	VLESSURL        string `json:"vless_url"`
+	Count           int    `json:"count"`
+	IPv4            bool   `json:"ipv4"`
+	IPv6            bool   `json:"ipv6"`
+	Phase2Count     int    `json:"phase2_count"`
+	OnePhase        bool   `json:"one_phase"`
+	NearbyScan      bool   `json:"nearby_scan"`
+	NearbyCount     int    `json:"nearby_count"`
+	Phase1Probes    int    `json:"phase1_probes"`
+	Phase2Probes    int    `json:"phase2_probes"`
+	TimeoutMs       int    `json:"timeout_ms"`
+	Phase2TimeoutMs int    `json:"phase2_timeout_ms"`
+	Ports           []int  `json:"ports"`
+	CustomRanges    string `json:"custom_ranges"`
 }
 
 func handleCleanScanStart(xrayPath string) http.HandlerFunc {
@@ -758,6 +777,23 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 		if req.Phase2Count <= 0 {
 			req.Phase2Count = 30
 		}
+		// 0 means "use the default"; otherwise clamp each to a sane window.
+		if req.TimeoutMs > 0 {
+			if req.TimeoutMs < 100 {
+				req.TimeoutMs = 100
+			}
+			if req.TimeoutMs > 60000 {
+				req.TimeoutMs = 60000
+			}
+		}
+		if req.Phase2TimeoutMs > 0 {
+			if req.Phase2TimeoutMs < 100 {
+				req.Phase2TimeoutMs = 100
+			}
+			if req.Phase2TimeoutMs > 60000 {
+				req.Phase2TimeoutMs = 60000
+			}
+		}
 		if !req.IPv4 && !req.IPv6 {
 			req.IPv4 = true
 		}
@@ -792,19 +828,21 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 		cleanJobsMu.Unlock()
 
 		job := &CleanIPJob{
-			ID:           jobID,
-			Status:       "pending",
-			Total:        len(endpoints),
-			Config:       cfg,
-			Endpoints:    endpoints,
-			Phase2Count:  req.Phase2Count,
-			SkipPhase2:   req.OnePhase,
-			NearbyScan:   req.NearbyScan,
-			NearbyCount:  req.NearbyCount,
-			Phase1Probes: req.Phase1Probes,
-			Phase2Probes: req.Phase2Probes,
-			ScanPorts:    scanPorts,
-			Cancel:       make(chan struct{}),
+			ID:              jobID,
+			Status:          "pending",
+			Total:           len(endpoints),
+			Config:          cfg,
+			Endpoints:       endpoints,
+			Phase2Count:     req.Phase2Count,
+			SkipPhase2:      req.OnePhase,
+			NearbyScan:      req.NearbyScan,
+			NearbyCount:     req.NearbyCount,
+			Phase1Probes:    req.Phase1Probes,
+			Phase2Probes:    req.Phase2Probes,
+			TimeoutMs:       req.TimeoutMs,
+			Phase2TimeoutMs: req.Phase2TimeoutMs,
+			ScanPorts:       scanPorts,
+			Cancel:          make(chan struct{}),
 		}
 
 		cleanJobsMu.Lock()

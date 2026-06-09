@@ -703,6 +703,84 @@ body[dir="rtl"] .results-table th .sort-icon { margin-left: 0; margin-right: 2px
   border-top: 1px solid var(--border);
 }
 
+/* ─── Split Copy button (Copy All + ▾ port-mode menu) ─── */
+.split-btn { display: inline-flex; }
+.split-btn .split-main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.split-btn .split-caret {
+  border-top-left-radius: 0; border-bottom-left-radius: 0;
+  min-width: 0; padding-left: 9px; padding-right: 9px; margin-left: 1px;
+  font-size: 0.625rem;
+}
+body[dir="rtl"] .split-btn .split-main { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+body[dir="rtl"] .split-btn .split-caret { border-radius: var(--radius-sm) 0 0 var(--radius-sm); margin-left: 0; margin-right: 1px; }
+
+.copy-menu {
+  position: fixed;
+  z-index: 10000;
+  display: none;
+  min-width: 190px;
+  padding: 4px;
+  background: linear-gradient(180deg, #23272f, #191c22);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+.copy-menu.open { display: block; }
+.copy-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  border-radius: 7px;
+  text-align: left;
+  touch-action: manipulation;
+}
+.copy-menu-item:hover { background: var(--bg-hover); }
+.copy-menu-check { width: 14px; flex-shrink: 0; color: var(--accent); opacity: 0; font-weight: 700; }
+.copy-menu-item.checked .copy-menu-check { opacity: 1; }
+body[dir="rtl"] .copy-menu-item { text-align: right; }
+
+/* ─── About tab ─── */
+.about-meta { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.about-version {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  border: 1px solid rgba(246, 130, 31, 0.18);
+  color: var(--accent-2);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.donate-row { padding: var(--space-md) 0; border-top: 1px solid var(--border); }
+.donate-row:first-of-type { border-top: none; }
+.donate-coin { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: 6px; }
+.donate-badge { font-size: 0.8125rem; font-weight: 600; color: var(--text-heading); }
+.donate-hint { font-size: 0.6875rem; color: var(--success); }
+.donate-addr-row { display: flex; align-items: stretch; gap: var(--space-sm); flex-wrap: wrap; }
+.donate-addr {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  word-break: break-all;
+  display: flex;
+  align-items: center;
+}
+@media (max-width: 480px) { .donate-addr { font-size: 0.6875rem; } .donate-addr-row .btn { flex: 1; } }
+
 /* ─── App Grid ─── */
 .app-grid {
   display: grid;
@@ -1038,6 +1116,10 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
       <span data-t="tab.replacer">IP Replacer</span><span class="tab-badge" id="badgeReplacer"></span>
     </button>
+    <button class="tab" id="tabAbout" onclick="App.switchTab('about')" role="tab" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span data-t="tab.about">About</span>
+    </button>
   </div>
 
   <!-- ═════ Endpoint Scanner Tab ═════ -->
@@ -1100,6 +1182,10 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
             </label>
             <span class="toggle-label" data-t="settings.noise" data-t-title="settings.noiseTitle">UDP Noise (bypass ISP blocking)</span>
           </div>
+        </div>
+        <div class="col">
+          <label for="endpointTimeout" data-t="settings.timeoutLabel" data-t-title="settings.timeoutTitle">Probe timeout (ms)</label>
+          <input type="text" id="endpointTimeout" value="6000" inputmode="numeric" data-t-title="settings.timeoutTitle">
         </div>
       </div>
       <div class="scan-desc" id="endpointScanDesc"></div>
@@ -1372,6 +1458,14 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
             <span class="toggle-label" data-t="clean.nearby" data-t-title="clean.nearbyTitle">Scan nearby ranges</span>
           </div>
         </div>
+        <div class="col">
+          <label for="cleanTimeout" data-t="clean.timeout1Label" data-t-title="clean.timeoutTitle">Phase 1 timeout (ms)</label>
+          <input type="text" id="cleanTimeout" value="3000" inputmode="numeric" data-t-title="clean.timeoutTitle">
+        </div>
+        <div class="col" id="cleanPhase2TimeoutCol">
+          <label for="cleanPhase2Timeout" data-t="clean.timeout2Label" data-t-title="clean.timeout2Title">Phase 2 timeout (ms)</label>
+          <input type="text" id="cleanPhase2Timeout" value="5000" inputmode="numeric" data-t-title="clean.timeout2Title">
+        </div>
       </div>
       <div class="scan-desc" id="cleanScanDesc"></div>
     </div>
@@ -1386,9 +1480,15 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     <div class="card" id="cleanResultsCard">
       <div class="section-header">
         <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg><span data-t="results.header">Results</span></h2>
-        <div class="compact-control">
-          <label for="cleanOutCount" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
-          <input class="compact-input" type="text" id="cleanOutCount" data-t-title="settings.outCountTitle" value="0" inputmode="numeric">
+        <div style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap">
+          <div class="compact-control">
+            <label for="cleanColoFilter" data-t="clean.coloFilter" data-t-title="clean.coloFilterTitle">Colo</label>
+            <input class="compact-input" type="text" id="cleanColoFilter" style="width:84px;text-align:left;font-family:var(--font-sans)" data-t-placeholder="clean.coloFilterPh" data-t-title="clean.coloFilterTitle" placeholder="e.g. FRA" oninput="App.applyCleanFilter()">
+          </div>
+          <div class="compact-control">
+            <label for="cleanOutCount" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
+            <input class="compact-input" type="text" id="cleanOutCount" data-t-title="settings.outCountTitle" value="0" inputmode="numeric" oninput="App.applyCleanFilter()">
+          </div>
         </div>
       </div>
 
@@ -1472,6 +1572,57 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     </div>
   </div>
 
+  <!-- ═════ About Tab ═════ -->
+  <div id="aboutTab" class="hidden" role="tabpanel">
+    <div class="card">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg><span data-t="about.header">About</span></h2>
+      <p class="desc" data-t="about.desc">Open-source scanner for Cloudflare WARP endpoints and clean IPs.</p>
+      <div class="about-meta">
+        <span class="about-version" id="aboutVersion">—</span>
+        <a class="help-link" id="githubLink" href="https://github.com/" target="_blank" rel="noopener" data-t="about.viewSource">View source on GitHub →</a>
+      </div>
+      <div class="status-slot">
+        <button class="btn btn-secondary btn-sm" id="updateCheckBtn" onclick="App.checkUpdate()" data-t="about.checkUpdate" data-t-title="about.checkUpdateTitle">Check for updates</button>
+        <div id="updateStatus" class="status-slot"></div>
+      </div>
+      <p class="muted-inline" style="margin-top:var(--space-sm);display:block" data-t="about.privacy">Runs entirely on your machine — the server binds to 127.0.0.1 only and nothing you scan or paste leaves your computer.</p>
+    </div>
+
+    <div class="card">
+      <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg><span data-t="about.donateHeader">Support development</span></h2>
+      <p class="desc" data-t="about.donateDesc">If this tool saved you time, a small crypto tip helps keep it maintained. USDT on TRON (TRC-20) has the lowest fees and is the easiest to send.</p>
+
+      <div class="donate-row">
+        <div class="donate-coin"><span class="donate-badge">USDT · TRON (TRC-20)</span><span class="donate-hint" data-t="about.donateRecommended">recommended — lowest fees</span></div>
+        <div class="donate-addr-row">
+          <code class="donate-addr" id="addrTrx"></code>
+          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('trx')" data-t="results.copyAll">Copy</button>
+          <button class="btn btn-secondary btn-sm" onclick="App.showAddrQR('trx')">QR</button>
+        </div>
+      </div>
+
+      <div class="donate-row">
+        <div class="donate-coin"><span class="donate-badge">Bitcoin (BTC)</span></div>
+        <div class="donate-addr-row">
+          <code class="donate-addr" id="addrBtc"></code>
+          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('btc')" data-t="results.copyAll">Copy</button>
+          <button class="btn btn-secondary btn-sm" onclick="App.showAddrQR('btc')">QR</button>
+        </div>
+      </div>
+
+      <div class="donate-row">
+        <div class="donate-coin"><span class="donate-badge">Ethereum (ETH · ERC-20)</span></div>
+        <div class="donate-addr-row">
+          <code class="donate-addr" id="addrEth"></code>
+          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('eth')" data-t="results.copyAll">Copy</button>
+          <button class="btn btn-secondary btn-sm" onclick="App.showAddrQR('eth')">QR</button>
+        </div>
+      </div>
+
+      <p class="muted-inline" style="margin-top:var(--space-sm);display:block" data-t="about.credits">Built with xray-core. Thanks to the WARP and v2ray communities.</p>
+    </div>
+  </div>
+
   </main>
 </div>
 
@@ -1487,6 +1638,12 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 
 <!-- Toast -->
 <div class="toast-container"><div class="toast hidden" id="toast" role="status" aria-live="polite"></div></div>
+
+<!-- Copy port-mode menu (shared popover for all "Copy All ▾" split buttons) -->
+<div class="copy-menu" id="copyMenu" role="menu" aria-hidden="true">
+  <button class="copy-menu-item" data-mode="port" role="menuitemradio" onclick="App.setCopyMode('port')"><span class="copy-menu-check">✓</span><span data-t="copy.withPort">With ports (ip:port)</span></button>
+  <button class="copy-menu-item" data-mode="ip" role="menuitemradio" onclick="App.setCopyMode('ip')"><span class="copy-menu-check">✓</span><span data-t="copy.ipOnly">IP only</span></button>
+</div>
 
 <script>
 /* qrcodejs (davidshimjs) - inlined for CSP-compatible offline QR generation */
@@ -1588,6 +1745,8 @@ const App = (function() {
       'clean.foundPhase2': 'Phase 2: Found {n} working (scanned {s})',
       'clean.noResults': 'No working IPs found. Try increasing scan depth.',
       'clean.export': 'Export Configs', 'clean.selectAll': 'Select All',
+      'clean.coloFilter': 'Colo', 'clean.coloFilterPh': 'e.g. FRA',
+      'clean.coloFilterTitle': 'Show only results whose colo or location matches (e.g. FRA, Frankfurt)',
       'clean.deselectAll': 'Deselect All', 'clean.copyAll': 'Copy All',
       'clean.copySelected': 'Copy Selected',
       'clean.copyAllTitle': 'Copy all working endpoints to clipboard',
@@ -1639,6 +1798,12 @@ const App = (function() {
       'config.chooseTitle': 'Click to choose a config file',
       'settings.depthTitle': 'Number of endpoints to generate and test',
       'settings.customTitle': 'Enter a custom number of endpoints',
+      'settings.timeoutLabel': 'Probe timeout (ms)',
+      'settings.timeoutTitle': 'Max time to wait for each probe before giving up (default 6000)',
+      'clean.timeout1Label': 'Phase 1 timeout (ms)',
+      'clean.timeoutTitle': 'Max time to wait for each Phase 1 TCP probe before giving up (default 3000)',
+      'clean.timeout2Label': 'Phase 2 timeout (ms)',
+      'clean.timeout2Title': 'Max time per Phase 2 xray validation (SOCKS5 + 204) before giving up (default 5000)',
       'settings.ipTitle': 'IPv4 only, IPv6 only, or both combined',
       'settings.outCountTitle': 'Limit results shown (0 = show all successful)',
       'settings.noiseTitle': 'Send random UDP packets to bypass ISP throttling',
@@ -1689,6 +1854,25 @@ const App = (function() {
       'replacer.copyAllTitle': 'Copy all generated configs to clipboard',
       'replacer.downloadTitle': 'Download generated configs as a text file',
       'copied.clipboard': 'Copied to clipboard',
+      'copy.withPort': 'With ports (ip:port)', 'copy.ipOnly': 'IP only',
+      'copy.menuTitle': 'Copy format: with or without :port',
+      'copy.nowWithPort': 'Copying with ports (ip:port)', 'copy.nowIpOnly': 'Copying IP only',
+      'tab.about': 'About',
+      'about.header': 'About',
+      'about.desc': 'Open-source scanner for Cloudflare WARP endpoints and clean IPs.',
+      'about.viewSource': 'View source on GitHub →',
+      'about.checkUpdate': 'Check for updates',
+      'about.checkUpdateTitle': 'Compare your version against the latest GitHub release',
+      'about.checking': 'Checking…',
+      'about.upToDate': "You're on the latest version ({v})",
+      'about.updateAvailable': 'Update available: {v}',
+      'about.download': 'Download',
+      'about.updateFailed': 'Update check failed: {msg}',
+      'about.privacy': 'Runs entirely on your machine — the server binds to 127.0.0.1 only and nothing you scan or paste leaves your computer.',
+      'about.donateHeader': 'Support development',
+      'about.donateDesc': 'If this tool saved you time, a small crypto tip helps keep it maintained. USDT on TRON (TRC-20) has the lowest fees and is the easiest to send.',
+      'about.donateRecommended': 'recommended — lowest fees',
+      'about.credits': 'Built with xray-core. Thanks to the WARP and v2ray communities.',
       'qr.title': 'QR Code',
       'results.copySelected': 'Copy Selected',
       'results.copySelectedTitle': 'Copy selected endpoints to clipboard',
@@ -1784,6 +1968,8 @@ const App = (function() {
       'clean.foundPhase2': 'فاز ۲: {n} آی‌پی working پیدا شد (اسکن {s})',
       'clean.noResults': 'هیچ آی‌پی working پیدا نشد. تعداد اسکن را بیشتر کنید.',
       'clean.export': 'خروجی کانفیگ‌ها', 'clean.selectAll': 'انتخاب همه',
+      'clean.coloFilter': 'دیتاسنتر', 'clean.coloFilterPh': 'مثل FRA',
+      'clean.coloFilterTitle': 'فقط نتایجی که دیتاسنتر یا موقعیتشان مطابقت دارد (مثل FRA، فرانکفورت)',
       'clean.deselectAll': 'لغو انتخاب همه', 'clean.copyAll': 'کپی همه',
       'clean.copySelected': 'کپی انتخاب شده',
       'clean.copyAllTitle': 'کپی همه اندپوینت‌ها در کلیپ‌بورد',
@@ -1835,6 +2021,12 @@ const App = (function() {
       'config.chooseTitle': 'برای انتخاب فایل کانفیگ کلیک کنید',
       'settings.depthTitle': 'تعداد اندپوینت‌های تولید و تست شده',
       'settings.customTitle': 'تعداد دلخواه اندپوینت را وارد کنید',
+      'settings.timeoutLabel': 'مهلت پروب (میلی‌ثانیه)',
+      'settings.timeoutTitle': 'حداکثر زمان انتظار برای هر پروب پیش از انصراف (پیش‌فرض ۶۰۰۰)',
+      'clean.timeout1Label': 'مهلت فاز ۱ (میلی‌ثانیه)',
+      'clean.timeoutTitle': 'حداکثر زمان انتظار برای هر پروب TCP فاز ۱ پیش از انصراف (پیش‌فرض ۳۰۰۰)',
+      'clean.timeout2Label': 'مهلت فاز ۲ (میلی‌ثانیه)',
+      'clean.timeout2Title': 'حداکثر زمان برای هر اعتبارسنجی xray فاز ۲ (SOCKS5 + ۲۰۴) پیش از انصراف (پیش‌فرض ۵۰۰۰)',
       'settings.ipTitle': 'فقط IPv4، فقط IPv6، یا هر دو',
       'settings.outCountTitle': 'محدودیت نمایش نتایج (۰ = نمایش همه)',
       'settings.noiseTitle': 'ارسال بسته‌های تصادفی UDP برای عبور از محدودیت ISP',
@@ -1889,6 +2081,25 @@ const App = (function() {
       'replacer.copyAllTitle': 'کپی همه کانفیگ‌های ساخته شده در کلیپ‌بورد',
       'replacer.downloadTitle': 'دانلود کانفیگ‌های ساخته شده به صورت فایل متنی',
       'copied.clipboard': 'در کلیپ‌بورد کپی شد',
+      'copy.withPort': 'با پورت (ip:port)', 'copy.ipOnly': 'فقط آی‌پی',
+      'copy.menuTitle': 'فرمت کپی: با یا بدون پورت',
+      'copy.nowWithPort': 'کپی با پورت (ip:port)', 'copy.nowIpOnly': 'کپی فقط آی‌پی',
+      'tab.about': 'درباره',
+      'about.header': 'درباره',
+      'about.desc': 'اسکنر متن‌باز برای اندپوینت‌های واپ کلاودفلر و آی‌پی‌های تمیز.',
+      'about.viewSource': 'مشاهده سورس در گیت‌هاب →',
+      'about.checkUpdate': 'بررسی به‌روزرسانی',
+      'about.checkUpdateTitle': 'مقایسه نسخه شما با آخرین ریلیز گیت‌هاب',
+      'about.checking': 'در حال بررسی…',
+      'about.upToDate': 'شما آخرین نسخه را دارید ({v})',
+      'about.updateAvailable': 'به‌روزرسانی موجود است: {v}',
+      'about.download': 'دانلود',
+      'about.updateFailed': 'بررسی به‌روزرسانی ناموفق بود: {msg}',
+      'about.privacy': 'کاملاً روی دستگاه شما اجرا می‌شود — سرور فقط به 127.0.0.1 گوش می‌دهد و هیچ چیزی که اسکن یا وارد می‌کنید از کامپیوترتان خارج نمی‌شود.',
+      'about.donateHeader': 'حمایت از توسعه',
+      'about.donateDesc': 'اگر این ابزار به شما کمک کرد، یک کمک کوچک کریپتویی به نگهداری آن کمک می‌کند. USDT روی ترون (TRC-20) کمترین کارمزد و آسان‌ترین روش ارسال است.',
+      'about.donateRecommended': 'پیشنهادی — کمترین کارمزد',
+      'about.credits': 'ساخته‌شده با xray-core. با تشکر از جامعه‌های واپ و v2ray.',
       'qr.title': 'کد QR',
       'results.copySelected': 'کپی انتخاب‌شده‌ها',
       'results.copySelectedTitle': 'کپی اندپوینت‌های انتخاب‌شده در کلیپ‌بورد',
@@ -1957,6 +2168,7 @@ const App = (function() {
     clean: { jobId: null, statusTimer: null, resultsTimer: null, data: null, phase2: [], list: 'direct', source: 'pool', sort: { field: 'latency', dir: 'asc' } },
     replacer: { configs: [], generated: [], method: 'url', sort: { field: 'num', dir: 'asc' } },
     apply: { results: [], dirHandle: null },
+    copyWithPorts: localStorage.getItem('cfscanner_copyports') !== '0',
     qr: null
   };
 
@@ -1985,6 +2197,73 @@ const App = (function() {
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+  // ─── Copy port-mode (with/without :port) ───
+  // stripPort removes the port from an endpoint, IPv6-aware:
+  //   162.159.1.1:443      -> 162.159.1.1
+  //   [2606:4700::1]:443   -> 2606:4700::1
+  //   2606:4700::1         -> 2606:4700::1   (bare IPv6, no port — left intact)
+  function stripPort(ep) {
+    ep = (ep || '').trim();
+    if (!ep) return ep;
+    if (ep[0] === '[') { const i = ep.indexOf(']'); return i > 0 ? ep.slice(1, i) : ep; }
+    const c = ep.lastIndexOf(':');
+    if (c < 0) return ep;
+    // More than one colon and no brackets => bare IPv6 without a port; keep it whole.
+    if (ep.indexOf(':') !== c) return ep;
+    return ep.slice(0, c);
+  }
+
+  // formatEps turns a list of endpoints into newline-joined text honoring the
+  // current copy mode. Used by every bulk copy/download/QR path.
+  function formatEps(list) {
+    const arr = (list || []).map(s => (s || '').trim()).filter(Boolean);
+    return (state.copyWithPorts ? arr : arr.map(stripPort)).join('\n');
+  }
+
+  function copyAllBtn(onclickExpr, title) {
+    return '<span class="split-btn">'
+      + '<button class="btn btn-secondary btn-sm split-main" onclick="' + onclickExpr + '" title="' + title + '">' + t('results.copyAll') + '</button>'
+      + '<button class="btn btn-secondary btn-sm split-caret" onclick="App.openCopyMenu(event)" title="' + t('copy.menuTitle') + '" aria-label="' + t('copy.menuTitle') + '">▾</button>'
+      + '</span>';
+  }
+
+  function syncCopyMenu() {
+    $$('#copyMenu .copy-menu-item').forEach(it => {
+      const on = (it.dataset.mode === 'port') === state.copyWithPorts;
+      it.classList.toggle('checked', on);
+      it.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+
+  function openCopyMenu(ev) {
+    ev.stopPropagation();
+    const menu = $('#copyMenu');
+    menu.classList.add('open');
+    menu.setAttribute('aria-hidden', 'false');
+    syncCopyMenu();
+    const r = ev.currentTarget.getBoundingClientRect();
+    const w = menu.offsetWidth || 190;
+    let left = (document.documentElement.dir === 'rtl') ? r.left : r.right - w;
+    left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+    menu.style.top = (r.bottom + 4) + 'px';
+    menu.style.left = left + 'px';
+  }
+
+  function closeCopyMenu() {
+    const menu = $('#copyMenu');
+    menu.classList.remove('open');
+    menu.setAttribute('aria-hidden', 'true');
+  }
+
+  function setCopyMode(mode) {
+    state.copyWithPorts = (mode === 'port');
+    localStorage.setItem('cfscanner_copyports', state.copyWithPorts ? '1' : '0');
+    syncCopyMenu();
+    closeCopyMenu();
+    showToast(state.copyWithPorts ? t('copy.nowWithPort') : t('copy.nowIpOnly'));
+  }
+
+
   // ─── Toast ───
   let toastTimer = null;
   function showToast(msg, isError) {
@@ -2010,13 +2289,16 @@ const App = (function() {
   }
 
   function sortEntries(entries, field, dir) {
+    // 'num' is the original insertion order — asc is the array as-is, desc is
+    // its reverse. Short-circuit to avoid an O(n²) indexOf-per-comparison sort.
+    if (field === 'num') {
+      const out = entries.slice();
+      if (dir === 'desc') out.reverse();
+      return out;
+    }
     const sorted = [...entries];
     sorted.sort((a, b) => {
       let va, vb;
-      if (field === 'num') {
-        const idxA = entries.indexOf(a), idxB = entries.indexOf(b);
-        return dir === 'asc' ? idxA - idxB : idxB - idxA;
-      }
       if (field === 'latency') { va = parseLatency(a.latency); vb = parseLatency(b.latency); }
       else if (field === 'endpoint' || field === 'address') { va = (a.endpoint || a.address || '').toLowerCase(); vb = (b.endpoint || b.address || '').toLowerCase(); }
       else if (field === 'port') { va = a.port; vb = b.port; }
@@ -2066,7 +2348,7 @@ const App = (function() {
 
   // ─── Tab Switching ───
   function switchTab(tab) {
-    ['endpoint', 'clean', 'replacer'].forEach(name => {
+    ['endpoint', 'clean', 'replacer', 'about'].forEach(name => {
       $(`#${name}Tab`).classList.toggle('hidden', name !== tab);
       const btn = $(`#tab${name.charAt(0).toUpperCase() + name.slice(1)}`);
       btn.classList.toggle('active', name === tab);
@@ -2142,6 +2424,7 @@ const App = (function() {
     cleanConfigFields.classList.toggle('config-fields-disabled', !enabled);
     $('#vlessURL').disabled = !enabled;
     $('#cleanPhase2Col').classList.toggle('hidden', !enabled);
+    $('#cleanPhase2TimeoutCol').classList.toggle('hidden', !enabled);
     updateCleanDesc();
   });
 
@@ -2193,6 +2476,7 @@ const App = (function() {
   async function startScan() {
     if ($('#useConfigEndpoint').checked && !fileInput.files.length) return;
     state.endpoint.jobId = null;
+    state.endpoint.lastSig = null;
     resultsContent.classList.add('hidden');
     liveCount.classList.add('hidden');
     emptyState.classList.add('hidden');
@@ -2217,7 +2501,8 @@ const App = (function() {
       ipv4: ipVer === '4' || ipVer === '46',
       ipv6: ipVer === '6' || ipVer === '46',
       count: count,
-      outCount: parseInt($('#outCount').value) || 0
+      outCount: parseInt($('#outCount').value) || 0,
+      timeoutMs: parseInt($('#endpointTimeout').value) || 0
     };
     const formData = new FormData();
     if ($('#useConfigEndpoint').checked && fileInput.files.length) {
@@ -2251,6 +2536,8 @@ const App = (function() {
     clearInterval(state.endpoint.resultsTimer);
     state.endpoint.statusTimer = state.endpoint.resultsTimer = null;
     state.endpoint.jobId = null;
+    state.endpoint.lastSig = null;
+    state.endpoint.raw = [];
     resultsContent.classList.add('hidden');
     liveCount.classList.add('hidden');
     emptyState.classList.remove('hidden');
@@ -2260,6 +2547,7 @@ const App = (function() {
     progressText.textContent = t('scan.progressTemplate', { p: '0', t: '0' });
     setButtonsIdle();
     updateTabBadges();
+    persistResults();
   }
 
   function pollStatus(jobId, total) {
@@ -2310,33 +2598,45 @@ const App = (function() {
     let pool = sortEntries(state.endpoint.raw, state.endpoint.sort.field, state.endpoint.sort.dir);
     if (outCount > 0 && pool.length > outCount) pool = pool.slice(0, outCount);
     const sorted = pool;
+    // During live polling the table is rebuilt every 1.5s. Skip the rebuild when
+    // nothing changed — avoids re-parsing the whole table and wiping selections.
+    if (isLive) {
+      const last = sorted[sorted.length - 1];
+      const sig = state.endpoint.sort.field + state.endpoint.sort.dir + '#' + sorted.length +
+        '#' + (sorted[0] ? sorted[0].endpoint : '') + '#' + (last ? last.endpoint + last.latency : '');
+      if (sig === state.endpoint.lastSig) return;
+      state.endpoint.lastSig = sig;
+    }
     let html = '<div class="results-table-wrap"><table class="results-table"><thead><tr>';
     html += '<th class="sortable" onclick="App.sortEndpoint(\'num\')">' + t('results.tableNum') + sortIcon('num', state.endpoint.sort) + '</th>';
     html += '<th class="sortable" onclick="App.sortEndpoint(\'endpoint\')">' + t('results.tableEndpoint') + sortIcon('endpoint', state.endpoint.sort) + '</th>';
     html += '<th class="sortable" onclick="App.sortEndpoint(\'latency\')">' + t('results.tableLatency') + sortIcon('latency', state.endpoint.sort) + '</th>';
     html += '<th></th>';
-    if (!isLive) html += '<th class="checkbox-cell"></th>';
+    html += '<th class="checkbox-cell"></th>';
     html += '</tr></thead><tbody>';
+    const epTitle = t('results.tableEndpoint'), useLabel = t('results.tableUse');
     sorted.forEach((e, i) => {
       const ep = e.endpoint;
       html += '<tr><td class="num">' + (i+1) + '</td>';
-      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(ep) + '\')" title="' + t('results.tableEndpoint') + '">' + escapeHtml(ep) + '</span></td>';
+      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(ep) + '\')" title="' + epTitle + '">' + escapeHtml(ep) + '</span></td>';
       html += '<td class="' + latClass(e.latency) + '">' + escapeHtml(e.latency) + '</td>';
-      html += '<td><button class="btn btn-secondary btn-sm" onclick="App.useEndpoint(\'' + escapeEp(ep) + '\')" title="' + t('results.tableUse') + '">' + t('results.tableUse') + '</button></td>';
-      if (!isLive) html += '<td class="checkbox-cell"><input type="checkbox" class="endpoint-select" value="' + escapeEp(ep) + '"></td>';
+      html += '<td><button class="btn btn-secondary btn-sm" onclick="App.useEndpoint(\'' + escapeEp(ep) + '\')" title="' + useLabel + '">' + useLabel + '</button></td>';
+      html += '<td class="checkbox-cell"><input type="checkbox" class="endpoint-select" value="' + escapeEp(ep) + '"></td>';
       html += '</tr>';
     });
     html += '</tbody></table></div>';
 
-    if (!isLive) {
-      html += '<div class="results-actions">';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.copyAllEndpoints(\'' + jobId + '\')" title="' + t('results.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadRaw(\'' + jobId + '\')" title="' + t('results.downloadTitle') + '">' + t('results.downloadRaw') + '</button>';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.showEndpointQR()" title="QR">QR</button>';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.copySelectedEndpoints()" title="' + t('results.copySelectedTitle') + '">' + t('results.copySelected') + '</button>';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(true)">' + t('results.selectAll') + '</button>';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(false)">' + t('results.deselectAll') + '</button>';
-      html += '</div>';
+    // Action bar is always present (incl. during live scanning) so Copy All /
+    // Download etc. are reachable without waiting for the scan to finish.
+    html += '<div class="results-actions">';
+    html += copyAllBtn('App.copyAllEndpoints(\'' + jobId + '\')', t('results.copyAllTitle'));
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadRaw(\'' + jobId + '\')" title="' + t('results.downloadTitle') + '">' + t('results.downloadRaw') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.showEndpointQR()" title="QR">QR</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.copySelectedEndpoints()" title="' + t('results.copySelectedTitle') + '">' + t('results.copySelected') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(true)">' + t('results.selectAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(false)">' + t('results.deselectAll') + '</button>';
+    html += '</div>';
+    if (data.status === 'done' || data.status === 'cancelled') {
       const label = data.status === 'cancelled' ? t('results.scanCancelled') : t('results.found', { n: data.total, s: data.scanned });
       html += '<div class="' + (data.status === 'cancelled' ? 'error-msg' : 'success-msg') + '">' + label + '</div>';
     }
@@ -2344,6 +2644,7 @@ const App = (function() {
     resultsContent.innerHTML = html;
     resultsContent.classList.remove('hidden');
     updateTabBadges();
+    if (!isLive) persistResults();
   }
 
   function sortEndpoint(field) {
@@ -2391,15 +2692,19 @@ const App = (function() {
   }
 
   async function copyAllEndpoints(jobId) {
-    const data = await apiJSON('/api/results/' + jobId);
-    copyToClipboard(data.raw.map(r => r.endpoint).join('\n'));
+    let raw;
+    try { raw = (await apiJSON('/api/results/' + jobId)).raw; }
+    catch { raw = state.endpoint.raw || []; }
+    copyToClipboard(formatEps((raw || []).map(r => r.endpoint)));
     showToast(t('copied.clipboard'));
   }
 
   async function downloadRaw(jobId) {
-    const data = await apiJSON('/api/results/' + jobId);
+    let raw;
+    try { raw = (await apiJSON('/api/results/' + jobId)).raw; }
+    catch { raw = state.endpoint.raw || []; }
     let text = '# Warp Working Endpoints\n# Generated by Cloudflare Scanner\n\n';
-    data.raw.forEach(r => text += r.endpoint + '\n');
+    text += formatEps((raw || []).map(r => r.endpoint)) + '\n';
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2414,7 +2719,7 @@ const App = (function() {
   function copySelectedEndpoints() {
     const selected = Array.from($$('.endpoint-select:checked')).map(cb => cb.value);
     if (!selected.length) { showToast(t('clean.errNoSelection')); return; }
-    copyToClipboard(selected.join('\n'));
+    copyToClipboard(formatEps(selected));
     showToast(t('copied.clipboard'));
   }
 
@@ -2630,6 +2935,7 @@ const App = (function() {
       return;
     }
     state.clean.jobId = null;
+    state.clean.lastSig = null;
     $('#cleanResultsContent').classList.add('hidden');
     $('#cleanResultsContent').innerHTML = '';
     $('#cleanResultsNearby').classList.add('hidden');
@@ -2668,6 +2974,8 @@ const App = (function() {
           ipv4: ipVer === '4' || ipVer === '46', ipv6: ipVer === '6' || ipVer === '46',
           phase2_count: phase2, one_phase: onePhase, nearby_scan: nearby,
           nearby_count: 10, phase1_probes: p1Probes, phase2_probes: p2Probes,
+          timeout_ms: parseInt($('#cleanTimeout').value) || 0,
+          phase2_timeout_ms: parseInt($('#cleanPhase2Timeout').value) || 0,
           port_mode: 'custom', ports: scanPorts.length ? scanPorts : [443],
           custom_ranges: customRanges
         })
@@ -2716,6 +3024,7 @@ const App = (function() {
     cleanStopBtn.disabled = true;
     cleanRescanBtn.disabled = true;
     updateTabBadges();
+    persistResults();
   }
 
   function pollCleanStatus(jobId) {
@@ -2751,7 +3060,7 @@ const App = (function() {
         clearInterval(state.clean.statusTimer);
         state.clean.statusTimer = null;
       }
-    }, 200);
+    }, 300);
   }
 
 
@@ -2764,9 +3073,10 @@ const App = (function() {
     html += '<th class="sortable" onclick="App.sortClean(\'colo\')">' + t('results.tableColo') + sortIcon('colo', state.clean.sort) + '</th>';
     html += '<th class="checkbox-cell"></th>';
     html += '</tr></thead><tbody>';
+    const epTitle = t('results.tableEndpoint');
     sorted.forEach((e, i) => {
       html += '<tr><td class="num">' + (i+1) + '</td>';
-      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(e.endpoint) + '\')" title="' + t('results.tableEndpoint') + '">' + escapeHtml(e.endpoint) + '</span></td>';
+      html += '<td><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(e.endpoint) + '\')" title="' + epTitle + '">' + escapeHtml(e.endpoint) + '</span></td>';
       html += '<td class="' + latClass(e.latency) + '">' + escapeHtml(e.latency) + '</td>';
       html += '<td class="colo-cell">' + (e.colo ? '<span class="colo-tag" title="' + escapeHtml(e.loc || '') + '">' + escapeHtml(e.colo) + (e.loc ? ' <span class="colo-loc">' + escapeHtml(e.loc) + '</span>' : '') + '</span>' : '<span class="colo-empty">—</span>') + '</td>';
       html += '<td class="checkbox-cell"><input type="checkbox" class="clean-select" value="' + escapeEp(e.endpoint) + '"></td>';
@@ -2783,31 +3093,61 @@ const App = (function() {
     if (state.clean.data) renderCleanResultsComplete(state.clean.data);
   }
 
+  // Re-render the clean results when the colo filter or "Show" limit changes.
+  // lastSig is cleared so the live-poll short-circuit doesn't suppress the redraw.
+  function applyCleanFilter() {
+    if (!state.clean.data) return;
+    state.clean.lastSig = null;
+    renderCleanResultsComplete(state.clean.data);
+  }
+
   function renderCleanResultsComplete(data) {
+    // Polled every 0.8s. While the scan is still running, skip the full rebuild
+    // when the result set is unchanged (entry/nearby counts, colo enrichment,
+    // sort). Always render on the final (done/cancelled) tick.
+    const isFinal = data.status === 'done' || data.status === 'cancelled';
+    if (!isFinal) {
+      const ents = data.entries || [], nb = data.nearby_entries || [];
+      let coloCount = 0;
+      for (const x of ents) if (x.colo) coloCount++;
+      const last = ents[ents.length - 1];
+      const sig = data.phase + '|' + data.status + '|' + (data.total || 0) + '|' + ents.length +
+        '|' + nb.length + '|' + coloCount + '|' + (last ? last.endpoint : '') +
+        '|' + state.clean.sort.field + state.clean.sort.dir;
+      if (sig === state.clean.lastSig) return;
+      state.clean.lastSig = sig;
+    } else {
+      state.clean.lastSig = null;
+    }
+    if (isFinal) persistResults();
     const container = $('#cleanResultsContent');
     const nearbyContainer = $('#cleanResultsNearby');
     const listBar = $('#cleanListBar');
-    const nearbyEntries = data.nearby_entries || [];
+    // Colo/location filter — substring match over "colo loc" (e.g. "FRA", "germany").
+    const coloQ = ($('#cleanColoFilter')?.value || '').trim().toLowerCase();
+    const matchColo = (e) => !coloQ || (((e.colo || '') + ' ' + (e.loc || '')).toLowerCase().includes(coloQ));
+    const nearbyEntriesAll = data.nearby_entries || [];
+    const nearbyEntries = nearbyEntriesAll.filter(matchColo);
     let outLimit = parseInt($('#cleanOutCount')?.value || '0');
     if (isNaN(outLimit) || outLimit <= 0) outLimit = Infinity;
 
-    if (nearbyEntries.length > 0) {
+    if (nearbyEntriesAll.length > 0) {
       listBar.classList.remove('hidden');
-      $('#nearbyCount').textContent = '(' + nearbyEntries.length + ')';
+      $('#nearbyCount').textContent = '(' + nearbyEntriesAll.length + ')';
     } else {
       listBar.classList.add('hidden');
     }
 
     let hasDirect = data.entries && data.entries.length > 0;
 
-    if (nearbyEntries.length > 0) {
+    if (nearbyEntriesAll.length > 0) {
       const nearbyData = { ...data, entries: nearbyEntries };
       let nearbyHtml = '';
       if (data.phase === 'phase1') {
         nearbyHtml = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundNearby', { n: nearbyEntries.length }) + '</div>';
         nearbyHtml += renderCleanResultsTable(nearbyData);
         nearbyHtml += '<div class="results-actions">';
-        nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyNearbyIPs()" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
+        nearbyHtml += copyAllBtn('App.copyNearbyIPs()', t('clean.copyAllTitle'));
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.downloadNearbyIPs()">' + t('results.downloadRaw') + '</button>';
         nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">' + t('clean.pushToReplacer') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(true)">' + t('clean.selectAll') + '</button>';
@@ -2818,7 +3158,7 @@ const App = (function() {
         nearbyHtml = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundNearbyPhase2', { n: nearbyEntries.length }) + '</div>';
         nearbyHtml += renderCleanResultsTable(nearbyData);
         nearbyHtml += '<div class="results-actions">';
-        nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyNearbyIPs()" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
+        nearbyHtml += copyAllBtn('App.copyNearbyIPs()', t('clean.copyAllTitle'));
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.downloadNearbyIPs()">' + t('results.downloadRaw') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.exportNearbyIPs()">' + t('clean.export') + '</button>';
         nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">' + t('clean.pushToReplacer') + '</button>';
@@ -2844,9 +3184,10 @@ const App = (function() {
     }
 
     const filteredData = { ...data };
-    if (Number.isFinite(outLimit) && data.entries.length > outLimit) {
-      filteredData.entries = data.entries.slice(0, outLimit);
-    }
+    const directEntries = (data.entries || []).filter(matchColo);
+    filteredData.entries = (Number.isFinite(outLimit) && directEntries.length > outLimit)
+      ? directEntries.slice(0, outLimit)
+      : directEntries;
 
     let html = '';
     if (data.phase === 'phase1') {
@@ -2855,21 +3196,22 @@ const App = (function() {
         const isCancelled = data.status === 'cancelled';
         html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + ' status-slot">' +
           (isCancelled ? t('clean.progressCancelled') : t('clean.foundPhase1', { n: data.total, t: data.phase1_total })) + '</div>';
-        html += '<div class="results-actions">';
-        html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="App.showCleanQR()" title="QR">QR</button>';
-        html += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">' + t('clean.pushToReplacer') + '</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(true)">' + t('clean.selectAll') + '</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
-        html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
-        html += '</div>';
       }
+      // Action bar always present so Copy All etc. are reachable mid-scan too.
+      html += '<div class="results-actions">';
+      html += copyAllBtn('App.copyCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')', t('clean.copyAllTitle'));
+      html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="App.showCleanQR()" title="QR">QR</button>';
+      html += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">' + t('clean.pushToReplacer') + '</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(true)">' + t('clean.selectAll') + '</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
+      html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
+      html += '</div>';
     } else {
       html = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundPhase2', { n: data.total, s: data.scanned }) + '</div>';
       html += renderCleanResultsTable(filteredData);
       html += '<div class="results-actions">';
-      html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanPhase2IPs()" title="' + t('clean.copyAllTitle') + '">' + t('results.copyAll') + '</button>';
+      html += copyAllBtn('App.copyCleanPhase2IPs()', t('clean.copyAllTitle'));
       html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.showCleanQR()" title="QR">QR</button>';
       html += '<button class="btn btn-accent btn-sm" onclick="App.exportCleanIPs()">' + t('clean.export') + '</button>';
@@ -2913,14 +3255,14 @@ const App = (function() {
 
   function copyNearbyIPs() {
     if (!state.clean.data?.nearby_entries) return;
-    copyToClipboard(state.clean.data.nearby_entries.map(e => e.endpoint).join('\n'));
+    copyToClipboard(formatEps(state.clean.data.nearby_entries.map(e => e.endpoint)));
     showToast(t('copied.clipboard'));
   }
 
   function downloadNearbyIPs() {
     if (!state.clean.data?.nearby_entries) return;
     let text = '# Nearby Cloudflare Responding IPs\n# Generated by Cloudflare Scanner\n\n';
-    state.clean.data.nearby_entries.forEach(r => text += r.endpoint + '\n');
+    text += formatEps(state.clean.data.nearby_entries.map(r => r.endpoint)) + '\n';
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2957,15 +3299,19 @@ const App = (function() {
   }
 
   async function copyCleanPhase1IPs(jobId) {
-    const data = await apiJSON('/api/clean-results/' + jobId);
-    copyToClipboard(data.entries.map(r => r.endpoint).join('\n'));
+    let entries;
+    try { entries = (await apiJSON('/api/clean-results/' + jobId)).entries; }
+    catch { entries = (state.clean.data && state.clean.data.entries) || []; }
+    copyToClipboard(formatEps((entries || []).map(r => r.endpoint)));
     showToast(t('copied.clipboard'));
   }
 
   async function downloadCleanPhase1IPs(jobId) {
-    const data = await apiJSON('/api/clean-results/' + jobId);
+    let entries;
+    try { entries = (await apiJSON('/api/clean-results/' + jobId)).entries; }
+    catch { entries = (state.clean.data && state.clean.data.entries) || []; }
     let text = '# Cloudflare Responding IPs\n# Generated by Cloudflare Scanner\n\n';
-    data.entries.forEach(r => text += r.endpoint + '\n');
+    text += formatEps((entries || []).map(r => r.endpoint)) + '\n';
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2979,14 +3325,14 @@ const App = (function() {
 
   function copyCleanPhase2IPs() {
     if (!state.clean.data?.entries) return;
-    copyToClipboard(state.clean.data.entries.map(e => e.endpoint).join('\n'));
+    copyToClipboard(formatEps(state.clean.data.entries.map(e => e.endpoint)));
     showToast(t('copied.clipboard'));
   }
 
   function copyCleanSelectedIPs() {
     const selected = Array.from($$('.clean-select:checked')).map(cb => cb.value);
     if (!selected.length) { showToast(t('clean.errNoSelection')); return; }
-    copyToClipboard(selected.join('\n'));
+    copyToClipboard(formatEps(selected));
     showToast(t('copied.clipboard'));
   }
 
@@ -3233,13 +3579,13 @@ const App = (function() {
   }
 
   function showEndpointQR() {
-    const allText = state.endpoint.raw.map(r => r.endpoint).join('\n');
+    const allText = formatEps(state.endpoint.raw.map(r => r.endpoint));
     if (allText) showQR(allText);
   }
 
   function showCleanQR() {
     if (!state.clean.data?.entries) return;
-    const allText = state.clean.data.entries.map(r => r.endpoint).join('\n');
+    const allText = formatEps(state.clean.data.entries.map(r => r.endpoint));
     if (allText) showQR(allText);
   }
 
@@ -3249,14 +3595,183 @@ const App = (function() {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  //  About / Donate / Update check
+  // ═══════════════════════════════════════════════════════════════
+  // TODO: replace these placeholders with your real receiving addresses.
+  // The TRON address also receives USDT-TRC20 (the recommended option).
+  const DONATE = {
+    trx: 'TODO_TRON_ADDRESS',
+    btc: 'TODO_BITCOIN_ADDRESS',
+    eth: 'TODO_ETHEREUM_ADDRESS'
+  };
+
+  function renderDonate() {
+    const map = { trx: 'addrTrx', btc: 'addrBtc', eth: 'addrEth' };
+    Object.keys(map).forEach(k => { const el = $('#' + map[k]); if (el) el.textContent = DONATE[k]; });
+  }
+
+  function copyAddr(kind) {
+    const addr = DONATE[kind];
+    if (!addr) return;
+    copyToClipboard(addr);
+    showToast(t('copied.clipboard'));
+  }
+
+  function showAddrQR(kind) {
+    const addr = DONATE[kind];
+    if (addr) showQR(addr);
+  }
+
+  async function aboutInit() {
+    renderDonate();
+    try {
+      const data = await apiJSON('/api/version');
+      if (data.version) $('#aboutVersion').textContent = 'v' + data.version.replace(/^v/i, '');
+      if (data.repo_url) $('#githubLink').href = data.repo_url;
+    } catch {}
+  }
+
+  async function checkUpdate() {
+    const btn = $('#updateCheckBtn'), status = $('#updateStatus');
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = t('about.checking');
+    status.innerHTML = '';
+    try {
+      const data = await apiJSON('/api/update-check');
+      if (data.update_available) {
+        status.innerHTML = '<div class="success-msg">' + t('about.updateAvailable', { v: escapeHtml(data.latest) }) +
+          ' <a class="help-link" href="' + escapeHtml(data.url || $('#githubLink').href) + '" target="_blank" rel="noopener">' + t('about.download') + '</a></div>';
+      } else {
+        status.innerHTML = '<div class="success-msg">' + t('about.upToDate', { v: escapeHtml(data.current) }) + '</div>';
+      }
+    } catch (e) {
+      status.innerHTML = '<div class="error-msg">' + t('about.updateFailed', { msg: escapeHtml(e.message) }) + '</div>';
+    }
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  //  Persistence (settings + last results survive a page reload)
+  // ═══════════════════════════════════════════════════════════════
+  const PERSIST_IDS = [
+    'useConfigEndpoint', 'scanDepth', 'customCount', 'ipVersion', 'noiseToggle', 'endpointTimeout', 'outCount',
+    'useConfigClean', 'vlessURL', 'cleanCustomRanges', 'cleanDepth', 'cleanCustomCount', 'cleanIPVersion',
+    'phase1Probes', 'phase2Probes', 'cleanPhase2', 'nearbyScan', 'cleanTimeout', 'cleanPhase2Timeout', 'cleanOutCount'
+  ];
+
+  function persistSettings() {
+    try {
+      const data = {};
+      PERSIST_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        data[id] = (el.type === 'checkbox') ? el.checked : el.value;
+      });
+      data.cleanSource = state.clean.source;
+      data.cleanPorts = Array.from(document.querySelectorAll('.clean-port-cb')).map(cb => ({ v: cb.value, c: cb.checked }));
+      localStorage.setItem('cfscanner_settings', JSON.stringify(data));
+    } catch {}
+  }
+
+  let _persistTimer = null;
+  function persistSettingsDebounced() { clearTimeout(_persistTimer); _persistTimer = setTimeout(persistSettings, 300); }
+
+  // Set the active depth preset button (and custom-count visibility) to match a
+  // restored hidden depth value. '0' is the "Custom" preset.
+  function syncDepthPreset(group, value) {
+    if (value == null) return;
+    const bar = document.querySelector('.preset-bar[data-group="' + group + '"]');
+    if (!bar) return;
+    bar.querySelectorAll('.preset-btn').forEach(b => b.classList.toggle('active', b.dataset.value === String(value)));
+    const wrapId = group === 'endpoint' ? 'customCountWrap' : 'cleanCustomCountWrap';
+    const wrap = document.getElementById(wrapId);
+    if (wrap) wrap.classList.toggle('hidden', String(value) !== '0');
+  }
+
+  function restoreSettings() {
+    let data;
+    try { data = JSON.parse(localStorage.getItem('cfscanner_settings') || 'null'); } catch { data = null; }
+    if (!data) return;
+    PERSIST_IDS.forEach(id => {
+      if (!(id in data)) return;
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!data[id];
+      else el.value = data[id];
+    });
+    syncDepthPreset('endpoint', data.scanDepth);
+    syncDepthPreset('clean', data.cleanDepth);
+    if (Array.isArray(data.cleanPorts)) {
+      const map = new Map(data.cleanPorts.map(p => [p.v, p.c]));
+      document.querySelectorAll('.clean-port-cb').forEach(cb => { if (map.has(cb.value)) cb.checked = map.get(cb.value); });
+      // The active port-preset highlight is cosmetic; clear it since a restored
+      // custom selection may not match any single preset.
+      document.querySelectorAll('#portPresetBar .preset-btn').forEach(b => b.classList.remove('active'));
+    }
+    if (data.cleanSource) {
+      selectCleanSource(data.cleanSource, document.getElementById(data.cleanSource === 'custom' ? 'cleanSrcCustom' : 'cleanSrcPool'));
+    }
+    // Re-run the config toggles so dependent fields/visibility reflect restored values.
+    $('#useConfigEndpoint').dispatchEvent(new Event('change'));
+    $('#useConfigClean').dispatchEvent(new Event('change'));
+  }
+
+  function persistResults() {
+    try {
+      localStorage.setItem('cfscanner_results', JSON.stringify({
+        endpointRaw: state.endpoint.raw || [],
+        cleanData: state.clean.data || null
+      }));
+    } catch {}
+  }
+
+  function restoreResults() {
+    let data;
+    try { data = JSON.parse(localStorage.getItem('cfscanner_results') || 'null'); } catch { data = null; }
+    if (!data) return;
+    if (Array.isArray(data.endpointRaw) && data.endpointRaw.length) {
+      state.endpoint.raw = data.endpointRaw;
+      $('#emptyState').classList.add('hidden');
+      renderResultsTable({ raw: data.endpointRaw, total: data.endpointRaw.length, scanned: data.endpointRaw.length, status: 'done' }, '', false);
+    }
+    if (data.cleanData && ((data.cleanData.entries && data.cleanData.entries.length) || (data.cleanData.nearby_entries && data.cleanData.nearby_entries.length))) {
+      state.clean.data = data.cleanData;
+      state.clean.jobId = '';
+      renderCleanResultsComplete(data.cleanData);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   //  Init
   // ═══════════════════════════════════════════════════════════════
   function init() {
     setLang(currentLang);
+    restoreSettings();
     selectReplacerMethod('url');
     updateEndpointDesc();
     updateCleanDesc();
     $('#cleanPhase2Col').classList.toggle('hidden', !$('#useConfigClean').checked);
+    $('#cleanPhase2TimeoutCol').classList.toggle('hidden', !$('#useConfigClean').checked);
+    syncCopyMenu();
+    restoreResults();
+    aboutInit();
+    // Persist settings on any interaction within the scanner tabs (change/input
+    // for fields, click for preset/port/source buttons that mutate state in JS).
+    ['#endpointTab', '#cleanTab'].forEach(sel => {
+      const root = $(sel);
+      if (!root) return;
+      root.addEventListener('change', persistSettingsDebounced);
+      root.addEventListener('input', persistSettingsDebounced);
+      root.addEventListener('click', persistSettingsDebounced);
+    });
+    // Dismiss the copy port-mode menu on any outside click or Escape.
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#copyMenu') && !e.target.closest('.split-caret')) closeCopyMenu();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCopyMenu(); });
+    window.addEventListener('resize', closeCopyMenu);
   }
 
   // ─── Public API ───
@@ -3293,6 +3808,7 @@ const App = (function() {
     },
     updateCleanPortMode() {},
     switchCleanList, sortClean, copyCleanPhase1IPs, downloadCleanPhase1IPs,
+    applyCleanFilter,
     selectCleanSource, addRangePreset,
     selectAllClean, copyCleanPhase2IPs, copyCleanSelectedIPs, exportCleanIPs,
     copyNearbyIPs, downloadNearbyIPs, exportNearbyIPs, pushNearbyToReplacer, pushCleanToReplacer,
@@ -3302,6 +3818,8 @@ const App = (function() {
     browseOutputFolder, copyApplyConfig, copyAllApplyConfigs, downloadApplyConfigs, showApplyQR,
     saveFilesToDir,
     copyToClipboard, // exposed for inline onclick handlers
+    openCopyMenu, setCopyMode,
+    checkUpdate, copyAddr, showAddrQR,
     init
   };
 })();
