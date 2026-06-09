@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1284,8 +1285,9 @@ func handleReplacerParse(w http.ResponseWriter, r *http.Request) {
 }
 
 type replacerApplyRequest struct {
-	Configs   []replacerConfigEntry `json:"configs"`
-	Endpoints []string              `json:"endpoints"`
+	Configs      []replacerConfigEntry `json:"configs"`
+	Endpoints    []string              `json:"endpoints"`
+	NameTemplate string                `json:"name_template"`
 }
 
 func handleReplacerApply(w http.ResponseWriter, r *http.Request) {
@@ -1315,11 +1317,12 @@ func handleReplacerApply(w http.ResponseWriter, r *http.Request) {
 		configs = append(configs, e.toProxyConfig())
 	}
 
-	urls := GenerateReplacedConfigs(configs, req.Endpoints)
+	urls := GenerateReplacedConfigsNamed(configs, req.Endpoints, req.NameTemplate)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"urls":  urls,
-		"count": len(urls),
+		"urls":         urls,
+		"count":        len(urls),
+		"subscription": base64.StdEncoding.EncodeToString([]byte(strings.Join(urls, "\n"))),
 	})
 }

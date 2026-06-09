@@ -1585,7 +1585,15 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     <div class="card" id="replacerEndpointsCard">
       <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span data-t="replacer.endpointsHeader">Endpoints</span></h2>
       <p class="desc" data-t="replacer.endpointsDesc">Paste IP:port endpoints (one per line) from Clean IP scan results.</p>
-      <textarea id="replacerEndpoints" rows="4" data-t-placeholder="replacer.endpointsPlaceholder" data-t-title="replacer.endpointsTitle" placeholder="162.159.90.249:443&#10;162.159.82.8:443&#10;..."></textarea>
+      <textarea id="replacerEndpoints" rows="4" data-t-placeholder="replacer.endpointsPlaceholder" data-t-title="replacer.endpointsTitle" placeholder="162.159.90.249:443&#10;162.159.82.8:443&#10;..." oninput="App.replacerValidateEndpoints()"></textarea>
+      <div id="replacerEpHint" class="muted-inline status-slot" style="display:block"></div>
+      <div class="row" style="margin-top:var(--space-sm)">
+        <div class="col">
+          <label for="replacerNameTemplate" data-t="replacer.nameTpl" data-t-title="replacer.nameTplTitle">Name template</label>
+          <input type="text" id="replacerNameTemplate" data-t-placeholder="replacer.nameTplPh" data-t-title="replacer.nameTplTitle" placeholder="{remark} @ {ip}">
+          <div class="muted-inline status-slot" style="display:block" data-t="replacer.nameTplHelp">Placeholders: {remark} {ip} {port} {ep} {proto} {n}. Leave empty for the default.</div>
+        </div>
+      </div>
       <div class="status-slot">
         <button class="btn btn-accent" id="replacerGenerateBtn" onclick="App.replacerGenerate()" data-t="replacer.generate" data-t-title="replacer.generateTitle">Generate Configs</button>
       </div>
@@ -1598,8 +1606,9 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
       <div class="results-table-wrap scrollable-list" id="replacerResultsWrap"></div>
       <div class="results-actions" id="replacerResultsActions" class="status-slot">
         <button class="btn btn-secondary btn-sm" onclick="App.replacerCopyAll()" data-t="replacer.copyAll" data-t-title="replacer.copyAllTitle">Copy All</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.replacerCopySub()" data-t="replacer.copySub" data-t-title="replacer.copySubTitle">Copy as sub</button>
         <button class="btn btn-secondary btn-sm" onclick="App.replacerDownload()" data-t="replacer.download" data-t-title="replacer.downloadTitle">Download</button>
-        <button class="btn btn-secondary btn-sm" onclick="App.showReplacerQR()">QR</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.replacerDownloadSub()" data-t="replacer.downloadSub" data-t-title="replacer.downloadSubTitle">Download sub</button>
       </div>
     </div>
   </div>
@@ -1848,6 +1857,15 @@ const App = (function() {
       'replacer.resultsHeader': 'Generated Configs',
       'replacer.resultsCount': '{n} configs from {c} config(s) × {e} endpoint(s)',
       'replacer.copyAll': 'Copy All', 'replacer.download': 'Download',
+      'replacer.copySub': 'Copy as sub', 'replacer.downloadSub': 'Download sub',
+      'replacer.copySubTitle': 'Copy a base64 subscription blob (paste into your client as a subscription)',
+      'replacer.downloadSubTitle': 'Download the base64 subscription as a text file',
+      'replacer.nameTpl': 'Name template', 'replacer.nameTplPh': '{remark} @ {ip}',
+      'replacer.nameTplTitle': 'Template for each generated config name',
+      'replacer.nameTplHelp': 'Placeholders: {remark} {ip} {port} {ep} {proto} {n}. Leave empty for the default.',
+      'replacer.epValid': '{ok}/{total} endpoints valid',
+      'replacer.epInvalid': '{n} invalid (e.g. {ex})',
+      'replacer.epDupes': '{n} duplicate(s) ignored',
       'config.fileTitle': 'Select a WireGuard config file (.conf) to scan',
       'config.chooseTitle': 'Click to choose a config file',
       'settings.depthTitle': 'Number of endpoints to generate and test',
@@ -2085,6 +2103,15 @@ const App = (function() {
       'replacer.resultsHeader': 'کانفیگ‌های ساخته شده',
       'replacer.resultsCount': '{n} کانفیگ از {c} کانفیگ × {e} اندپوینت',
       'replacer.copyAll': 'کپی همه', 'replacer.download': 'دانلود',
+      'replacer.copySub': 'کپی به‌صورت ساب', 'replacer.downloadSub': 'دانلود ساب',
+      'replacer.copySubTitle': 'کپی بلوک اشتراک base64 (در کلاینت به‌عنوان ساب وارد کنید)',
+      'replacer.downloadSubTitle': 'دانلود اشتراک base64 به‌صورت فایل متنی',
+      'replacer.nameTpl': 'الگوی نام', 'replacer.nameTplPh': '{remark} @ {ip}',
+      'replacer.nameTplTitle': 'الگوی نام برای هر کانفیگ ساخته‌شده',
+      'replacer.nameTplHelp': 'متغیرها: {remark} {ip} {port} {ep} {proto} {n}. برای پیش‌فرض خالی بگذارید.',
+      'replacer.epValid': '{ok}/{total} اندپوینت معتبر',
+      'replacer.epInvalid': '{n} نامعتبر (مثل {ex})',
+      'replacer.epDupes': '{n} مورد تکراری نادیده گرفته شد',
       'config.fileTitle': 'یک فایل کانفیگ WireGuard (.conf) برای اسکن انتخاب کنید',
       'config.chooseTitle': 'برای انتخاب فایل کانفیگ کلیک کنید',
       'settings.depthTitle': 'تعداد اندپوینت‌های تولید و تست شده',
@@ -2244,7 +2271,7 @@ const App = (function() {
   const state = {
     endpoint: { jobId: null, statusTimer: null, resultsTimer: null, raw: [], lastStatus: 'idle', sort: { field: 'num', dir: 'asc' } },
     clean: { jobId: null, statusTimer: null, resultsTimer: null, data: null, phase2: [], list: 'direct', source: 'pool', sort: { field: 'latency', dir: 'asc' } },
-    replacer: { configs: [], generated: [], method: 'url', sort: { field: 'num', dir: 'asc' } },
+    replacer: { configs: [], generated: [], subscription: '', method: 'url', sort: { field: 'num', dir: 'asc' } },
     apply: { results: [], dirHandle: null },
     copyWithPorts: localStorage.getItem('cfscanner_copyports') !== '0',
     qr: null
@@ -3623,9 +3650,10 @@ const App = (function() {
     try {
       const data = await apiJSON('/api/replacer/apply', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ configs: selected, endpoints })
+        body: JSON.stringify({ configs: selected, endpoints, name_template: $('#replacerNameTemplate').value.trim() })
       });
       state.replacer.generated = data.urls;
+      state.replacer.subscription = data.subscription || '';
       renderReplacerResults(data.urls, selected.length, endpoints.length);
       $('#replacerResultsCard').classList.remove('hidden');
       genStatus.innerHTML = '<div class="success-msg">' + t('replacer.generated', { n: data.count }) + '</div>';
@@ -3639,10 +3667,13 @@ const App = (function() {
   function renderReplacerResults(urls, numConfigs, numEndpoints) {
     const container = $('#replacerResultsWrap');
     $('#replacerResultsCount').textContent = t('replacer.resultsCount', { n: urls.length, c: numConfigs, e: numEndpoints });
-    let html = '<table class="results-table"><thead><tr><th>#</th><th>' + t('replacer.tableConfig') + '</th></tr></thead><tbody>';
+    let html = '<table class="results-table"><thead><tr><th>#</th><th>' + t('replacer.tableConfig') + '</th><th></th></tr></thead><tbody>';
     urls.forEach((u, i) => {
       const display = u.length > 100 ? u.substring(0, 100) + '…' : u;
-      html += '<tr><td class="num">' + (i+1) + '</td><td class="mono-break">' + escapeHtml(display) + '</td></tr>';
+      html += '<tr><td class="num">' + (i+1) + '</td>'
+        + '<td class="mono-break"><span class="tag" onclick="App.copyToClipboard(\'' + escapeEp(u) + '\')" title="' + t('replacer.copyAllTitle') + '">' + escapeHtml(display) + '</span></td>'
+        + '<td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="App.replacerCopyRow(' + i + ')" data-t-title="' + t('replacer.copyAllTitle') + '">' + t('buttons.copy') + '</button> '
+        + '<button class="btn btn-secondary btn-sm" onclick="App.replacerRowQR(' + i + ')">QR</button></td></tr>';
     });
     html += '</tbody></table>';
     container.innerHTML = html;
@@ -3650,19 +3681,87 @@ const App = (function() {
     updateTabBadges();
   }
 
+  function replacerCopyRow(i) {
+    const u = state.replacer.generated[i];
+    if (u) { copyToClipboard(u); showToast(t('copied.clipboard')); }
+  }
+
+  function replacerRowQR(i) {
+    const u = state.replacer.generated[i];
+    if (u) showQR(u);
+  }
+
   async function replacerCopyAll() {
     copyToClipboard(state.replacer.generated.join('\n'));
+    showToast(t('copied.clipboard'));
+  }
+
+  // A "subscription" is the base64 of the newline-joined config list — the
+  // format most clients accept when you paste a sub URL/blob.
+  function replacerSubText() {
+    return state.replacer.subscription || btoa(unescape(encodeURIComponent(state.replacer.generated.join('\n'))));
+  }
+
+  async function replacerCopySub() {
+    if (!state.replacer.generated.length) return;
+    copyToClipboard(replacerSubText());
     showToast(t('copied.clipboard'));
   }
 
   function replacerDownload() {
     let text = '# Replaced VLESS Configs\n# Generated by Cloudflare Scanner\n\n';
     state.replacer.generated.forEach(u => text += u + '\n');
+    downloadText(text, 'replaced_configs.txt');
+  }
+
+  function replacerDownloadSub() {
+    if (!state.replacer.generated.length) return;
+    downloadText(replacerSubText(), 'subscription.txt');
+  }
+
+  function downloadText(text, filename) {
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'replaced_configs.txt'; a.click();
+    a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // Live validation of the pasted endpoints (host:port, IPv4/IPv6, port range).
+  function replacerValidateEndpoints() {
+    const hint = $('#replacerEpHint');
+    const lines = $('#replacerEndpoints').value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!lines.length) { hint.textContent = ''; return; }
+    const bad = [];
+    const seen = new Set();
+    let dupes = 0;
+    lines.forEach(l => {
+      if (seen.has(l)) { dupes++; return; }
+      seen.add(l);
+      if (!isValidEndpoint(l)) bad.push(l);
+    });
+    const ok = seen.size - bad.length;
+    let msg = t('replacer.epValid', { ok, total: lines.length });
+    if (bad.length) msg += ' · ' + t('replacer.epInvalid', { n: bad.length, ex: escapeHtml(bad[0]) });
+    if (dupes) msg += ' · ' + t('replacer.epDupes', { n: dupes });
+    hint.innerHTML = '<span style="color:' + (bad.length ? 'var(--warning)' : 'var(--success)') + '">' + msg + '</span>';
+  }
+
+  function isValidEndpoint(s) {
+    let host, port;
+    if (s[0] === '[') {
+      const i = s.indexOf(']:');
+      if (i < 0) return false;
+      host = s.slice(1, i); port = s.slice(i + 2);
+      if (host.indexOf(':') < 0) return false; // looks bracketed but not IPv6
+    } else {
+      const c = s.lastIndexOf(':');
+      if (c < 0 || s.indexOf(':') !== c) return false; // missing port, or bare IPv6 w/o brackets
+      host = s.slice(0, c); port = s.slice(c + 1);
+    }
+    const p = parseInt(port, 10);
+    if (!host || !(p >= 1 && p <= 65535)) return false;
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -3938,6 +4037,7 @@ const App = (function() {
     copyNearbyIPs, downloadNearbyIPs, exportNearbyIPs, pushNearbyToReplacer, pushCleanToReplacer,
     selectReplacerMethod, replacerParse, replacerFetch, replacerGenerate,
     sortReplacer, replacerToggleAll, replacerSelectAll, replacerCopyAll, replacerDownload,
+    replacerCopyRow, replacerRowQR, replacerCopySub, replacerDownloadSub, replacerValidateEndpoints,
     showReplacerQR, showEndpointQR, showCleanQR, showQR, closeQR,
     browseOutputFolder, copyApplyConfig, copyAllApplyConfigs, downloadApplyConfigs, showApplyQR,
     saveFilesToDir,

@@ -109,10 +109,39 @@ func DeduplicateConfigs(configs []*ProxyConfig) []*ProxyConfig {
 	return result
 }
 
+// applyNameTemplate fills a remark template. Supported placeholders:
+//   {remark} original remark   {ip}/{host} endpoint host   {port} endpoint port
+//   {ep} host:port   {proto} protocol   {n} 1-based running index
+// An empty template falls back to the legacy "<remark> @ <host:port>" behavior.
+func applyNameTemplate(tmpl string, cfg *ProxyConfig, host string, port, n int) string {
+	ep := net.JoinHostPort(host, strconv.Itoa(port))
+	if strings.TrimSpace(tmpl) == "" {
+		if cfg.Remark != "" {
+			return cfg.Remark + " @ " + ep
+		}
+		return ep
+	}
+	r := strings.NewReplacer(
+		"{remark}", cfg.Remark,
+		"{ip}", host,
+		"{host}", host,
+		"{port}", strconv.Itoa(port),
+		"{ep}", ep,
+		"{proto}", cfg.Protocol,
+		"{n}", strconv.Itoa(n),
+	)
+	return r.Replace(tmpl)
+}
+
 func GenerateReplacedConfigs(configs []*ProxyConfig, endpoints []string) []string {
+	return GenerateReplacedConfigsNamed(configs, endpoints, "")
+}
+
+func GenerateReplacedConfigsNamed(configs []*ProxyConfig, endpoints []string, nameTemplate string) []string {
 	seen := make(map[string]bool)
 	result := make([]string, 0, len(configs)*len(endpoints))
 
+	n := 0
 	for _, cfg := range configs {
 		for _, epRaw := range endpoints {
 			ep := strings.TrimSpace(epRaw)
@@ -127,14 +156,11 @@ func GenerateReplacedConfigs(configs []*ProxyConfig, endpoints []string) []strin
 			if p <= 0 || p > 65535 {
 				continue
 			}
+			n++
 			clone := *cfg
 			clone.Address = host
 			clone.Port = p
-			if clone.Remark != "" {
-				clone.Remark = cfg.Remark + " @ " + ep
-			} else {
-				clone.Remark = ep
-			}
+			clone.Remark = applyNameTemplate(nameTemplate, cfg, host, p, n)
 			u := clone.GenerateShareURL()
 			if seen[u] {
 				continue
