@@ -31,9 +31,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   bump the version; it is embedded into the binary as the ldflags fallback (plain
   `go build` reports the right number), the build scripts default to it, and the
   release workflow fails if a pushed tag doesn't match it.
+- **WebSocket early-data support** — `max_early_data` / `early_data_header_name`
+  (and the `ed` / `eh` shorthands) are now parsed, emitted into xray's `wsSettings`
+  during IP-Scanner Phase-2 validation, and round-tripped through the Replacer so
+  BPB / edge-tunnel panel configs validate and regenerate correctly instead of
+  having the params silently dropped.
+- **Phase-2 failure breakdown** — when IP-Scanner validation finds nothing (or only
+  some pass), the results panel now explains *why*: an aggregated reason summary
+  ("xray didn't come up in time", "Cloudflare reached but didn't route — check
+  SNI/Host", …) plus a few example endpoint+error lines. The `/api/clean-results`
+  response now carries `failures[]` and `fail_reasons` (`server.go`, `cleanip.go`).
+- **xray runnability check at startup** — the launcher now runs `xray version` and
+  prints a clear warning if a present-but-broken xray can't execute, instead of
+  letting every Phase-2 validation fail with an opaque timeout (`xray.go`,
+  `main.go`).
 
 ### Changed
 - `dist/` is gitignored so local build archives no longer show up as untracked.
+- **Result action bars moved above the table** — Copy All / Download / Export /
+  Select are now reachable at the top of every results list (Endpoint scanner,
+  IP-Scanner Phase 1 & 2, and Nearby) without scrolling past long tables.
+- **Phase-1 timeout clarified** — its tooltip now states it is a give-up deadline,
+  not a latency filter, and points to the "Max ms" results filter for keeping only
+  fast IPs.
+
+### Fixed
+- **IP-Scanner Phase 2 failing for CDN-fronted configs** — the xray validation
+  builder now falls back the WebSocket / httpupgrade `Host` header to the SNI when
+  no explicit `host=` is set (matching `GenerateShareURL`). Previously xray sent
+  `Host: <edge-IP>`, so Cloudflare couldn't route and every candidate failed even
+  with a known-good IP (`proxy.go:buildStreamSettings`).
+- **Tight Phase-1 timeout discarding reachable IPs** — Phase-1 TCP probing now
+  retries once on timeout (refused/unreachable return immediately, so no added
+  cost), so a single dropped SYN in the high-concurrency burst no longer drops an
+  IP whose real RTT is well under the deadline (`cleanip.go:dialReachable`).
 
 ---
 

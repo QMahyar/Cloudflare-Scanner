@@ -23,24 +23,24 @@ import (
 var uiFS embed.FS
 
 type ScanJob struct {
-	ID          string
-	Status      string
-	Progress    int
-	Total       int
-	Results     []ScanResult
-	Config      *WarpConfig
-	Endpoints   []string
-	Noise       NoiseConfig
-	OutCount    int
-	Concurrency int
-	Attempts    int
-	TimeoutMs   int
-	StopAfter   int
-	Successes   int
+	ID            string
+	Status        string
+	Progress      int
+	Total         int
+	Results       []ScanResult
+	Config        *WarpConfig
+	Endpoints     []string
+	Noise         NoiseConfig
+	OutCount      int
+	Concurrency   int
+	Attempts      int
+	TimeoutMs     int
+	StopAfter     int
+	Successes     int
 	TargetReached bool
-	Cancel      chan struct{}
-	cancelOnce  sync.Once
-	mu          sync.Mutex
+	Cancel        chan struct{}
+	cancelOnce    sync.Once
+	mu            sync.Mutex
 }
 
 var errFolderSelectionCancelled = errors.New("folder selection cancelled")
@@ -1016,6 +1016,31 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 			nearbyEntries = append(nearbyEntries, cleanEntry(r))
 		}
 		phase2Failures := len(phase2Results) - len(entries)
+
+		// Surface WHY validation failed. Without this, an all-failed Phase 2 is a
+		// silent dead end (broken xray, wrong Host, too-tight timeout all look the
+		// same). We return a bounded sample of endpoint+error plus an aggregated
+		// reason->count summary so the UI can explain the outcome.
+		type failEntry struct {
+			Endpoint string `json:"endpoint"`
+			Error    string `json:"error"`
+		}
+		failures := make([]failEntry, 0)
+		reasons := map[string]int{}
+		for _, r := range phase2Results {
+			if r.Success {
+				continue
+			}
+			reason := r.Error
+			if reason == "" {
+				reason = "unknown"
+			}
+			reasons[summarizeFailure(reason)]++
+			if len(failures) < 40 {
+				failures = append(failures, failEntry{Endpoint: r.Endpoint, Error: r.Error})
+			}
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"entries":         entries,
@@ -1023,6 +1048,8 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 			"total":           len(entries),
 			"scanned":         len(phase2Results),
 			"phase2_failures": phase2Failures,
+			"failures":        failures,
+			"fail_reasons":    reasons,
 			"status":          status,
 			"phase":           "phase2",
 			"phase1":          phase1Progress,
@@ -1131,6 +1158,8 @@ type replacerConfigEntry struct {
 	HeaderType    string `json:"header_type,omitempty"`
 	Mode          string `json:"mode,omitempty"`
 	ServiceName   string `json:"service_name,omitempty"`
+	MaxEarlyData  int    `json:"max_early_data,omitempty"`
+	EarlyDataHdr  string `json:"early_data_header,omitempty"`
 }
 
 // proxyConfigToEntry / toProxyConfig are the single source of truth for the
@@ -1160,33 +1189,37 @@ func proxyConfigToEntry(c *ProxyConfig) replacerConfigEntry {
 		HeaderType:    c.HeaderType,
 		Mode:          c.Mode,
 		ServiceName:   c.ServiceName,
+		MaxEarlyData:  c.MaxEarlyData,
+		EarlyDataHdr:  c.EarlyDataHeaderName,
 	}
 }
 
 func (e replacerConfigEntry) toProxyConfig() *ProxyConfig {
 	return &ProxyConfig{
-		Protocol:       e.Protocol,
-		UUID:           e.UUID,
-		Address:        e.Address,
-		Port:           e.Port,
-		Encryption:     e.Encryption,
-		Security:       e.Security,
-		SNI:            e.SNI,
-		Fingerprint:    e.FingerprintFP,
-		Network:        e.Network,
-		Host:           e.Host,
-		Path:           e.Path,
-		PacketEncoding: e.PacketEnc,
-		Remark:         e.Remark,
-		Flow:           e.Flow,
-		PublicKey:      e.PublicKey,
-		ShortId:        e.ShortId,
-		SpiderX:        e.SpiderX,
-		AllowInsecure:  e.AllowInsecure,
-		ALPN:           e.ALPN,
-		HeaderType:     e.HeaderType,
-		Mode:           e.Mode,
-		ServiceName:    e.ServiceName,
+		Protocol:            e.Protocol,
+		UUID:                e.UUID,
+		Address:             e.Address,
+		Port:                e.Port,
+		Encryption:          e.Encryption,
+		Security:            e.Security,
+		SNI:                 e.SNI,
+		Fingerprint:         e.FingerprintFP,
+		Network:             e.Network,
+		Host:                e.Host,
+		Path:                e.Path,
+		PacketEncoding:      e.PacketEnc,
+		Remark:              e.Remark,
+		Flow:                e.Flow,
+		PublicKey:           e.PublicKey,
+		ShortId:             e.ShortId,
+		SpiderX:             e.SpiderX,
+		AllowInsecure:       e.AllowInsecure,
+		ALPN:                e.ALPN,
+		HeaderType:          e.HeaderType,
+		Mode:                e.Mode,
+		ServiceName:         e.ServiceName,
+		MaxEarlyData:        e.MaxEarlyData,
+		EarlyDataHeaderName: e.EarlyDataHdr,
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -228,4 +229,26 @@ func (xm *XrayManager) StopXray(cmd *exec.Cmd) {
 	}
 	cmd.Process.Kill()
 	cmd.Wait()
+}
+
+// VerifyXrayRunnable confirms the xray binary actually executes — not just that
+// the file exists (which is all main.go's os.Stat proves). A present-but-broken
+// xray (wrong arch, AV-quarantined, missing libs) otherwise makes every clean-IP
+// Phase-2 validation fail with the same opaque "startup timeout", so we probe it
+// once at boot and surface a clear, actionable message. Returns "" when xray runs.
+func VerifyXrayRunnable(xrayPath string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, xrayPath, "version").CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Sprintf("  ⚠ xray did not respond to `version` within 6s (%s) — Phase-2 validation may fail.", xrayPath)
+	}
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return fmt.Sprintf("  ⚠ xray failed to run (%s): %s\n    Clean-IP Phase-2 validation needs a working xray. Re-download it from https://github.com/XTLS/Xray-core/releases", xrayPath, msg)
+	}
+	return ""
 }

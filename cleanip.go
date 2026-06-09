@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -424,6 +425,30 @@ func (j *CleanIPJob) stop() {
 	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
+// dialReachable TCP-dials endpoint, retrying ONLY on timeout (up to maxAttempts).
+// A single dropped SYN under the high-concurrency burst would otherwise discard
+// an IP whose real RTT is well under the deadline — the cause of "tight timeout
+// finds nothing, loose timeout finds the same IPs fast". A refused/unreachable
+// port won't change on retry, so those return immediately and don't pay the cost.
+func dialReachable(endpoint string, timeout time.Duration, maxAttempts int) (time.Duration, bool) {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		start := time.Now()
+		conn, err := net.DialTimeout("tcp", endpoint, timeout)
+		if err == nil {
+			conn.Close()
+			return time.Since(start), true
+		}
+		var ne net.Error
+		if !errors.As(err, &ne) || !ne.Timeout() {
+			return 0, false
+		}
+	}
+	return 0, false
+}
+
 func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob, concurrency int, stopAfter int) []CleanIPResult {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -461,9 +486,8 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 				return
 			}
 
-			start := time.Now()
-			conn, err := net.DialTimeout("tcp", endpoint, timeout)
-			if err != nil {
+			latency, ok := dialReachable(endpoint, timeout, 2)
+			if !ok {
 				if job != nil {
 					job.mu.Lock()
 					job.Phase1Progress++
@@ -471,8 +495,6 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 				}
 				return
 			}
-			conn.Close()
-			latency := time.Since(start)
 
 			// Colo/loc are enriched separately (see enrichColo) for a bounded set
 			// of the fastest responders — keeping the trace round-trip out of this
@@ -651,6 +673,34 @@ func applyColo(results []CleanIPResult, coloMap map[string][2]string) {
 			results[i].Colo = cl[0]
 			results[i].Loc = cl[1]
 		}
+	}
+}
+
+// summarizeFailure collapses a raw Phase-2 error into a short, actionable
+// category for the UI's failure-reason breakdown. It turns a wall of identical
+// low-level strings into "12× xray startup timeout" so the user can tell a
+// broken xray from a routing/Host problem from a too-tight timeout.
+func summarizeFailure(err string) string {
+	e := strings.ToLower(err)
+	switch {
+	case strings.Contains(e, "startup timeout"):
+		return "xray didn't come up in time (slow start or crash)"
+	case strings.Contains(e, "start xray"), strings.Contains(e, "xray config"):
+		return "xray failed to launch (check the xray binary / config)"
+	case strings.Contains(e, "no uuid"), strings.Contains(e, "empty uuid"), strings.Contains(e, "empty address"), strings.Contains(e, "invalid port"):
+		return "incomplete config (UUID/address/port missing)"
+	case strings.Contains(e, "socks connect"):
+		return "couldn't reach xray's local SOCKS port"
+	case strings.Contains(e, "socks5"):
+		return "tunnel handshake failed (proxy refused the connection)"
+	case strings.Contains(e, "http write"), strings.Contains(e, "http read"):
+		return "no usable response through the tunnel (timeout / reset)"
+	case strings.HasPrefix(e, "http "):
+		return err + " (Cloudflare reached but didn't route — check SNI/Host)"
+	case strings.Contains(e, "cancelled"):
+		return "cancelled"
+	default:
+		return err
 	}
 }
 

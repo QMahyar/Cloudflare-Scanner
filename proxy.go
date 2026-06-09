@@ -36,6 +36,10 @@ type ProxyConfig struct {
 	HeaderType     string
 	Mode           string
 	ServiceName    string
+	// WebSocket 0-RTT early data (e.g. BPB / edge-tunnel panels). Dropping these
+	// during validation builds a WS stream the origin Worker may reject.
+	MaxEarlyData        int
+	EarlyDataHeaderName string
 }
 
 func parseInsecureFlag(v string) bool {
@@ -260,6 +264,20 @@ func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
 	if v := q.Get("serviceName"); v != "" {
 		cfg.ServiceName = v
 	}
+	// WebSocket early-data: accept both the verbose form and the `ed`/`eh`
+	// shorthands some panels emit.
+	if v := q.Get("max_early_data"); v != "" {
+		cfg.MaxEarlyData, _ = strconv.Atoi(v)
+	}
+	if v := q.Get("ed"); v != "" && cfg.MaxEarlyData == 0 {
+		cfg.MaxEarlyData, _ = strconv.Atoi(v)
+	}
+	if v := q.Get("early_data_header_name"); v != "" {
+		cfg.EarlyDataHeaderName = v
+	}
+	if v := q.Get("eh"); v != "" && cfg.EarlyDataHeaderName == "" {
+		cfg.EarlyDataHeaderName = v
+	}
 
 	if cfg.SNI == "" {
 		cfg.SNI = cfg.Host
@@ -368,6 +386,12 @@ func (c *ProxyConfig) GenerateShareURL() string {
 	if c.ServiceName != "" {
 		q.Set("serviceName", c.ServiceName)
 	}
+	if c.MaxEarlyData > 0 {
+		q.Set("max_early_data", strconv.Itoa(c.MaxEarlyData))
+	}
+	if c.EarlyDataHeaderName != "" {
+		q.Set("early_data_header_name", c.EarlyDataHeaderName)
+	}
 
 	u.RawQuery = q.Encode()
 	return u.String()
@@ -469,8 +493,10 @@ type RealitySettings struct {
 }
 
 type WSSettings struct {
-	Path    string            `json:"path"`
-	Headers map[string]string `json:"headers,omitempty"`
+	Path                string            `json:"path"`
+	Headers             map[string]string `json:"headers,omitempty"`
+	MaxEarlyData        int               `json:"maxEarlyData,omitempty"`
+	EarlyDataHeaderName string            `json:"earlyDataHeaderName,omitempty"`
 }
 
 type GRPCSettings struct {
@@ -605,11 +631,22 @@ func (c *ProxyConfig) buildStreamSettings() json.RawMessage {
 	switch c.Network {
 	case "ws", "websocket":
 		wsCfg := WSSettings{
-			Path: c.Path,
+			Path:                c.Path,
+			MaxEarlyData:        c.MaxEarlyData,
+			EarlyDataHeaderName: c.EarlyDataHeaderName,
 		}
-		if c.Host != "" {
+		// Cloudflare routes CDN-fronted configs by the WS Host header. Real
+		// clients (and GenerateShareURL) fall back to the SNI when no explicit
+		// host= is present; mirror that here so validation hits the same origin
+		// the exported config would — otherwise xray sends Host:<edge-IP> and
+		// Cloudflare can't route, failing every Phase-2 check.
+		wsHost := c.Host
+		if wsHost == "" {
+			wsHost = c.SNI
+		}
+		if wsHost != "" {
 			wsCfg.Headers = map[string]string{
-				"Host": c.Host,
+				"Host": wsHost,
 			}
 		}
 		wsJSON, _ := json.Marshal(wsCfg)
@@ -632,9 +669,14 @@ func (c *ProxyConfig) buildStreamSettings() json.RawMessage {
 		ss.KCPSettings = kcpJSON
 
 	case "httpupgrade":
+		// Same Host->SNI fallback as ws: CF needs the fronting host to route.
+		hugHost := c.Host
+		if hugHost == "" {
+			hugHost = c.SNI
+		}
 		hugCfg := HTTPUpgradeSettings{
 			Path: c.Path,
-			Host: c.Host,
+			Host: hugHost,
 		}
 		hugJSON, _ := json.Marshal(hugCfg)
 		ss.HTTPUpgradeSettings = hugJSON

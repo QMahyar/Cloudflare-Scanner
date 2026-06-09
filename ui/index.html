@@ -702,6 +702,34 @@ body[dir="rtl"] .results-table th .sort-icon { margin-left: 0; margin-right: 2px
   padding-top: var(--space-sm);
   border-top: 1px solid var(--border);
 }
+/* When the action bar sits ABOVE the table, flip the divider to the bottom. */
+.results-actions-top {
+  margin-top: 0;
+  margin-bottom: var(--space-sm);
+  padding-top: 0;
+  padding-bottom: var(--space-sm);
+  border-top: none;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ─── Phase-2 failure breakdown ─── */
+.fail-panel {
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--danger-bg);
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+}
+.fail-title { color: var(--danger); font-weight: 600; margin-bottom: 6px; }
+.fail-list { margin: 0; padding-inline-start: 0; list-style: none; }
+.fail-list li { padding: 2px 0; color: var(--text-secondary); }
+.fail-count { display: inline-block; min-width: 2.5em; color: var(--danger); font-weight: 600; font-variant-numeric: tabular-nums; }
+.fail-examples { margin-top: 6px; }
+.fail-examples summary { cursor: pointer; color: var(--text-secondary); }
+.fail-ex-wrap { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.fail-ex { font-size: 0.75rem; }
+.fail-ex-err { color: var(--text-secondary); }
 
 /* ─── Split Copy button (Copy All + ▾ port-mode menu) ─── */
 .split-btn { display: inline-flex; }
@@ -1903,6 +1931,9 @@ const App = (function() {
       'clean.foundPhase1': 'Phase 1: {n} of {t} IPs responded',
       'clean.foundPhase2': 'Phase 2: Found {n} working (scanned {s})',
       'clean.noResults': 'No working IPs found. Try increasing scan depth.',
+      'clean.testedAllFailed': 'tested via xray, all failed',
+      'clean.whyFailed': 'Why validation failed',
+      'clean.failExamples': 'Show example errors',
       'clean.export': 'Export Configs', 'clean.selectAll': 'Select All',
       'clean.coloFilter': 'Colo', 'clean.coloFilterPh': 'e.g. FRA',
       'clean.coloFilterTitle': 'Show only results whose colo or location matches (e.g. FRA, Frankfurt)',
@@ -1987,7 +2018,7 @@ const App = (function() {
       'settings.timeoutLabel': 'Probe timeout (ms)',
       'settings.timeoutTitle': 'Max time to wait for each probe before giving up (default 6000)',
       'clean.timeout1Label': 'Phase 1 timeout (ms)',
-      'clean.timeoutTitle': 'Max time to wait for each Phase 1 TCP probe before giving up (default 3000)',
+      'clean.timeoutTitle': 'How long to WAIT for each Phase 1 TCP probe before giving up (default 3000). This is not a latency filter — keep it generous so slow-but-reachable IPs are still measured. To only keep fast IPs, use the "Max ms" filter on the results instead.',
       'clean.timeout2Label': 'Phase 2 timeout (ms)',
       'clean.timeout2Title': 'Max time per Phase 2 xray validation (SOCKS5 + 204) before giving up (default 5000)',
       'settings.ipTitle': 'IPv4 only, IPv6 only, or both combined',
@@ -2171,6 +2202,9 @@ const App = (function() {
       'clean.foundPhase1': 'فاز ۱: {n} از {t} آی‌پی پاسخ دادند',
       'clean.foundPhase2': 'فاز ۲: {n} آی‌پی working پیدا شد (اسکن {s})',
       'clean.noResults': 'هیچ آی‌پی working پیدا نشد. تعداد اسکن را بیشتر کنید.',
+      'clean.testedAllFailed': 'با xray تست شد، همه ناموفق بودند',
+      'clean.whyFailed': 'چرا اعتبارسنجی ناموفق بود',
+      'clean.failExamples': 'نمایش نمونه خطاها',
       'clean.export': 'خروجی کانفیگ‌ها', 'clean.selectAll': 'انتخاب همه',
       'clean.coloFilter': 'دیتاسنتر', 'clean.coloFilterPh': 'مثل FRA',
       'clean.coloFilterTitle': 'فقط نتایجی که دیتاسنتر یا موقعیتشان مطابقت دارد (مثل FRA، فرانکفورت)',
@@ -2255,7 +2289,7 @@ const App = (function() {
       'settings.timeoutLabel': 'مهلت پروب (میلی‌ثانیه)',
       'settings.timeoutTitle': 'حداکثر زمان انتظار برای هر پروب پیش از انصراف (پیش‌فرض ۶۰۰۰)',
       'clean.timeout1Label': 'مهلت فاز ۱ (میلی‌ثانیه)',
-      'clean.timeoutTitle': 'حداکثر زمان انتظار برای هر پروب TCP فاز ۱ پیش از انصراف (پیش‌فرض ۳۰۰۰)',
+      'clean.timeoutTitle': 'مدت انتظار برای هر پروب TCP فاز ۱ پیش از انصراف (پیش‌فرض ۳۰۰۰). این یک فیلتر تأخیر نیست — آن را به‌اندازه کافی بزرگ نگه دارید تا آی‌پی‌های کند ولی در دسترس هم سنجیده شوند. برای نگه‌داشتن فقط آی‌پی‌های سریع، از فیلتر «حداکثر ms» روی نتایج استفاده کنید.',
       'clean.timeout2Label': 'مهلت فاز ۲ (میلی‌ثانیه)',
       'clean.timeout2Title': 'حداکثر زمان برای هر اعتبارسنجی xray فاز ۲ (SOCKS5 + ۲۰۴) پیش از انصراف (پیش‌فرض ۵۰۰۰)',
       'settings.ipTitle': 'فقط IPv4، فقط IPv6، یا هر دو',
@@ -2903,7 +2937,17 @@ const App = (function() {
       if (sig === state.endpoint.lastSig) return;
       state.endpoint.lastSig = sig;
     }
-    let html = '<div class="results-table-wrap"><table class="results-table"><thead><tr>';
+    // Action bar on top so Copy All / Download etc. are reachable without
+    // scrolling past the table, mid-scan included.
+    let html = '<div class="results-actions results-actions-top">';
+    html += copyAllBtn('App.copyAllEndpoints(\'' + jobId + '\')', t('results.copyAllTitle'));
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadRaw(\'' + jobId + '\')" title="' + t('results.downloadTitle') + '">' + t('results.downloadRaw') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.showEndpointQR()" title="QR">QR</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.copySelectedEndpoints()" title="' + t('results.copySelectedTitle') + '">' + t('results.copySelected') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(true)">' + t('results.selectAll') + '</button>';
+    html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(false)">' + t('results.deselectAll') + '</button>';
+    html += '</div>';
+    html += '<div class="results-table-wrap"><table class="results-table"><thead><tr>';
     html += '<th class="sortable" onclick="App.sortEndpoint(\'num\')">' + t('results.tableNum') + sortIcon('num', state.endpoint.sort) + '</th>';
     html += '<th class="sortable" onclick="App.sortEndpoint(\'endpoint\')">' + t('results.tableEndpoint') + sortIcon('endpoint', state.endpoint.sort) + '</th>';
     html += '<th class="sortable" onclick="App.sortEndpoint(\'latency\')">' + t('results.tableLatency') + sortIcon('latency', state.endpoint.sort) + '</th>';
@@ -2922,16 +2966,6 @@ const App = (function() {
     });
     html += '</tbody></table></div>';
 
-    // Action bar is always present (incl. during live scanning) so Copy All /
-    // Download etc. are reachable without waiting for the scan to finish.
-    html += '<div class="results-actions">';
-    html += copyAllBtn('App.copyAllEndpoints(\'' + jobId + '\')', t('results.copyAllTitle'));
-    html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadRaw(\'' + jobId + '\')" title="' + t('results.downloadTitle') + '">' + t('results.downloadRaw') + '</button>';
-    html += '<button class="btn btn-secondary btn-sm" onclick="App.showEndpointQR()" title="QR">QR</button>';
-    html += '<button class="btn btn-secondary btn-sm" onclick="App.copySelectedEndpoints()" title="' + t('results.copySelectedTitle') + '">' + t('results.copySelected') + '</button>';
-    html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(true)">' + t('results.selectAll') + '</button>';
-    html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllEndpoint(false)">' + t('results.deselectAll') + '</button>';
-    html += '</div>';
     if (data.status === 'done' || data.status === 'cancelled') {
       const label = data.status === 'cancelled' ? t('results.scanCancelled') : t('results.found', { n: data.total, s: data.scanned });
       html += '<div class="' + (data.status === 'cancelled' ? 'error-msg' : 'success-msg') + '">' + label + '</div>';
@@ -3422,6 +3456,31 @@ const App = (function() {
     renderCleanResultsComplete(state.clean.data);
   }
 
+  // Render the Phase-2 failure breakdown (aggregated reasons + a few examples)
+  // so an all-failed or partially-failed validation explains itself instead of
+  // silently showing nothing.
+  function phase2FailHTML(data) {
+    const reasons = data.fail_reasons || {};
+    const keys = Object.keys(reasons);
+    if (!keys.length) return '';
+    keys.sort((a, b) => reasons[b] - reasons[a]);
+    let h = '<div class="fail-panel"><div class="fail-title">' + t('clean.whyFailed') + '</div><ul class="fail-list">';
+    for (const k of keys) {
+      h += '<li><span class="fail-count">' + reasons[k] + '×</span> ' + escapeHtml(k) + '</li>';
+    }
+    h += '</ul>';
+    const ex = (data.failures || []).slice(0, 5);
+    if (ex.length) {
+      h += '<details class="fail-examples"><summary>' + t('clean.failExamples') + '</summary><div class="fail-ex-wrap">';
+      for (const f of ex) {
+        h += '<div class="fail-ex"><span class="tag">' + escapeHtml(f.endpoint) + '</span> <span class="fail-ex-err">' + escapeHtml(f.error || '') + '</span></div>';
+      }
+      h += '</div></details>';
+    }
+    h += '</div>';
+    return h;
+  }
+
   function renderCleanResultsComplete(data) {
     // Polled every 0.8s. While the scan is still running, skip the full rebuild
     // when the result set is unchanged (entry/nearby counts, colo enrichment,
@@ -3469,8 +3528,7 @@ const App = (function() {
       let nearbyHtml = '';
       if (data.phase === 'phase1') {
         nearbyHtml = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundNearby', { n: nearbyEntries.length }) + '</div>';
-        nearbyHtml += renderCleanResultsTable(nearbyData);
-        nearbyHtml += '<div class="results-actions">';
+        nearbyHtml += '<div class="results-actions results-actions-top">';
         nearbyHtml += copyAllBtn('App.copyNearbyIPs()', t('clean.copyAllTitle'));
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.downloadNearbyIPs()">' + t('results.downloadRaw') + '</button>';
         nearbyHtml += '<button class="btn btn-accent btn-sm" onclick="App.pushCleanToReplacer()">' + t('clean.pushToReplacer') + '</button>';
@@ -3478,10 +3536,10 @@ const App = (function() {
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
         nearbyHtml += '</div>';
+        nearbyHtml += renderCleanResultsTable(nearbyData);
       } else {
         nearbyHtml = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundNearbyPhase2', { n: nearbyEntries.length }) + '</div>';
-        nearbyHtml += renderCleanResultsTable(nearbyData);
-        nearbyHtml += '<div class="results-actions">';
+        nearbyHtml += '<div class="results-actions results-actions-top">';
         nearbyHtml += copyAllBtn('App.copyNearbyIPs()', t('clean.copyAllTitle'));
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.downloadNearbyIPs()">' + t('results.downloadRaw') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.exportNearbyIPs()">' + t('clean.export') + '</button>';
@@ -3490,6 +3548,7 @@ const App = (function() {
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
         nearbyHtml += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
         nearbyHtml += '</div>';
+        nearbyHtml += renderCleanResultsTable(nearbyData);
       }
       nearbyContainer.innerHTML = nearbyHtml;
       nearbyContainer.classList.remove('hidden');
@@ -3499,9 +3558,9 @@ const App = (function() {
       if (data.phase === 'phase2' && data.status === 'done') {
         let msg = t('clean.noResults');
         if (data.scanned > 0 && data.phase2_failures > 0) {
-          msg += ' (' + data.scanned + ' tested via xray, all failed)';
+          msg += ' (' + data.scanned + ' ' + t('clean.testedAllFailed') + ')';
         }
-        container.innerHTML = '<div class="empty-state"><p>' + msg + '</p></div>';
+        container.innerHTML = '<div class="empty-state"><p>' + msg + '</p></div>' + phase2FailHTML(data);
         container.classList.remove('hidden');
       }
       return;
@@ -3515,14 +3574,9 @@ const App = (function() {
 
     let html = '';
     if (data.phase === 'phase1') {
-      html = renderCleanResultsTable(filteredData);
-      if (data.status === 'done' || data.status === 'cancelled') {
-        const isCancelled = data.status === 'cancelled';
-        html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + ' status-slot">' +
-          (isCancelled ? t('clean.progressCancelled') : t('clean.foundPhase1', { n: data.total, t: data.phase1_total })) + '</div>';
-      }
-      // Action bar always present so Copy All etc. are reachable mid-scan too.
-      html += '<div class="results-actions">';
+      // Action bar on top so Copy All / Download etc. are reachable without
+      // scrolling past the (possibly long) table, mid-scan included.
+      html += '<div class="results-actions results-actions-top">';
       html += copyAllBtn('App.copyCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')', t('clean.copyAllTitle'));
       html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.showCleanQR()" title="QR">QR</button>';
@@ -3531,10 +3585,14 @@ const App = (function() {
       html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
       html += '</div>';
-    } else {
-      html = '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundPhase2', { n: data.total, s: data.scanned }) + '</div>';
+      if (data.status === 'done' || data.status === 'cancelled') {
+        const isCancelled = data.status === 'cancelled';
+        html += '<div class="' + (isCancelled ? 'error-msg' : 'success-msg') + ' status-slot">' +
+          (isCancelled ? t('clean.progressCancelled') : t('clean.foundPhase1', { n: data.total, t: data.phase1_total })) + '</div>';
+      }
       html += renderCleanResultsTable(filteredData);
-      html += '<div class="results-actions">';
+    } else {
+      html += '<div class="results-actions results-actions-top">';
       html += copyAllBtn('App.copyCleanPhase2IPs()', t('clean.copyAllTitle'));
       html += '<button class="btn btn-secondary btn-sm" onclick="App.downloadCleanPhase1IPs(\'' + (state.clean.jobId || '') + '\')">' + t('results.downloadRaw') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.showCleanQR()" title="QR">QR</button>';
@@ -3544,6 +3602,10 @@ const App = (function() {
       html += '<button class="btn btn-secondary btn-sm" onclick="App.selectAllClean(false)">' + t('clean.deselectAll') + '</button>';
       html += '<button class="btn btn-secondary btn-sm" onclick="App.copyCleanSelectedIPs()" title="' + t('clean.copySelectedTitle') + '">' + t('clean.copySelected') + '</button>';
       html += '</div>';
+      html += '<div class="success-msg" style="margin-bottom:6px">' + t('clean.foundPhase2', { n: data.total, s: data.scanned }) + '</div>';
+      html += renderCleanResultsTable(filteredData);
+      // Even with some passes, show why the rest failed — helps tune timeout/config.
+      html += phase2FailHTML(data);
     }
 
     container.innerHTML = html;

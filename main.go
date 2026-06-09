@@ -47,6 +47,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	// xray exists — confirm it actually runs. A broken binary otherwise fails
+	// every clean-IP Phase-2 check silently; warn loudly but don't exit, since
+	// the WARP scanner's native handshake path works without xray.
+	if warn := VerifyXrayRunnable(xrayPath); warn != "" {
+		fmt.Println()
+		fmt.Println(warn)
+		fmt.Println()
+	}
+
 	port, err := startServer(xrayPath)
 	if err != nil {
 		fmt.Printf("Failed to start server: %v\n", err)

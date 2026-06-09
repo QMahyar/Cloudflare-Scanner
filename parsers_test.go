@@ -162,6 +162,66 @@ func TestParseProxyURL_VLESS(t *testing.T) {
 	}
 }
 
+func TestParseProxyURL_WSEarlyDataAndHostFallback(t *testing.T) {
+	// A BPB-style config: WS early-data params must be parsed, and the xray
+	// validation JSON must carry them plus the Host header.
+	raw := "vless://uuid-ed@162.159.82.8:2087?security=tls&sni=panel.example.ir&type=ws&host=panel.example.ir&path=/p&max_early_data=2560&early_data_header_name=Sec-WebSocket-Protocol"
+	cfg, err := ParseProxyURL(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.MaxEarlyData != 2560 {
+		t.Errorf("wrong MaxEarlyData: %d", cfg.MaxEarlyData)
+	}
+	if cfg.EarlyDataHeaderName != "Sec-WebSocket-Protocol" {
+		t.Errorf("wrong EarlyDataHeaderName: %q", cfg.EarlyDataHeaderName)
+	}
+
+	// Round-trip through the share URL must preserve the early-data params.
+	round, err := ParseProxyURL(cfg.GenerateShareURL())
+	if err != nil {
+		t.Fatalf("round-trip parse error: %v", err)
+	}
+	if round.MaxEarlyData != 2560 || round.EarlyDataHeaderName != "Sec-WebSocket-Protocol" {
+		t.Errorf("early-data lost in round-trip: %d %q", round.MaxEarlyData, round.EarlyDataHeaderName)
+	}
+
+	// The generated xray config must contain the WS Host header + early data.
+	path, err := cfg.BuildXrayJSON("162.159.82.8:2087", 35999)
+	if err != nil {
+		t.Fatalf("BuildXrayJSON error: %v", err)
+	}
+	defer os.RemoveAll(filepath.Dir(path))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	js := string(data)
+	for _, want := range []string{`"maxEarlyData": 2560`, `"earlyDataHeaderName": "Sec-WebSocket-Protocol"`, `"Host": "panel.example.ir"`} {
+		if !strings.Contains(js, want) {
+			t.Errorf("xray config missing %s\n%s", want, js)
+		}
+	}
+}
+
+func TestBuildXrayJSON_WSHostFallsBackToSNI(t *testing.T) {
+	// No host= param: validation must fall back to SNI for the WS Host header so
+	// Cloudflare can route a CDN-fronted config (matches GenerateShareURL).
+	cfg := &ProxyConfig{
+		Protocol: "vless", UUID: "u", Address: "1.2.3.4", Port: 443,
+		Security: "tls", SNI: "edge.example.com", Network: "ws", Path: "/",
+	}
+	path, err := cfg.BuildXrayJSON("", 35998)
+	if err != nil {
+		t.Fatalf("BuildXrayJSON error: %v", err)
+	}
+	defer os.RemoveAll(filepath.Dir(path))
+	data, _ := os.ReadFile(path)
+	if !strings.Contains(string(data), `"Host": "edge.example.com"`) {
+		t.Errorf("WS Host did not fall back to SNI:\n%s", string(data))
+	}
+}
+
 func TestParseProxyURL_Trojan(t *testing.T) {
 	raw := "trojan://password123@192.168.1.1:8443?security=tls&sni=host.example"
 	cfg, err := ParseProxyURL(raw)
