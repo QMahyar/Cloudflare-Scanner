@@ -1011,6 +1011,31 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
 .adv-settings > summary:hover { color: var(--text-primary); }
 .adv-settings[open] > summary { margin-bottom: var(--space-md); }
 
+/* ─── "Getting WARP configs" link tiles ─── */
+.help-cat { display: flex; align-items: center; gap: 7px; }
+.help-cat svg { width: 15px; height: 15px; color: var(--accent); flex-shrink: 0; }
+.link-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 16px; }
+@media (min-width: 560px) { .link-grid { grid-template-columns: 1fr 1fr; } }
+.link-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.link-tile:hover { border-color: var(--border-accent); background: var(--bg-hover); transform: translateY(-1px); }
+.link-tile-name { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; font-weight: 600; color: var(--text-heading); min-width: 0; }
+.link-tile-name > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.link-tile-name::after { content: '↗'; margin-left: auto; padding-left: 6px; color: var(--text-tertiary); font-size: 0.8125rem; transition: color 0.15s, transform 0.15s; }
+.link-tile:hover .link-tile-name::after { color: var(--accent); transform: translate(2px, -2px); }
+.link-tile-desc { font-size: 0.6875rem; color: var(--text-secondary); line-height: 1.45; }
+.rec-pill { flex-shrink: 0; font-size: 0.5625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 6px; border-radius: var(--radius-full); background: var(--accent-soft-strong); color: var(--accent-2); }
+body[dir="rtl"] .link-tile-name::after { content: '↖'; margin-left: 0; margin-right: auto; padding-left: 0; padding-right: 6px; }
+
 /* ─── Focus Accessibility ─── */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -1260,38 +1285,38 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 
     <div class="card">
       <details class="help-panel">
-        <summary data-t="help.header">Getting Warp Configs</summary>
-        <p class="desc" style="margin-top:8px" data-t="help.desc">Where to get WireGuard configs for Cloudflare Warp:</p>
+        <summary data-t="help.header">Getting WARP Configs</summary>
+        <p class="desc" style="margin-top:8px" data-t="help.desc">WARP needs a WireGuard config (.conf). Grab one from any source below, then upload it above.</p>
 
-        <h3 data-t="help.onlineGen">Online Generators</h3>
-        <div class="help-list">
-          <div><a class="help-link" href="https://warp-generator.github.io/warp/" target="_blank" rel="noopener">&rarr; warp-generator.github.io/warp/</a> <span class="muted-inline" data-t="help.gen1">- configs with license key, multiple formats</span></div>
-          <div><a class="help-link" href="https://lanrat.github.io/wireguard-warp-generator/" target="_blank" rel="noopener">&rarr; lanrat.github.io/wireguard-warp-generator/</a> <span class="muted-inline" data-t="help.gen2">- browser-based, client-side, QR support</span></div>
-          <div><a class="help-link" href="https://warp-mirrors.vercel.app/" target="_blank" rel="noopener">&rarr; warp-mirrors.vercel.app</a> <span class="muted-inline" data-t="help.gen3">- multi-server generator (WG, AWG, WireSock, Clash)</span></div>
-          <div><a class="help-link" href="https://warp.llimonix.pw/" target="_blank" rel="noopener">&rarr; warp.llimonix.pw</a> <span class="muted-inline" data-t="help.gen4">- region-specific servers, Telegram auth for extras</span></div>
-          <div><a class="help-link" href="https://warpper.me/" target="_blank" rel="noopener">&rarr; warpper.me</a> <span class="muted-inline" data-t="help.gen5">- clean UI, generates WG/AWG configs</span></div>
+        <h3 class="help-cat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span data-t="help.onlineGen">Online Generators</span></h3>
+        <div class="link-grid">
+          <a class="link-tile" href="https://warp-generator.github.io/warp/" target="_blank" rel="noopener"><span class="link-tile-name"><span>warp-generator.github.io</span><span class="rec-pill" data-t="help.recommended">Recommended</span></span><span class="link-tile-desc" data-t="help.gen1">Configs with license key, multiple formats</span></a>
+          <a class="link-tile" href="https://lanrat.github.io/wireguard-warp-generator/" target="_blank" rel="noopener"><span class="link-tile-name"><span>lanrat.github.io</span></span><span class="link-tile-desc" data-t="help.gen2">Browser-based, client-side, QR support</span></a>
+          <a class="link-tile" href="https://warp-mirrors.vercel.app/" target="_blank" rel="noopener"><span class="link-tile-name"><span>warp-mirrors.vercel.app</span></span><span class="link-tile-desc" data-t="help.gen3">Multi-server generator (WG, AWG, WireSock, Clash)</span></a>
+          <a class="link-tile" href="https://warp.llimonix.pw/" target="_blank" rel="noopener"><span class="link-tile-name"><span>warp.llimonix.pw</span></span><span class="link-tile-desc" data-t="help.gen4">Region-specific servers, Telegram auth for extras</span></a>
+          <a class="link-tile" href="https://warpper.me/" target="_blank" rel="noopener"><span class="link-tile-name"><span>warpper.me</span></span><span class="link-tile-desc" data-t="help.gen5">Clean UI, generates WG/AWG configs</span></a>
         </div>
 
-        <h3 data-t="help.telegram">Telegram</h3>
-        <div class="help-list">
-          <div><a class="help-link" href="https://t.me/warp_generator_bot" target="_blank" rel="noopener">&rarr; @warp_generator_bot</a> <span class="muted-inline" data-t="help.tg1">- 54k+ users, generates WG/AWG configs, region selection</span></div>
-          <div><a class="help-link" href="https://t.me/WarpGenerator_bot" target="_blank" rel="noopener">&rarr; @WarpGenerator_bot</a> <span class="muted-inline" data-t="help.tg2">- WireGuard + AmneziaWG config generator</span></div>
-          <div><a class="help-link" href="https://github.com/cat228608/Warp-Generator-Bot" target="_blank" rel="noopener">&rarr; Warp-Generator-Bot (GitHub)</a> <span class="muted-inline" data-t="help.tg3">- open-source bot, uses 3 API sources</span></div>
-          <div><a class="help-link" href="https://t.me/ConfigWireguard" target="_blank" rel="noopener">&rarr; @ConfigWireguard</a> <span class="muted-inline" data-t="help.tg4">- 20k+ subs, shares Warp/WireGuard configs daily</span></div>
-          <div><a class="help-link" href="https://t.me/str_bypass" target="_blank" rel="noopener">&rarr; str_bypass</a> <span class="muted-inline" data-t="help.tg5">- Warp config channel</span></div>
-          <div><a class="help-link" href="https://t.me/findllimonix" target="_blank" rel="noopener">&rarr; @findllimonix</a> <span class="muted-inline" data-t="help.tg6">- llimonix/Warp updates channel</span></div>
+        <h3 class="help-cat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 4.5 2.5 12l6 2m13-9.5-3 15-7-5.5m10-9.5L8.5 16m0 0V21l3.5-4"/></svg><span data-t="help.telegram">Telegram</span></h3>
+        <div class="link-grid">
+          <a class="link-tile" href="https://t.me/warp_generator_bot" target="_blank" rel="noopener"><span class="link-tile-name"><span>@warp_generator_bot</span></span><span class="link-tile-desc" data-t="help.tg1">54k+ users, generates WG/AWG configs, region selection</span></a>
+          <a class="link-tile" href="https://t.me/WarpGenerator_bot" target="_blank" rel="noopener"><span class="link-tile-name"><span>@WarpGenerator_bot</span></span><span class="link-tile-desc" data-t="help.tg2">WireGuard + AmneziaWG config generator</span></a>
+          <a class="link-tile" href="https://github.com/cat228608/Warp-Generator-Bot" target="_blank" rel="noopener"><span class="link-tile-name"><span>Warp-Generator-Bot</span></span><span class="link-tile-desc" data-t="help.tg3">Open-source bot, uses 3 API sources</span></a>
+          <a class="link-tile" href="https://t.me/ConfigWireguard" target="_blank" rel="noopener"><span class="link-tile-name"><span>@ConfigWireguard</span></span><span class="link-tile-desc" data-t="help.tg4">20k+ subs, shares Warp/WireGuard configs daily</span></a>
+          <a class="link-tile" href="https://t.me/str_bypass" target="_blank" rel="noopener"><span class="link-tile-name"><span>@str_bypass</span></span><span class="link-tile-desc" data-t="help.tg5">Warp config channel</span></a>
+          <a class="link-tile" href="https://t.me/findllimonix" target="_blank" rel="noopener"><span class="link-tile-name"><span>@findllimonix</span></span><span class="link-tile-desc" data-t="help.tg6">llimonix/Warp updates channel</span></a>
         </div>
 
-        <h3 data-t="help.cliTools">CLI Tools</h3>
-        <div class="help-list">
-          <div><a class="help-link" href="https://github.com/ViRb3/wgcf" target="_blank" rel="noopener">&rarr; ViRb3/wgcf</a> <span class="muted-inline" data-t="help.cli1">- the classic CLI generator, register + generate from terminal</span></div>
-          <div><a class="help-link" href="https://github.com/lanrat/wireguard-warp-generator" target="_blank" rel="noopener">&rarr; lanrat/wireguard-warp-generator</a> <span class="muted-inline" data-t="help.cli2">- shell scripts, QR code for mobile</span></div>
-          <div><a class="help-link" href="https://github.com/AnimMouse/wgcf-connector" target="_blank" rel="noopener">&rarr; AnimMouse/wgcf-connector</a> <span class="muted-inline" data-t="help.cli3">- extracts WARP Connector configs for site-to-site VPN</span></div>
-          <div><a class="help-link" href="https://gitlab.com/ImMALWARE/bash-warp-generator" target="_blank" rel="noopener">&rarr; ImMALWARE/bash-warp-generator</a> <span class="muted-inline" data-t="help.cli4">- bash script for AmneziaWG Warp configs</span></div>
-          <div><a class="help-link" href="https://github.com/barry-far/V2ray-Config" target="_blank" rel="noopener">&rarr; barry-far/V2ray-Config</a> <span class="muted-inline" data-t="help.cli5">- GitHub repo with free V2ray/Warp configs</span></div>
+        <h3 class="help-cat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><span data-t="help.cliTools">CLI Tools</span></h3>
+        <div class="link-grid">
+          <a class="link-tile" href="https://github.com/ViRb3/wgcf" target="_blank" rel="noopener"><span class="link-tile-name"><span>ViRb3/wgcf</span></span><span class="link-tile-desc" data-t="help.cli1">The classic CLI generator, register + generate from terminal</span></a>
+          <a class="link-tile" href="https://github.com/lanrat/wireguard-warp-generator" target="_blank" rel="noopener"><span class="link-tile-name"><span>lanrat/wireguard-warp-generator</span></span><span class="link-tile-desc" data-t="help.cli2">Shell scripts, QR code for mobile</span></a>
+          <a class="link-tile" href="https://github.com/AnimMouse/wgcf-connector" target="_blank" rel="noopener"><span class="link-tile-name"><span>AnimMouse/wgcf-connector</span></span><span class="link-tile-desc" data-t="help.cli3">Extracts WARP Connector configs for site-to-site VPN</span></a>
+          <a class="link-tile" href="https://gitlab.com/ImMALWARE/bash-warp-generator" target="_blank" rel="noopener"><span class="link-tile-name"><span>ImMALWARE/bash-warp-generator</span></span><span class="link-tile-desc" data-t="help.cli4">Bash script for AmneziaWG Warp configs</span></a>
+          <a class="link-tile" href="https://github.com/barry-far/V2ray-Config" target="_blank" rel="noopener"><span class="link-tile-name"><span>barry-far/V2ray-Config</span></span><span class="link-tile-desc" data-t="help.cli5">GitHub repo with free V2ray/Warp configs</span></a>
         </div>
 
-        <h3 data-t="help.clientApps">Client Apps</h3>
+        <h3 class="help-cat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg><span data-t="help.clientApps">Client Apps</span></h3>
         <div class="app-grid">
           <div class="app-card">
             <h3>Amnezia VPN</h3>
@@ -1835,26 +1860,27 @@ const App = (function() {
       'apply.outputPlaceholder': 'e.g. E:\\vpn\\WG Configs\\modified',
       'apply.generate': 'Generate Configs', 'apply.generating': 'Generating...',
       'apply.generated': 'Generated {s}/{t} configs',
-      'help.header': 'Getting Warp Configs',
-      'help.desc': 'Where to get WireGuard configs for Cloudflare Warp:',
+      'help.header': 'Getting WARP Configs',
+      'help.desc': 'WARP needs a WireGuard config (.conf). Grab one from any source below, then upload it above. These are community tools — pick whichever works in your region.',
+      'help.recommended': 'Recommended',
       'help.onlineGen': 'Online Generators',
-      'help.gen1': '- configs with license key, multiple formats',
-      'help.gen2': '- browser-based, client-side, QR support',
-      'help.gen3': '- multi-server generator (WG, AWG, WireSock, Clash)',
-      'help.gen4': '- region-specific servers, Telegram auth for extras',
-      'help.gen5': '- clean UI, generates WG/AWG configs',
+      'help.gen1': 'Configs with license key, multiple formats',
+      'help.gen2': 'Browser-based, client-side, QR support',
+      'help.gen3': 'Multi-server generator (WG, AWG, WireSock, Clash)',
+      'help.gen4': 'Region-specific servers, Telegram auth for extras',
+      'help.gen5': 'Clean UI, generates WG/AWG configs',
       'help.telegram': 'Telegram',
-      'help.tg1': '- 54k+ users, generates WG/AWG configs, region selection',
-      'help.tg2': '- WireGuard + AmneziaWG config generator',
-      'help.tg3': '- open-source bot, uses 3 API sources',
-      'help.tg4': '- 20k+ subs, shares Warp/WireGuard configs daily',
-      'help.tg5': '- Warp config channel', 'help.tg6': '- llimonix/Warp updates channel',
+      'help.tg1': '54k+ users, generates WG/AWG configs, region selection',
+      'help.tg2': 'WireGuard + AmneziaWG config generator',
+      'help.tg3': 'Open-source bot, uses 3 API sources',
+      'help.tg4': '20k+ subs, shares Warp/WireGuard configs daily',
+      'help.tg5': 'Warp config channel', 'help.tg6': 'llimonix/Warp updates channel',
       'help.cliTools': 'CLI Tools',
-      'help.cli1': '- the classic CLI generator, register + generate from terminal',
-      'help.cli2': '- shell scripts, QR code for mobile',
-      'help.cli3': '- extracts WARP Connector configs for site-to-site VPN',
-      'help.cli4': '- bash script for AmneziaWG Warp configs',
-      'help.cli5': '- GitHub repo with free V2ray/Warp configs',
+      'help.cli1': 'The classic CLI generator, register + generate from terminal',
+      'help.cli2': 'Shell scripts, QR code for mobile',
+      'help.cli3': 'Extracts WARP Connector configs for site-to-site VPN',
+      'help.cli4': 'Bash script for AmneziaWG Warp configs',
+      'help.cli5': 'GitHub repo with free V2ray/Warp configs',
       'help.clientApps': 'Client Apps',
       'help.app1': 'Open-source, built-in Warp config generator, split tunneling, containers.',
       'help.app2': 'Lightweight WireGuard client, advanced routing, DNS control, split tunneling.',
@@ -2103,25 +2129,26 @@ const App = (function() {
       'apply.generate': 'ساخت کانفیگ‌ها', 'apply.generating': 'در حال ساخت...',
       'apply.generated': '{s}/{t} کانفیگ ساخته شد',
       'help.header': 'دریافت کانفیگ واپ',
-      'help.desc': 'از کجا کانفیگ WireGuard برای کلاودفلر واپ بگیریم:',
+      'help.desc': 'واپ به یک کانفیگ WireGuard (.conf) نیاز دارد. از هر منبع زیر یکی بگیرید و در بالا آپلود کنید. این‌ها ابزارهای جامعه‌اند — هرکدام که در منطقه شما کار می‌کند را انتخاب کنید.',
+      'help.recommended': 'پیشنهادی',
       'help.onlineGen': 'تولیدکننده‌های آنلاین',
-      'help.gen1': '- کانفیگ با لایسنس، چندین فرمت',
-      'help.gen2': '- مبتنی بر مرورگر، بدون سرور، پشتیبانی QR',
-      'help.gen3': '- تولیدکننده چند سروره (WG, AWG, WireSock, Clash)',
-      'help.gen4': '- سرورهای منطقه‌ای، احراز تلگرام برای امکانات اضافه',
-      'help.gen5': '- رابط کاربری تمیز، تولید کانفیگ WG/AWG',
+      'help.gen1': 'کانفیگ با لایسنس، چندین فرمت',
+      'help.gen2': 'مبتنی بر مرورگر، بدون سرور، پشتیبانی QR',
+      'help.gen3': 'تولیدکننده چند سروره (WG, AWG, WireSock, Clash)',
+      'help.gen4': 'سرورهای منطقه‌ای، احراز تلگرام برای امکانات اضافه',
+      'help.gen5': 'رابط کاربری تمیز، تولید کانفیگ WG/AWG',
       'help.telegram': 'تلگرام',
-      'help.tg1': '- ۵۴هزار+ کاربر، تولید کانفیگ WG/AWG، انتخاب منطقه',
-      'help.tg2': '- تولیدکننده کانفیگ WireGuard + AmneziaWG',
-      'help.tg3': '- ربات متن‌باز، استفاده از ۳ منبع API',
-      'help.tg4': '- ۲۰هزار+ عضو، اشتراک روزانه کانفیگ واپ',
-      'help.tg5': '- کانال کانفیگ واپ', 'help.tg6': '- کانال به‌روزرسانی llimonix/Warp',
+      'help.tg1': '۵۴هزار+ کاربر، تولید کانفیگ WG/AWG، انتخاب منطقه',
+      'help.tg2': 'تولیدکننده کانفیگ WireGuard + AmneziaWG',
+      'help.tg3': 'ربات متن‌باز، استفاده از ۳ منبع API',
+      'help.tg4': '۲۰هزار+ عضو، اشتراک روزانه کانفیگ واپ',
+      'help.tg5': 'کانال کانفیگ واپ', 'help.tg6': 'کانال به‌روزرسانی llimonix/Warp',
       'help.cliTools': 'ابزارهای خط فرمان',
-      'help.cli1': '- تولیدکننده کلاسیک CLI، ثبت نام + تولید از ترمینال',
-      'help.cli2': '- اسکریپت‌های شل، QR کد برای موبایل',
-      'help.cli3': '- استخراج کانفیگ WARP Connector برای VPN site-to-site',
-      'help.cli4': '- اسکریپت bash برای کانفیگ AmneziaWG واپ',
-      'help.cli5': '- ریپوی گیت‌هاب با کانفیگ رایگان V2ray/Warp',
+      'help.cli1': 'تولیدکننده کلاسیک CLI، ثبت نام + تولید از ترمینال',
+      'help.cli2': 'اسکریپت‌های شل، QR کد برای موبایل',
+      'help.cli3': 'استخراج کانفیگ WARP Connector برای VPN site-to-site',
+      'help.cli4': 'اسکریپت bash برای کانفیگ AmneziaWG واپ',
+      'help.cli5': 'ریپوی گیت‌هاب با کانفیگ رایگان V2ray/Warp',
       'help.clientApps': 'برنامه‌های کلاینت',
       'help.app1': 'متن‌باز، تولیدکننده کانفیگ واپ داخلی، split tunneling، کانتینرها.',
       'help.app2': 'کلاینت سبک WireGuard، مسیریابی پیشرفته، کنترل DNS، split tunneling.',
