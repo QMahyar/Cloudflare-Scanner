@@ -999,6 +999,18 @@ body[dir="rtl"] details[open] summary::before { transform: scaleX(-1) rotate(90d
 .help-panel .help-list > div { padding: 7px 10px; border-radius: var(--radius-sm); background: var(--accent-soft); border: 1px solid rgba(246, 130, 31, 0.1); transition: all 0.15s var(--ease); }
 .help-panel .help-list > div:hover { border-color: var(--border-accent); background: var(--accent-soft-strong); }
 
+/* ─── Advanced settings disclosure ─── */
+.adv-settings { margin-top: var(--space-md); border-top: 1px solid var(--border); padding-top: var(--space-sm); }
+.adv-settings > summary {
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.adv-settings > summary:hover { color: var(--text-primary); }
+.adv-settings[open] > summary { margin-bottom: var(--space-md); }
+
 /* ─── Focus Accessibility ─── */
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -1175,36 +1187,39 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
           </select>
         </div>
       </div>
-      <div class="row">
-        <div class="col">
-          <div class="toggle-wrap">
-            <label class="toggle" data-t-title="settings.noiseTitle" aria-label="Toggle UDP noise">
-              <input type="checkbox" id="noiseToggle" checked>
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label" data-t="settings.noise" data-t-title="settings.noiseTitle">UDP Noise (bypass ISP blocking)</span>
+      <details class="adv-settings" id="endpointAdv">
+        <summary data-t="settings.advanced">Advanced settings</summary>
+        <div class="row">
+          <div class="col">
+            <div class="toggle-wrap">
+              <label class="toggle" data-t-title="settings.noiseTitle" aria-label="Toggle UDP noise">
+                <input type="checkbox" id="noiseToggle" checked>
+                <span class="slider"></span>
+              </label>
+              <span class="toggle-label" data-t="settings.noise" data-t-title="settings.noiseTitle">UDP Noise (bypass ISP blocking)</span>
+            </div>
+          </div>
+          <div class="col">
+            <label for="endpointTimeout" data-t="settings.timeoutLabel" data-t-title="settings.timeoutTitle">Probe timeout (ms)</label>
+            <input type="text" id="endpointTimeout" value="6000" inputmode="numeric" data-t-title="settings.timeoutTitle">
           </div>
         </div>
-        <div class="col">
-          <label for="endpointTimeout" data-t="settings.timeoutLabel" data-t-title="settings.timeoutTitle">Probe timeout (ms)</label>
-          <input type="text" id="endpointTimeout" value="6000" inputmode="numeric" data-t-title="settings.timeoutTitle">
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <label for="stopAfter" data-t="settings.stopAfter" data-t-title="settings.stopAfterTitle">Stop after N results (0 = scan all)</label>
-          <input type="text" id="stopAfter" value="0" inputmode="numeric" data-t-title="settings.stopAfterTitle">
-        </div>
-        <div class="col">
-          <div class="toggle-wrap" style="padding-top:22px">
-            <label class="toggle" data-t-title="settings.notifyTitle" aria-label="Toggle completion notification">
-              <input type="checkbox" id="notifyEndpoint">
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label" data-t="settings.notify" data-t-title="settings.notifyTitle">Notify when finished</span>
+        <div class="row">
+          <div class="col">
+            <label for="stopAfter" data-t="settings.stopAfter" data-t-title="settings.stopAfterTitle">Stop after N results (0 = scan all)</label>
+            <input type="text" id="stopAfter" value="0" inputmode="numeric" data-t-title="settings.stopAfterTitle">
+          </div>
+          <div class="col">
+            <div class="toggle-wrap" style="padding-top:22px">
+              <label class="toggle" data-t-title="settings.notifyTitle" aria-label="Toggle completion notification">
+                <input type="checkbox" id="notifyEndpoint">
+                <span class="slider"></span>
+              </label>
+              <span class="toggle-label" data-t="settings.notify" data-t-title="settings.notifyTitle">Notify when finished</span>
+            </div>
           </div>
         </div>
-      </div>
+      </details>
       <div class="scan-desc" id="endpointScanDesc"></div>
     </div>
 
@@ -1373,6 +1388,8 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
           </select>
         </div>
       </div>
+      <details class="adv-settings" id="cleanAdv">
+        <summary data-t="settings.advanced">Advanced settings</summary>
       <div class="row">
         <div class="col">
           <label for="phase1Probes" data-t="clean.probesLabel" data-t-title="clean.probesTitle">Phase 1 probes</label>
@@ -1467,6 +1484,7 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
           </div>
         </div>
       </div>
+      </details>
       <div class="scan-desc" id="cleanScanDesc"></div>
     </div>
 
@@ -1733,6 +1751,7 @@ const App = (function() {
       'settings.ipv6': 'IPv6 only', 'settings.ipv46': 'IPv4 + IPv6',
       'settings.outCount': 'Results to show',
       'settings.noise': 'UDP Noise (bypass ISP blocking)',
+      'settings.advanced': 'Advanced settings',
       'settings.stopAfter': 'Stop after N results (0 = scan all)',
       'settings.stopAfterTitle': 'Stop the scan automatically once this many working endpoints are found (0 = scan everything)',
       'settings.notify': 'Notify when finished',
@@ -1984,6 +2003,7 @@ const App = (function() {
       'settings.ipv6': 'فقط IPv6', 'settings.ipv46': 'IPv4 + IPv6',
       'settings.outCount': 'نتایج برای نمایش',
       'settings.noise': 'نویز UDP (عبور از مسدودسازی ISP)',
+      'settings.advanced': 'تنظیمات پیشرفته',
       'settings.stopAfter': 'توقف بعد از N نتیجه (۰ = اسکن همه)',
       'settings.stopAfterTitle': 'اسکن به‌طور خودکار وقتی این تعداد اندپوینت working پیدا شد متوقف می‌شود (۰ = اسکن همه)',
       'settings.notify': 'اطلاع هنگام اتمام',
@@ -3924,6 +3944,8 @@ const App = (function() {
       });
       data.cleanSource = state.clean.source;
       data.cleanPorts = Array.from(document.querySelectorAll('.clean-port-cb')).map(cb => ({ v: cb.value, c: cb.checked }));
+      data.endpointAdv = !!$('#endpointAdv')?.open;
+      data.cleanAdv = !!$('#cleanAdv')?.open;
       localStorage.setItem('cfscanner_settings', JSON.stringify(data));
     } catch {}
   }
@@ -3966,6 +3988,8 @@ const App = (function() {
     if (data.cleanSource) {
       selectCleanSource(data.cleanSource, document.getElementById(data.cleanSource === 'custom' ? 'cleanSrcCustom' : 'cleanSrcPool'));
     }
+    if ($('#endpointAdv') && typeof data.endpointAdv === 'boolean') $('#endpointAdv').open = data.endpointAdv;
+    if ($('#cleanAdv') && typeof data.cleanAdv === 'boolean') $('#cleanAdv').open = data.cleanAdv;
     // Re-run the config toggles so dependent fields/visibility reflect restored values.
     $('#useConfigEndpoint').dispatchEvent(new Event('change'));
     $('#useConfigClean').dispatchEvent(new Event('change'));
