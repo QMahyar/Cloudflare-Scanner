@@ -11,8 +11,8 @@ import (
 )
 
 // GitHubRepo is the "owner/name" slug used for the source link and the update
-// check. TODO: replace with the real repository before release.
-const GitHubRepo = "YOUR_USERNAME/Cloudflare-Scanner"
+// check.
+const GitHubRepo = "QMahyar/Cloudflare-Scanner"
 
 // handleVersion reports the running build version and the source repo so the UI
 // has a single source of truth for the GitHub link.

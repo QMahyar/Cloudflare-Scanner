@@ -780,6 +780,8 @@ body[dir="rtl"] .copy-menu-item { text-align: right; }
   align-items: center;
 }
 @media (max-width: 480px) { .donate-addr { font-size: 0.6875rem; } .donate-addr-row .btn { flex: 1; } }
+.donate-note { margin-top: 8px; font-size: 0.6875rem; line-height: 1.55; color: var(--text-secondary); }
+.donate-note b { color: var(--text-primary); font-weight: 600; }
 
 /* ─── App Grid ─── */
 .app-grid {
@@ -1593,30 +1595,43 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
       <p class="desc" data-t="about.donateDesc">If this tool saved you time, a small crypto tip helps keep it maintained. USDT on TRON (TRC-20) has the lowest fees and is the easiest to send.</p>
 
       <div class="donate-row">
-        <div class="donate-coin"><span class="donate-badge">USDT · TRON (TRC-20)</span><span class="donate-hint" data-t="about.donateRecommended">recommended — lowest fees</span></div>
+        <div class="donate-coin"><span class="donate-badge">TRON (TRC-20)</span><span class="donate-hint" data-t="about.donateRecommended">recommended — lowest fees</span></div>
         <div class="donate-addr-row">
           <code class="donate-addr" id="addrTrx"></code>
-          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('trx')" data-t="results.copyAll">Copy</button>
+          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('trx')" data-t="buttons.copy">Copy</button>
           <button class="btn btn-secondary btn-sm" onclick="App.showAddrQR('trx')">QR</button>
         </div>
+        <p class="donate-note" data-t-html="about.noteTrx">Send TRX or any TRC-20 token. <b>USDT (TRC-20)</b> is the cheapest and most widely used — usually about $1 in fees.</p>
+      </div>
+
+      <div class="donate-row">
+        <div class="donate-coin"><span class="donate-badge">TON</span></div>
+        <div class="donate-addr-row">
+          <code class="donate-addr" id="addrTon"></code>
+          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('ton')" data-t="buttons.copy">Copy</button>
+          <button class="btn btn-secondary btn-sm" onclick="App.showAddrQR('ton')">QR</button>
+        </div>
+        <p class="donate-note" data-t-html="about.noteTon">Send Toncoin (TON) or TON Jettons, including <b>native USDT on TON</b>. Fees are a fraction of a cent.</p>
+      </div>
+
+      <div class="donate-row">
+        <div class="donate-coin"><span class="donate-badge">EVM (Ethereum · BSC · Polygon · L2s)</span></div>
+        <div class="donate-addr-row">
+          <code class="donate-addr" id="addrEvm"></code>
+          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('evm')" data-t="buttons.copy">Copy</button>
+          <button class="btn btn-secondary btn-sm" onclick="App.showAddrQR('evm')">QR</button>
+        </div>
+        <p class="donate-note" data-t-html="about.noteEvm">One address for all EVM chains. Send ETH / BNB / MATIC, or tokens like <b>USDT / USDC (ERC-20 or BEP-20)</b>. Use BNB Smart Chain, Polygon, or an L2 for low fees. <b>EVM networks only.</b></p>
       </div>
 
       <div class="donate-row">
         <div class="donate-coin"><span class="donate-badge">Bitcoin (BTC)</span></div>
         <div class="donate-addr-row">
           <code class="donate-addr" id="addrBtc"></code>
-          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('btc')" data-t="results.copyAll">Copy</button>
+          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('btc')" data-t="buttons.copy">Copy</button>
           <button class="btn btn-secondary btn-sm" onclick="App.showAddrQR('btc')">QR</button>
         </div>
-      </div>
-
-      <div class="donate-row">
-        <div class="donate-coin"><span class="donate-badge">Ethereum (ETH · ERC-20)</span></div>
-        <div class="donate-addr-row">
-          <code class="donate-addr" id="addrEth"></code>
-          <button class="btn btn-secondary btn-sm" onclick="App.copyAddr('eth')" data-t="results.copyAll">Copy</button>
-          <button class="btn btn-secondary btn-sm" onclick="App.showAddrQR('eth')">QR</button>
-        </div>
+        <p class="donate-note" data-t-html="about.noteBtc">Bitcoin only — send <b>BTC</b> on the Bitcoin network (native SegWit). Don't send tokens here.</p>
       </div>
 
       <p class="muted-inline" style="margin-top:var(--space-sm);display:block" data-t="about.credits">Built with xray-core. Thanks to the WARP and v2ray communities.</p>
@@ -1872,6 +1887,11 @@ const App = (function() {
       'about.donateHeader': 'Support development',
       'about.donateDesc': 'If this tool saved you time, a small crypto tip helps keep it maintained. USDT on TRON (TRC-20) has the lowest fees and is the easiest to send.',
       'about.donateRecommended': 'recommended — lowest fees',
+      'about.noteTrx': 'Send TRX or any TRC-20 token. <b>USDT (TRC-20)</b> is the cheapest and most widely used — usually about $1 in fees.',
+      'about.noteTon': 'Send Toncoin (TON) or TON Jettons, including <b>native USDT on TON</b>. Fees are a fraction of a cent.',
+      'about.noteEvm': 'One address for all EVM chains. Send ETH / BNB / MATIC, or tokens like <b>USDT / USDC (ERC-20 or BEP-20)</b>. Use BNB Smart Chain, Polygon, or an L2 for low fees. <b>EVM networks only.</b>',
+      'about.noteBtc': 'Bitcoin only — send <b>BTC</b> on the Bitcoin network (native SegWit). Don\'t send tokens here.',
+      'buttons.copy': 'Copy',
       'about.credits': 'Built with xray-core. Thanks to the WARP and v2ray communities.',
       'qr.title': 'QR Code',
       'results.copySelected': 'Copy Selected',
@@ -2099,6 +2119,11 @@ const App = (function() {
       'about.donateHeader': 'حمایت از توسعه',
       'about.donateDesc': 'اگر این ابزار به شما کمک کرد، یک کمک کوچک کریپتویی به نگهداری آن کمک می‌کند. USDT روی ترون (TRC-20) کمترین کارمزد و آسان‌ترین روش ارسال است.',
       'about.donateRecommended': 'پیشنهادی — کمترین کارمزد',
+      'about.noteTrx': 'TRX یا هر توکن TRC-20 بفرستید. <b>USDT (TRC-20)</b> ارزان‌ترین و پرکاربردترین است — معمولاً حدود ۱ دلار کارمزد.',
+      'about.noteTon': 'تون‌کوین (TON) یا جتون‌های TON بفرستید، از جمله <b>USDT بومی روی TON</b>. کارمزد در حد کسری از یک سنت است.',
+      'about.noteEvm': 'یک آدرس برای همه شبکه‌های EVM. ETH / BNB / MATIC یا توکن‌هایی مثل <b>USDT / USDC (ERC-20 یا BEP-20)</b> بفرستید. برای کارمزد کم از BNB Smart Chain، Polygon یا یک L2 استفاده کنید. <b>فقط شبکه‌های EVM.</b>',
+      'about.noteBtc': 'فقط بیت‌کوین — <b>BTC</b> را روی شبکه بیت‌کوین (SegWit بومی) بفرستید. توکن نفرستید.',
+      'buttons.copy': 'کپی',
       'about.credits': 'ساخته‌شده با xray-core. با تشکر از جامعه‌های واپ و v2ray.',
       'qr.title': 'کد QR',
       'results.copySelected': 'کپی انتخاب‌شده‌ها',
@@ -2137,6 +2162,11 @@ const App = (function() {
     $$('[data-t]').forEach(el => {
       const key = el.getAttribute('data-t');
       if (key && dict[key] !== undefined) el.textContent = dict[key];
+    });
+    // data-t-html — like data-t but the value may contain inline markup (e.g. <b>).
+    $$('[data-t-html]').forEach(el => {
+      const key = el.getAttribute('data-t-html');
+      if (key && dict[key] !== undefined) el.innerHTML = dict[key];
     });
     $$('[data-t-placeholder]').forEach(el => {
       const key = el.getAttribute('data-t-placeholder');
@@ -3597,16 +3627,17 @@ const App = (function() {
   // ═══════════════════════════════════════════════════════════════
   //  About / Donate / Update check
   // ═══════════════════════════════════════════════════════════════
-  // TODO: replace these placeholders with your real receiving addresses.
-  // The TRON address also receives USDT-TRC20 (the recommended option).
+  // Receiving addresses. The TRON address also receives USDT-TRC20 (recommended);
+  // the EVM address is the same across all EVM chains; TON receives native USDT.
   const DONATE = {
-    trx: 'TODO_TRON_ADDRESS',
-    btc: 'TODO_BITCOIN_ADDRESS',
-    eth: 'TODO_ETHEREUM_ADDRESS'
+    trx: 'TD2QrQFpW9QkUzhhH6X8QQEg12uH8wcQGg',
+    ton: 'UQCOVixrzJdJ1pGus4zY7oTRpXs8D8mFv-8L6r0kYP5AQi68',
+    evm: '0x6b5FC86D71C47b225785BFC6C8b329D180678B1e',
+    btc: 'bc1qyuj82t3tlnxv7j7hq5ks98kmx9cmm72vx3jwta'
   };
 
   function renderDonate() {
-    const map = { trx: 'addrTrx', btc: 'addrBtc', eth: 'addrEth' };
+    const map = { trx: 'addrTrx', ton: 'addrTon', evm: 'addrEvm', btc: 'addrBtc' };
     Object.keys(map).forEach(k => { const el = $('#' + map[k]); if (el) el.textContent = DONATE[k]; });
   }
 
