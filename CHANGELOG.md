@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## [v3.3.0] — 2026-06-09
+
 ### Added
 - **About tab** — version, GitHub source link, and an update check (proxied
   through Go via `/api/version` + `/api/update-check` so the page CSP stays locked
