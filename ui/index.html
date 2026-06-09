@@ -1523,6 +1523,21 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
       <div id="cleanResultsNearby" class="hidden" style="margin-top:4px"></div>
       <div id="cleanStatusMsg" class="status-slot"></div>
     </div>
+
+    <div class="card">
+      <details class="help-panel">
+        <summary data-t="cleanHelp.header">How the IP Scanner works</summary>
+        <p class="desc" style="margin-top:8px" data-t="cleanHelp.intro">Finds Cloudflare edge IPs that are fast and unblocked from your network, then verifies they actually carry your proxy.</p>
+        <div class="help-list">
+          <div data-t-html="cleanHelp.p1"><b>Phase 1 — TCP probe.</b> Quickly dials thousands of Cloudflare IPs on the chosen ports and keeps the fastest responders.</div>
+          <div data-t-html="cleanHelp.p2"><b>Phase 2 — proxy validation.</b> Runs the top responders through your VLESS/Trojan config via xray and keeps only the ones that pass a real request.</div>
+          <div data-t-html="cleanHelp.p3"><b>1-phase mode</b> (config off) skips validation — a fast reachability check only.</div>
+          <div data-t-html="cleanHelp.p4"><b>Nearby scan</b> expands the /24 (v4) or /64 (v6) around every responder to mine more good IPs from the same block.</div>
+          <div data-t-html="cleanHelp.p5"><b>Custom ranges</b> let you scan your own CIDRs / IP ranges instead of the built-in Cloudflare pool.</div>
+        </div>
+        <p class="desc" data-t="cleanHelp.tip">Tip: push working IPs straight to the Replacer to rebuild your configs with fresh endpoints.</p>
+      </details>
+    </div>
   </div>
 
   <!-- ═════ IP Replacer Tab ═════ -->
@@ -1639,6 +1654,20 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
         <div id="applyConfigsOutput" class="hidden status-slot"></div>
       </div>
     </div><!-- /replacerWarpMode -->
+
+    <div class="card">
+      <details class="help-panel">
+        <summary data-t="repHelp.header">How the Replacer works</summary>
+        <p class="desc" style="margin-top:8px" data-t="repHelp.intro">Swaps the server IP:port in configs you already have for fresh clean endpoints — no scanning here, just transform.</p>
+        <div class="help-list">
+          <div data-t-html="repHelp.p1"><b>Proxy configs.</b> Fetch a subscription URL or paste vless:// / trojan:// / vmess:// links, pick the ones to keep, and cross-product them with your new IP:port list into fresh share URLs.</div>
+          <div data-t-html="repHelp.p2"><b>WireGuard (.conf).</b> Pick a working WARP endpoint and a set of .conf files; it rewrites the Endpoint line and saves modified copies.</div>
+          <div data-t-html="repHelp.p3"><b>Name template</b> controls each generated config's label — e.g. <code>{remark} @ {ip}</code>.</div>
+          <div data-t-html="repHelp.p4"><b>Copy as sub</b> gives a base64 subscription blob you can paste into most clients.</div>
+        </div>
+        <p class="desc" data-t="repHelp.tip">Endpoints come from the IP Scanner — use its "Push to Replacer" or "Use" buttons.</p>
+      </details>
+    </div>
   </div>
 
   <!-- ═════ About Tab ═════ -->
@@ -1840,6 +1869,21 @@ const App = (function() {
       'clean.export': 'Export Configs', 'clean.selectAll': 'Select All',
       'clean.coloFilter': 'Colo', 'clean.coloFilterPh': 'e.g. FRA',
       'clean.coloFilterTitle': 'Show only results whose colo or location matches (e.g. FRA, Frankfurt)',
+      'cleanHelp.header': 'How the IP Scanner works',
+      'cleanHelp.intro': 'Finds Cloudflare edge IPs that are fast and unblocked from your network, then verifies they actually carry your proxy.',
+      'cleanHelp.p1': '<b>Phase 1 — TCP probe.</b> Quickly dials thousands of Cloudflare IPs on the chosen ports and keeps the fastest responders.',
+      'cleanHelp.p2': '<b>Phase 2 — proxy validation.</b> Runs the top responders through your VLESS/Trojan config via xray and keeps only the ones that pass a real request.',
+      'cleanHelp.p3': '<b>1-phase mode</b> (config off) skips validation — a fast reachability check only.',
+      'cleanHelp.p4': '<b>Nearby scan</b> expands the /24 (v4) or /64 (v6) around every responder to mine more good IPs from the same block.',
+      'cleanHelp.p5': '<b>Custom ranges</b> let you scan your own CIDRs / IP ranges instead of the built-in Cloudflare pool.',
+      'cleanHelp.tip': 'Tip: push working IPs straight to the Replacer to rebuild your configs with fresh endpoints.',
+      'repHelp.header': 'How the Replacer works',
+      'repHelp.intro': 'Swaps the server IP:port in configs you already have for fresh clean endpoints — no scanning here, just transform.',
+      'repHelp.p1': '<b>Proxy configs.</b> Fetch a subscription URL or paste vless:// / trojan:// / vmess:// links, pick the ones to keep, and cross-product them with your new IP:port list into fresh share URLs.',
+      'repHelp.p2': '<b>WireGuard (.conf).</b> Pick a working WARP endpoint and a set of .conf files; it rewrites the Endpoint line and saves modified copies.',
+      'repHelp.p3': '<b>Name template</b> sets the label on each generated config — e.g. <code>{remark} @ {ip}</code>.',
+      'repHelp.p4': '<b>Copy as sub</b> gives a base64 subscription blob you can paste into most clients.',
+      'repHelp.tip': 'Endpoints come from the IP Scanner — use its "Push to Replacer" or "Use" buttons.',
       'clean.deselectAll': 'Deselect All', 'clean.copyAll': 'Copy All',
       'clean.copySelected': 'Copy Selected',
       'clean.copyAllTitle': 'Copy all working endpoints to clipboard',
@@ -2091,6 +2135,21 @@ const App = (function() {
       'clean.export': 'خروجی کانفیگ‌ها', 'clean.selectAll': 'انتخاب همه',
       'clean.coloFilter': 'دیتاسنتر', 'clean.coloFilterPh': 'مثل FRA',
       'clean.coloFilterTitle': 'فقط نتایجی که دیتاسنتر یا موقعیتشان مطابقت دارد (مثل FRA، فرانکفورت)',
+      'cleanHelp.header': 'اسکنر آی‌پی چطور کار می‌کند',
+      'cleanHelp.intro': 'آی‌پی‌های لبه کلاودفلر را که از شبکه شما سریع و بازند پیدا می‌کند، سپس بررسی می‌کند که واقعاً پروکسی شما را عبور می‌دهند.',
+      'cleanHelp.p1': '<b>فاز ۱ — پروب TCP.</b> هزاران آی‌پی کلاودفلر را روی پورت‌های انتخابی سریع تست می‌کند و سریع‌ترین‌ها را نگه می‌دارد.',
+      'cleanHelp.p2': '<b>فاز ۲ — اعتبارسنجی پروکسی.</b> بهترین‌ها را با کانفیگ VLESS/Trojan شما از طریق xray تست می‌کند و فقط آن‌هایی که یک درخواست واقعی را پاس کنند نگه می‌دارد.',
+      'cleanHelp.p3': '<b>حالت ۱-فاز</b> (کانفیگ خاموش) اعتبارسنجی را رد می‌کند — فقط بررسی سریع دسترسی.',
+      'cleanHelp.p4': '<b>اسکن مجاور</b> محدوده /24 (v4) یا /64 (v6) اطراف هر پاسخ‌ده را گسترش می‌دهد تا آی‌پی‌های خوب بیشتری از همان بلوک پیدا شود.',
+      'cleanHelp.p5': '<b>محدوده‌های دلخواه</b> به شما اجازه می‌دهد CIDR / محدوده‌های خودتان را به‌جای مخزن پیش‌فرض کلاودفلر اسکن کنید.',
+      'cleanHelp.tip': 'نکته: آی‌پی‌های working را مستقیم به جایگزین بفرستید تا کانفیگ‌هایتان را با اندپوینت‌های تازه بازسازی کنید.',
+      'repHelp.header': 'جایگزین چطور کار می‌کند',
+      'repHelp.intro': 'آی‌پی:پورت سرور را در کانفیگ‌هایی که از قبل دارید با اندپوینت‌های تمیز تازه عوض می‌کند — اینجا اسکنی نیست، فقط تبدیل.',
+      'repHelp.p1': '<b>کانفیگ پروکسی.</b> یک لینک اشتراک بگیرید یا لینک‌های vless:// / trojan:// / vmess:// را بچسبانید، موارد دلخواه را انتخاب کنید و با لیست IP:port جدیدتان ضرب کنید تا لینک‌های تازه ساخته شود.',
+      'repHelp.p2': '<b>وایرگارد (.conf).</b> یک اندپوینت WARP working و چند فایل .conf انتخاب کنید؛ خط Endpoint را بازنویسی و کپی‌های اصلاح‌شده را ذخیره می‌کند.',
+      'repHelp.p3': '<b>الگوی نام</b> برچسب هر کانفیگ ساخته‌شده را تعیین می‌کند — مثل <code>{remark} @ {ip}</code>.',
+      'repHelp.p4': '<b>کپی به‌صورت ساب</b> یک بلوک اشتراک base64 می‌دهد که در اکثر کلاینت‌ها قابل چسباندن است.',
+      'repHelp.tip': 'اندپوینت‌ها از اسکنر آی‌پی می‌آیند — از دکمه‌های «ارسال به جایگزین» یا «استفاده» آن استفاده کنید.',
       'clean.deselectAll': 'لغو انتخاب همه', 'clean.copyAll': 'کپی همه',
       'clean.copySelected': 'کپی انتخاب شده',
       'clean.copyAllTitle': 'کپی همه اندپوینت‌ها در کلیپ‌بورد',
