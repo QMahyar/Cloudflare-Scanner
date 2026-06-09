@@ -19,7 +19,7 @@ const GitHubRepo = "QMahyar/Cloudflare-Scanner"
 func handleVersion(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"version":  Version,
+		"version":  AppVersion(),
 		"repo":     GitHubRepo,
 		"repo_url": "https://github.com/" + GitHubRepo,
 	})
@@ -63,11 +63,11 @@ func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 	latest := strings.TrimSpace(rel.TagName)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"current":          Version,
+		"current":          AppVersion(),
 		"latest":           latest,
 		"url":              rel.HTMLURL,
 		"name":             rel.Name,
-		"update_available": isNewerVersion(Version, latest),
+		"update_available": isNewerVersion(AppVersion(), latest),
 	})
 }
 

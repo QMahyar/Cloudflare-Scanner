@@ -15,7 +15,8 @@
 #   termux-arm64   darwin-amd64   darwin-arm64
 #
 # Environment overrides:
-#   VERSION=v3.0.1     # version string baked into the binary (default: git describe or "dev")
+#   VERSION=v3.0.1     # override the version baked into the binary
+#                      # (default: the repo-root VERSION file, with a -dev suffix off-tag)
 #   XRAY_VERSION=...   # xray-core release tag to bundle (default: v1.8.24)
 #   NO_XRAY=1          # skip downloading xray (build the binary only)
 #   NO_ARCHIVE=1       # leave loose files in dist/<platform>/, skip .zip/.tar.gz
@@ -213,8 +214,27 @@ EOF
 }
 
 # ── Resolve version ─────────────────────────────────────────────────────────
+# Single source of truth: the repo-root VERSION file. A clean checkout sitting
+# exactly on the matching tag builds as "vX.Y.Z"; anything else is marked
+# "-dev.g<sha>[.dirty]" so unofficial builds are unmistakable. $VERSION overrides.
 if [ -z "${VERSION:-}" ]; then
-  if command -v git >/dev/null 2>&1 && git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  BASE=""
+  [ -f "$REPO_ROOT/VERSION" ] && BASE="$(tr -d ' \t\r\n' < "$REPO_ROOT/VERSION")"
+  if [ -n "$BASE" ]; then
+    VERSION="v${BASE#v}"
+    if command -v git >/dev/null 2>&1 && git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+      dirty=""
+      if ! git -C "$REPO_ROOT" diff --quiet 2>/dev/null || ! git -C "$REPO_ROOT" diff --cached --quiet 2>/dev/null; then
+        dirty=".dirty"
+      fi
+      if git -C "$REPO_ROOT" describe --exact-match --tags HEAD 2>/dev/null | grep -qx "$VERSION"; then
+        VERSION="${VERSION}${dirty}"
+      else
+        sha="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+        VERSION="${VERSION}-dev.g${sha}${dirty}"
+      fi
+    fi
+  elif command -v git >/dev/null 2>&1 && git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     VERSION="$(git -C "$REPO_ROOT" describe --tags --always --dirty 2>/dev/null || echo dev)"
   else
     VERSION="dev"

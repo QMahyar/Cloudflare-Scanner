@@ -98,11 +98,22 @@ jobs:
         id: ver
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          # VERSION file is the single source of truth. The tag (or dispatch
+          # input) must match it, so the version can't drift between files.
+          BASE=$(tr -d ' \t\r\n' < VERSION)
+          TAG="v${BASE#v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            if [ "v${{ inputs.version }}" != "$TAG" ]; then
+              echo "::error::workflow_dispatch version '${{ inputs.version }}' does not match VERSION file ('$BASE'). Bump VERSION or fix the input."
+              exit 1
+            fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            if [ "${{ github.ref_name }}" != "$TAG" ]; then
+              echo "::error::Pushed tag '${{ github.ref_name }}' does not match VERSION file ('$TAG'). Bump VERSION and re-tag so they match."
+              exit 1
+            fi
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Vet
         run: go vet ./...
@@ -168,11 +179,22 @@ jobs:
         id: ver
         shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          # VERSION file is the single source of truth. The tag (or dispatch
+          # input) must match it, so the version can't drift between files.
+          BASE=$(tr -d ' \t\r\n' < VERSION)
+          TAG="v${BASE#v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
+            if [ "v${{ inputs.version }}" != "$TAG" ]; then
+              echo "::error::workflow_dispatch version '${{ inputs.version }}' does not match VERSION file ('$BASE'). Bump VERSION or fix the input."
+              exit 1
+            fi
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            if [ "${{ github.ref_name }}" != "$TAG" ]; then
+              echo "::error::Pushed tag '${{ github.ref_name }}' does not match VERSION file ('$TAG'). Bump VERSION and re-tag so they match."
+              exit 1
+            fi
           fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Generate checksums
         run: |

@@ -1,16 +1,35 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 )
 
-// Version is set at build time via -ldflags "-X main.Version=vX.Y.Z"
-var Version = "dev"
+//go:embed VERSION
+var versionFile string
+
+// Version is injected at build time via -ldflags "-X 'main.Version=vX.Y.Z'".
+// When unset (a plain `go build` with no ldflags), AppVersion falls back to the
+// embedded VERSION file — the single source of truth for the version number.
+var Version = ""
+
+// AppVersion resolves the version string shown in the banner, the About tab,
+// and the update check.
+func AppVersion() string {
+	if v := strings.TrimSpace(Version); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(versionFile); v != "" {
+		return "v" + strings.TrimPrefix(v, "v")
+	}
+	return "dev"
+}
 
 func main() {
 	exePath, _ := os.Executable()
@@ -38,7 +57,7 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("  ╔══════════════════════════════════════════════════════╗")
-	fmt.Printf("  ║         Cloudflare Scanner %-25s║\n", Version)
+	fmt.Printf("  ║         Cloudflare Scanner %-25s║\n", AppVersion())
 	fmt.Println("  ║    Open your browser to the URL below               ║")
 	fmt.Println("  ╚══════════════════════════════════════════════════════╝")
 	fmt.Println()

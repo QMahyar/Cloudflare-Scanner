@@ -19,7 +19,8 @@
     termux-arm64   darwin-amd64   darwin-arm64
 
   Environment overrides:
-    $env:VERSION       version string baked into the binary (default: git describe or "dev")
+    $env:VERSION       override the version baked into the binary
+                       (default: the repo-root VERSION file, with a -dev suffix off-tag)
     $env:XRAY_VERSION  xray-core release tag to bundle (default: v1.8.24)
     $env:NO_XRAY=1     skip downloading xray (build the binary only)
     $env:NO_ARCHIVE=1  leave loose files in dist\<platform>\, skip .zip/.tar.gz
@@ -163,9 +164,28 @@ function Build-One ($key) {
 }
 
 # ── Resolve version ─────────────────────────────────────────────────────────
+# Single source of truth: the repo-root VERSION file. A clean checkout sitting
+# exactly on the matching tag builds as "vX.Y.Z"; anything else is marked
+# "-dev.g<sha>[.dirty]". $env:VERSION overrides.
 $Version = $env:VERSION
 if (-not $Version) {
-  if (Get-Command git -ErrorAction SilentlyContinue) {
+  $verFile = Join-Path $RepoRoot 'VERSION'
+  $base = if (Test-Path $verFile) { (Get-Content $verFile -Raw).Trim() } else { '' }
+  if ($base) {
+    $Version = 'v' + ($base -replace '^v', '')
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+      & git diff --quiet 2>$null;        $d1 = $LASTEXITCODE
+      & git diff --cached --quiet 2>$null; $d2 = $LASTEXITCODE
+      $dirty = if ($d1 -ne 0 -or $d2 -ne 0) { '.dirty' } else { '' }
+      $exact = (& git describe --exact-match --tags HEAD 2>$null)
+      if ($exact -eq $Version) {
+        $Version = "$Version$dirty"
+      } else {
+        $sha = (& git rev-parse --short HEAD 2>$null); if (-not $sha) { $sha = 'unknown' }
+        $Version = "$Version-dev.g$sha$dirty"
+      }
+    }
+  } elseif (Get-Command git -ErrorAction SilentlyContinue) {
     $Version = (& git describe --tags --always --dirty 2>$null)
     if (-not $Version) { $Version = 'dev' }
   } else { $Version = 'dev' }
