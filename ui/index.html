@@ -1190,6 +1190,21 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
           <input type="text" id="endpointTimeout" value="6000" inputmode="numeric" data-t-title="settings.timeoutTitle">
         </div>
       </div>
+      <div class="row">
+        <div class="col">
+          <label for="stopAfter" data-t="settings.stopAfter" data-t-title="settings.stopAfterTitle">Stop after N results (0 = scan all)</label>
+          <input type="text" id="stopAfter" value="0" inputmode="numeric" data-t-title="settings.stopAfterTitle">
+        </div>
+        <div class="col">
+          <div class="toggle-wrap" style="padding-top:22px">
+            <label class="toggle" data-t-title="settings.notifyTitle" aria-label="Toggle completion notification">
+              <input type="checkbox" id="notifyEndpoint">
+              <span class="slider"></span>
+            </label>
+            <span class="toggle-label" data-t="settings.notify" data-t-title="settings.notifyTitle">Notify when finished</span>
+          </div>
+        </div>
+      </div>
       <div class="scan-desc" id="endpointScanDesc"></div>
     </div>
 
@@ -1469,6 +1484,21 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
           <input type="text" id="cleanPhase2Timeout" value="5000" inputmode="numeric" data-t-title="clean.timeout2Title">
         </div>
       </div>
+      <div class="row">
+        <div class="col">
+          <label for="cleanStopAfter" data-t="clean.stopAfter" data-t-title="clean.stopAfterTitle">Stop after N responders (0 = scan all)</label>
+          <input type="text" id="cleanStopAfter" value="0" inputmode="numeric" data-t-title="clean.stopAfterTitle">
+        </div>
+        <div class="col">
+          <div class="toggle-wrap" style="padding-top:22px">
+            <label class="toggle" data-t-title="settings.notifyTitle" aria-label="Toggle completion notification">
+              <input type="checkbox" id="notifyClean">
+              <span class="slider"></span>
+            </label>
+            <span class="toggle-label" data-t="settings.notify" data-t-title="settings.notifyTitle">Notify when finished</span>
+          </div>
+        </div>
+      </div>
       <div class="scan-desc" id="cleanScanDesc"></div>
     </div>
 
@@ -1684,6 +1714,15 @@ const App = (function() {
       'settings.ipv6': 'IPv6 only', 'settings.ipv46': 'IPv4 + IPv6',
       'settings.outCount': 'Results to show',
       'settings.noise': 'UDP Noise (bypass ISP blocking)',
+      'settings.stopAfter': 'Stop after N results (0 = scan all)',
+      'settings.stopAfterTitle': 'Stop the scan automatically once this many working endpoints are found (0 = scan everything)',
+      'settings.notify': 'Notify when finished',
+      'settings.notifyTitle': 'Show a desktop notification and play a sound when the scan completes',
+      'clean.stopAfter': 'Stop after N responders (0 = scan all)',
+      'clean.stopAfterTitle': 'Stop Phase 1 automatically once this many IPs respond (0 = scan everything)',
+      'notify.title': 'Cloudflare Scanner',
+      'notify.endpointBody': 'Scan finished — {n} working endpoint(s) found.',
+      'notify.cleanBody': 'Scan finished — {n} working IP(s) found.',
       'endpoint.useConfig': 'Use Real Config', 'endpoint.useConfigTitle': 'Disable to skip config-based validation',
       'endpoint.descFull': 'Full scan — runs each endpoint through your WireGuard config via xray proxy. Measures latency from the proxy tunnel response.',
       'endpoint.descTCP': 'TCP check — tests if Cloudflare IP:ports accept connections. Quick connectivity scan, no proxy validation.',
@@ -1913,6 +1952,15 @@ const App = (function() {
       'settings.ipv6': 'فقط IPv6', 'settings.ipv46': 'IPv4 + IPv6',
       'settings.outCount': 'نتایج برای نمایش',
       'settings.noise': 'نویز UDP (عبور از مسدودسازی ISP)',
+      'settings.stopAfter': 'توقف بعد از N نتیجه (۰ = اسکن همه)',
+      'settings.stopAfterTitle': 'اسکن به‌طور خودکار وقتی این تعداد اندپوینت working پیدا شد متوقف می‌شود (۰ = اسکن همه)',
+      'settings.notify': 'اطلاع هنگام اتمام',
+      'settings.notifyTitle': 'هنگام اتمام اسکن یک اعلان دسکتاپ نمایش بده و صدا پخش کن',
+      'clean.stopAfter': 'توقف بعد از N آی‌پی پاسخ‌ده (۰ = اسکن همه)',
+      'clean.stopAfterTitle': 'فاز ۱ به‌طور خودکار وقتی این تعداد آی‌پی پاسخ داد متوقف می‌شود (۰ = اسکن همه)',
+      'notify.title': 'اسکنر کلاودفلر',
+      'notify.endpointBody': 'اسکن تمام شد — {n} اندپوینت working پیدا شد.',
+      'notify.cleanBody': 'اسکن تمام شد — {n} آی‌پی working پیدا شد.',
       'settings.depth.quick': 'سریع (۱۰۰ اندپوینت)', 'settings.depth.normal': 'معمولی (۵۰۰ اندپوینت)',
       'settings.depth.deep': 'عمیق (۱۰۰۰ اندپوینت)', 'settings.depth.insane': 'وحشتناک (۵۰۰۰ اندپوینت)',
       'settings.depth.massive': 'عظیم (۱۰۰۰۰ اندپوینت)', 'settings.depth.custom': 'دلخواه',
@@ -2309,6 +2357,40 @@ const App = (function() {
     }, 2200);
   }
 
+  // ─── Completion notification (desktop + short beep) ───
+  // Requests permission lazily the first time a notify-enabled scan finishes.
+  // Always also shows an in-page toast, so it works even if permission is denied.
+  function beep() {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ac = new Ctx();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = 880;
+      g.gain.value = 0.08;
+      o.connect(g); g.connect(ac.destination);
+      o.start();
+      o.frequency.setValueAtTime(660, ac.currentTime + 0.12);
+      g.gain.setValueAtTime(0.08, ac.currentTime + 0.22);
+      g.gain.linearRampToValueAtTime(0, ac.currentTime + 0.3);
+      o.stop(ac.currentTime + 0.32);
+      setTimeout(() => { try { ac.close(); } catch {} }, 600);
+    } catch {}
+  }
+
+  function notifyDone(title, body) {
+    showToast(body);
+    beep();
+    try {
+      if (!('Notification' in window)) return;
+      const fire = () => { try { new Notification(title, { body }); } catch {} };
+      if (Notification.permission === 'granted') fire();
+      else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(p => { if (p === 'granted') fire(); });
+      }
+    } catch {}
+  }
+
   // ─── Sorting ───
   function parseLatency(s) {
     if (!s) return Infinity;
@@ -2532,7 +2614,8 @@ const App = (function() {
       ipv6: ipVer === '6' || ipVer === '46',
       count: count,
       outCount: parseInt($('#outCount').value) || 0,
-      timeoutMs: parseInt($('#endpointTimeout').value) || 0
+      timeoutMs: parseInt($('#endpointTimeout').value) || 0,
+      stop_after: parseInt($('#stopAfter').value) || 0
     };
     const formData = new FormData();
     if ($('#useConfigEndpoint').checked && fileInput.files.length) {
@@ -2597,6 +2680,9 @@ const App = (function() {
           if (data.status === 'cancelled') progressFill.classList.add('cancelled');
           fetchResults(jobId, data.status);
           setScanDone();
+          if ($('#notifyEndpoint')?.checked) {
+            notifyDone(t('notify.title'), t('notify.endpointBody', { n: (state.endpoint.raw || []).length }));
+          }
         }
       } catch {
         clearInterval(state.endpoint.statusTimer);
@@ -3007,7 +3093,8 @@ const App = (function() {
           timeout_ms: parseInt($('#cleanTimeout').value) || 0,
           phase2_timeout_ms: parseInt($('#cleanPhase2Timeout').value) || 0,
           port_mode: 'custom', ports: scanPorts.length ? scanPorts : [443],
-          custom_ranges: customRanges
+          custom_ranges: customRanges,
+          stop_after: parseInt($('#cleanStopAfter').value) || 0
         })
       });
       state.clean.jobId = data.id;
@@ -3085,6 +3172,10 @@ const App = (function() {
           cleanStartBtn.textContent = t('clean.start');
           cleanStopBtn.disabled = true;
           cleanRescanBtn.disabled = false;
+          if ($('#notifyClean')?.checked) {
+            const n = (state.clean.data && state.clean.data.entries ? state.clean.data.entries.length : 0);
+            notifyDone(t('notify.title'), t('notify.cleanBody', { n }));
+          }
         }
       } catch {
         clearInterval(state.clean.statusTimer);
@@ -3688,8 +3779,10 @@ const App = (function() {
   // ═══════════════════════════════════════════════════════════════
   const PERSIST_IDS = [
     'useConfigEndpoint', 'scanDepth', 'customCount', 'ipVersion', 'noiseToggle', 'endpointTimeout', 'outCount',
+    'stopAfter', 'notifyEndpoint',
     'useConfigClean', 'vlessURL', 'cleanCustomRanges', 'cleanDepth', 'cleanCustomCount', 'cleanIPVersion',
-    'phase1Probes', 'phase2Probes', 'cleanPhase2', 'nearbyScan', 'cleanTimeout', 'cleanPhase2Timeout', 'cleanOutCount'
+    'phase1Probes', 'phase2Probes', 'cleanPhase2', 'nearbyScan', 'cleanTimeout', 'cleanPhase2Timeout', 'cleanOutCount',
+    'cleanStopAfter', 'notifyClean'
   ];
 
   function persistSettings() {

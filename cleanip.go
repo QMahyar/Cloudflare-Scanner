@@ -411,6 +411,7 @@ type CleanIPJob struct {
 	Phase2Probes        int
 	TimeoutMs           int
 	Phase2TimeoutMs     int
+	StopAfter           int
 	ScanPorts           []int
 	NearbyPhase1Results []CleanIPResult
 	NearbyPhase2Results []CleanIPResult
@@ -423,7 +424,7 @@ func (j *CleanIPJob) stop() {
 	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
-func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob, concurrency int) []CleanIPResult {
+func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob, concurrency int, stopAfter int) []CleanIPResult {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	if concurrency <= 0 {
@@ -432,10 +433,19 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 	sem := make(chan struct{}, concurrency)
 	results := make([]CleanIPResult, 0, len(endpoints))
 
+	// localStop lets phase 1 finish early once stopAfter responders are found,
+	// WITHOUT closing the job's global Cancel (which would also abort phase 2).
+	localStop := make(chan struct{})
+	var stopOnce sync.Once
+	stopNow := func() { stopOnce.Do(func() { close(localStop) }) }
+
 	for i, ep := range endpoints {
 		select {
 		case <-cancel:
 			return results
+		case <-localStop:
+			// Target reached — stop launching new probes; in-flight ones drain.
+			goto wait
 		default:
 		}
 
@@ -446,6 +456,8 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 			case sem <- struct{}{}:
 				defer func() { <-sem }()
 			case <-cancel:
+				return
+			case <-localStop:
 				return
 			}
 
@@ -476,6 +488,7 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 
 			mu.Lock()
 			results = append(results, result)
+			n := len(results)
 			mu.Unlock()
 
 			if job != nil {
@@ -484,9 +497,14 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 				job.Phase1Progress++
 				job.mu.Unlock()
 			}
+
+			if stopAfter > 0 && n >= stopAfter {
+				stopNow()
+			}
 		}(ep, i)
 	}
 
+wait:
 	done := make(chan struct{})
 	go func() { wg.Wait(); close(done) }()
 
@@ -494,6 +512,9 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 	case <-done:
 	case <-cancel:
 		// exit fast with partial results; in-flight goroutines drain in background
+	case <-localStop:
+		// target reached; let in-flight finish so partial results are coherent
+		<-done
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -812,7 +833,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	job.Phase2Progress = 0
 	job.mu.Unlock()
 
-	phase1Results := runCleanPhase1TCP(ctx, job.Endpoints, phase1Timeout, job.Cancel, job, p1Probes)
+	phase1Results := runCleanPhase1TCP(ctx, job.Endpoints, phase1Timeout, job.Cancel, job, p1Probes, job.StopAfter)
 
 	select {
 	case <-job.Cancel:
@@ -865,7 +886,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			savedPhase1Progress := job.Phase1Progress
 			job.mu.Unlock()
 
-			nearbyPhase1Results = runCleanPhase1TCP(ctx, nearbyIPs, phase1Timeout, job.Cancel, nil, p1Probes)
+			nearbyPhase1Results = runCleanPhase1TCP(ctx, nearbyIPs, phase1Timeout, job.Cancel, nil, p1Probes, 0)
 
 			// restore job progress to original (nearby is extra)
 			job.mu.Lock()

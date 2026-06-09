@@ -34,6 +34,9 @@ type ScanJob struct {
 	Concurrency int
 	Attempts    int
 	TimeoutMs   int
+	StopAfter   int
+	Successes   int
+	TargetReached bool
 	Cancel      chan struct{}
 	cancelOnce  sync.Once
 	mu          sync.Mutex
@@ -188,6 +191,7 @@ type scanRequest struct {
 	Concurrency int         `json:"concurrency"`
 	Attempts    int         `json:"attempts"`
 	TimeoutMs   int         `json:"timeoutMs"`
+	StopAfter   int         `json:"stop_after"`
 }
 
 func jsonError(w http.ResponseWriter, msg string, code int) {
@@ -350,6 +354,7 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 			Concurrency: req.Concurrency,
 			Attempts:    req.Attempts,
 			TimeoutMs:   req.TimeoutMs,
+			StopAfter:   req.StopAfter,
 			Cancel:      make(chan struct{}),
 		}
 
@@ -395,7 +400,11 @@ func runScan(job *ScanJob, xrayPath string) {
 		select {
 		case <-ctx.Done():
 			job.mu.Lock()
-			job.Status = "cancelled"
+			if job.TargetReached {
+				job.Status = "done"
+			} else {
+				job.Status = "cancelled"
+			}
 			job.mu.Unlock()
 			wg.Wait()
 			return
@@ -417,8 +426,20 @@ func runScan(job *ScanJob, xrayPath string) {
 			job.mu.Lock()
 			job.Results = append(job.Results, result)
 			job.Progress = len(job.Results)
+			if result.Success {
+				job.Successes++
+			}
+			reached := job.StopAfter > 0 && job.Successes >= job.StopAfter
+			if reached {
+				job.TargetReached = true
+			}
 			_ = idx
 			job.mu.Unlock()
+
+			// Auto-stop: enough working endpoints found — cancel the rest.
+			if reached {
+				job.stop()
+			}
 		}(ep, i)
 	}
 
@@ -430,7 +451,11 @@ func runScan(job *ScanJob, xrayPath string) {
 	case <-ctx.Done():
 		wg.Wait()
 		job.mu.Lock()
-		job.Status = "cancelled"
+		if job.TargetReached {
+			job.Status = "done"
+		} else {
+			job.Status = "cancelled"
+		}
 		job.Progress = len(job.Results)
 		job.mu.Unlock()
 		return
@@ -740,6 +765,7 @@ type cleanScanRequest struct {
 	Phase2TimeoutMs int    `json:"phase2_timeout_ms"`
 	Ports           []int  `json:"ports"`
 	CustomRanges    string `json:"custom_ranges"`
+	StopAfter       int    `json:"stop_after"`
 }
 
 func handleCleanScanStart(xrayPath string) http.HandlerFunc {
@@ -841,6 +867,7 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 			Phase2Probes:    req.Phase2Probes,
 			TimeoutMs:       req.TimeoutMs,
 			Phase2TimeoutMs: req.Phase2TimeoutMs,
+			StopAfter:       req.StopAfter,
 			ScanPorts:       scanPorts,
 			Cancel:          make(chan struct{}),
 		}
