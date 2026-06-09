@@ -1235,38 +1235,6 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
       </div>
       <div id="resultsContent" class="hidden"></div>
       <div id="liveCount" class="live-count hidden"></div>
-
-      <details id="applyCard" style="margin-top:var(--space-md)">
-        <summary data-t="apply.header">Apply Endpoint to Configs</summary>
-        <p class="desc status-slot" data-t="apply.desc">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
-        <div class="row">
-          <div class="col">
-            <label for="applyEndpoint" data-t="apply.endpointLabel" data-t-title="apply.endpointTitle">Endpoint to apply</label>
-            <input type="text" id="applyEndpoint" data-t-placeholder="apply.endpointPlaceholder" data-t-title="apply.endpointTitle" placeholder="e.g. 162.159.192.1:2408">
-          </div>
-        </div>
-        <div class="row">
-          <div class="col">
-            <label for="applyConfigs" data-t="apply.configsLabel" data-t-title="apply.configsTitle">Config files to update (select multiple)</label>
-            <label class="file-input-wrap" for="applyConfigs" data-t-title="apply.configsTitle">
-              <input type="file" id="applyConfigs" accept=".conf,.txt" multiple aria-describedby="applyFileLabel">
-              <div class="file-label" id="applyFileLabel" data-t="apply.chooseConfigs">Choose config(s)...</div>
-            </label>
-          </div>
-        </div>
-        <div class="row">
-          <div class="col">
-            <label for="outputDirPath" data-t="apply.outputLabel" data-t-title="apply.outputTitle">Output folder path (leave empty to save next to .exe)</label>
-            <div class="output-path-row">
-              <input type="text" id="outputDirPath" data-t-placeholder="apply.outputPlaceholder" data-t-title="apply.outputTitle" placeholder="e.g. E:\vpn\WG Configs\modified">
-              <button class="btn btn-secondary" id="browseOutputBtn" onclick="App.browseOutputFolder()" data-t="apply.browse" data-t-title="apply.browseTitle">Browse</button>
-            </div>
-          </div>
-        </div>
-        <button class="btn btn-accent" id="applyBtn" onclick="App.handleApplyEndpoint()" disabled data-t="apply.generate" data-t-title="apply.generateTitle">Generate Configs</button>
-        <div id="applyStatus" class="status-slot"></div>
-        <div id="applyConfigsOutput" class="hidden status-slot"></div>
-      </details>
     </div>
 
     <div class="card">
@@ -1541,6 +1509,12 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
 
   <!-- ═════ IP Replacer Tab ═════ -->
   <div id="replacerTab" class="hidden" role="tabpanel">
+    <div class="input-method-bar" id="replacerTypeBar" style="margin-bottom:var(--space-md)">
+      <button class="method-btn active" data-ctype="proxy" onclick="App.selectReplacerConfigType('proxy')" data-t="replacer.typeProxy" data-t-title="replacer.typeProxyTitle">Proxy configs</button>
+      <button class="method-btn" data-ctype="warp" onclick="App.selectReplacerConfigType('warp')" data-t="replacer.typeWarp" data-t-title="replacer.typeWarpTitle">WireGuard (.conf)</button>
+    </div>
+
+    <div id="replacerProxyMode">
     <div class="card">
       <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span data-t="replacer.header">IP Replacer</span></h2>
       <p class="desc" data-t="replacer.desc">Deduplicate configs and replace IP:port with clean endpoints.</p>
@@ -1611,6 +1585,42 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
         <button class="btn btn-secondary btn-sm" onclick="App.replacerDownloadSub()" data-t="replacer.downloadSub" data-t-title="replacer.downloadSubTitle">Download sub</button>
       </div>
     </div>
+    </div><!-- /replacerProxyMode -->
+
+    <!-- WireGuard / WARP .conf mode -->
+    <div id="replacerWarpMode" class="hidden">
+      <div class="card">
+        <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg><span data-t="apply.header">Apply Endpoint to WireGuard Configs</span></h2>
+        <p class="desc" data-t="apply.desc">Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.</p>
+        <div class="row">
+          <div class="col">
+            <label for="applyEndpoint" data-t="apply.endpointLabel" data-t-title="apply.endpointTitle">Endpoint to apply</label>
+            <input type="text" id="applyEndpoint" data-t-placeholder="apply.endpointPlaceholder" data-t-title="apply.endpointTitle" placeholder="e.g. 162.159.192.1:2408">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <label for="applyConfigs" data-t="apply.configsLabel" data-t-title="apply.configsTitle">Config files to update (select multiple)</label>
+            <label class="file-input-wrap" for="applyConfigs" data-t-title="apply.configsTitle">
+              <input type="file" id="applyConfigs" accept=".conf,.txt" multiple aria-describedby="applyFileLabel">
+              <div class="file-label" id="applyFileLabel" data-t="apply.chooseConfigs">Choose config(s)...</div>
+            </label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <label for="outputDirPath" data-t="apply.outputLabel" data-t-title="apply.outputTitle">Output folder path (leave empty to save next to .exe)</label>
+            <div class="output-path-row">
+              <input type="text" id="outputDirPath" data-t-placeholder="apply.outputPlaceholder" data-t-title="apply.outputTitle" placeholder="e.g. E:\vpn\WG Configs\modified">
+              <button class="btn btn-secondary" id="browseOutputBtn" onclick="App.browseOutputFolder()" data-t="apply.browse" data-t-title="apply.browseTitle">Browse</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-accent" id="applyBtn" onclick="App.handleApplyEndpoint()" disabled data-t="apply.generate" data-t-title="apply.generateTitle">Generate Configs</button>
+        <div id="applyStatus" class="status-slot"></div>
+        <div id="applyConfigsOutput" class="hidden status-slot"></div>
+      </div>
+    </div><!-- /replacerWarpMode -->
   </div>
 
   <!-- ═════ About Tab ═════ -->
@@ -1756,7 +1766,8 @@ const App = (function() {
       'results.copyAll': 'Copy All', 'results.downloadRaw': 'Download Raw',
       'results.failed': 'Failed to load results', 'results.copied': 'Copied!',
       'scan.failed': 'Failed to start scan: {msg}',
-      'apply.header': 'Apply Endpoint to Configs',
+      'apply.header': 'Apply Endpoint to WireGuard Configs',
+      'apply.pushed': 'Endpoint {ep} sent to the Replacer',
       'apply.desc': 'Pick a working endpoint, select your configs, and generate modified copies with the new endpoint.',
       'apply.endpointLabel': 'Endpoint to apply', 'apply.endpointPlaceholder': 'e.g. 162.159.192.1:2408',
       'apply.configsLabel': 'Config files to update (select multiple)',
@@ -1831,6 +1842,9 @@ const App = (function() {
       'tab.replacer': 'IP Replacer',
       'replacer.header': 'IP Replacer',
       'replacer.desc': 'Deduplicate configs and replace IP:port with clean endpoints.',
+      'replacer.typeProxy': 'Proxy configs', 'replacer.typeWarp': 'WireGuard (.conf)',
+      'replacer.typeProxyTitle': 'Replace IP:port in VLESS/Trojan/VMess share URLs',
+      'replacer.typeWarpTitle': 'Rewrite the Endpoint line in WireGuard/WARP .conf files',
       'replacer.methodURL': 'Subscription URL', 'replacer.methodPaste': 'Paste Configs',
       'replacer.pastePlaceholder': 'vless://uuid@ip:port?encryption=none&...\ntrojan://password@ip:port?security=tls&...',
       'replacer.parse': 'Parse', 'replacer.parsing': 'Parsing...',
@@ -1996,7 +2010,8 @@ const App = (function() {
       'results.copyAll': 'کپی همه', 'results.downloadRaw': 'دانلود خام',
       'results.failed': 'بارگیری نتایج ناموفق بود', 'results.copied': 'کپی شد!',
       'scan.failed': 'شروع اسکن ناموفق بود: {msg}',
-      'apply.header': 'اعمال اندپوینت به کانفیگ‌ها',
+      'apply.header': 'اعمال اندپوینت به کانفیگ‌های WireGuard',
+      'apply.pushed': 'اندپوینت {ep} به جایگزین ارسال شد',
       'apply.desc': 'یک اندپوینت working انتخاب کنید، کانفیگ‌های خود را انتخاب کنید و کپی‌های تغییر یافته با اندپوینت جدید بسازید.',
       'apply.endpointLabel': 'اندپوینت برای اعمال',
       'apply.endpointPlaceholder': 'مثال: 162.159.192.1:2408',
@@ -2077,6 +2092,9 @@ const App = (function() {
       'tab.replacer': 'جایگزین آی‌پی',
       'replacer.header': 'جایگزین آی‌پی',
       'replacer.desc': 'کانفیگ‌ها را یکتا کنید و آی‌پی:پورت را با اندپوینت‌های تمیز جایگزین کنید.',
+      'replacer.typeProxy': 'کانفیگ پروکسی', 'replacer.typeWarp': 'وایرگارد (.conf)',
+      'replacer.typeProxyTitle': 'جایگزینی IP:port در لینک‌های VLESS/Trojan/VMess',
+      'replacer.typeWarpTitle': 'بازنویسی خط Endpoint در فایل‌های .conf وایرگارد/واپ',
       'replacer.methodURL': 'لینک اشتراک', 'replacer.methodPaste': 'چسباندن کانفیگ',
       'replacer.pastePlaceholder': 'vless://uuid@ip:port?encryption=none&...\ntrojan://password@ip:port?security=tls&...',
       'replacer.parse': 'تجزیه', 'replacer.parsing': 'در حال تجزیه...',
@@ -2271,7 +2289,7 @@ const App = (function() {
   const state = {
     endpoint: { jobId: null, statusTimer: null, resultsTimer: null, raw: [], lastStatus: 'idle', sort: { field: 'num', dir: 'asc' } },
     clean: { jobId: null, statusTimer: null, resultsTimer: null, data: null, phase2: [], list: 'direct', source: 'pool', sort: { field: 'latency', dir: 'asc' } },
-    replacer: { configs: [], generated: [], subscription: '', method: 'url', sort: { field: 'num', dir: 'asc' } },
+    replacer: { configs: [], generated: [], subscription: '', method: 'url', ctype: 'proxy', sort: { field: 'num', dir: 'asc' } },
     apply: { results: [], dirHandle: null },
     copyWithPorts: localStorage.getItem('cfscanner_copyports') !== '0',
     qr: null
@@ -2828,10 +2846,22 @@ const App = (function() {
     showError(t('results.failed'));
   }
 
+  // "Use" on an Endpoint result hands the endpoint to the Replacer's WireGuard
+  // mode (where the .conf apply now lives) and switches there.
   function useEndpoint(ep) {
     applyEndpoint.value = ep;
     updateApplyBtn();
-    $('#applyCard').scrollIntoView({ behavior: 'smooth' });
+    switchTab('replacer');
+    selectReplacerConfigType('warp');
+    showToast(t('apply.pushed', { ep }));
+    $('#replacerWarpMode').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function selectReplacerConfigType(ctype) {
+    state.replacer.ctype = ctype;
+    $$('#replacerTypeBar button').forEach(b => b.classList.toggle('active', b.dataset.ctype === ctype));
+    $('#replacerProxyMode').classList.toggle('hidden', ctype !== 'proxy');
+    $('#replacerWarpMode').classList.toggle('hidden', ctype !== 'warp');
   }
 
   async function copyAllEndpoints(jobId) {
@@ -3973,6 +4003,7 @@ const App = (function() {
     setLang(currentLang);
     restoreSettings();
     selectReplacerMethod('url');
+    selectReplacerConfigType('proxy');
     updateEndpointDesc();
     updateCleanDesc();
     $('#cleanPhase2Col').classList.toggle('hidden', !$('#useConfigClean').checked);
@@ -4035,7 +4066,7 @@ const App = (function() {
     selectCleanSource, addRangePreset,
     selectAllClean, copyCleanPhase2IPs, copyCleanSelectedIPs, exportCleanIPs,
     copyNearbyIPs, downloadNearbyIPs, exportNearbyIPs, pushNearbyToReplacer, pushCleanToReplacer,
-    selectReplacerMethod, replacerParse, replacerFetch, replacerGenerate,
+    selectReplacerMethod, selectReplacerConfigType, replacerParse, replacerFetch, replacerGenerate,
     sortReplacer, replacerToggleAll, replacerSelectAll, replacerCopyAll, replacerDownload,
     replacerCopyRow, replacerRowQR, replacerCopySub, replacerDownloadSub, replacerValidateEndpoints,
     showReplacerQR, showEndpointQR, showCleanQR, showQR, closeQR,
