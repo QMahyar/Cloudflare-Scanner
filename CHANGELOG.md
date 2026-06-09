@@ -7,6 +7,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- **About tab** — version, GitHub source link, and an update check (proxied
+  through Go via `/api/version` + `/api/update-check` so the page CSP stays locked
+  to `'self'`). Includes a crypto donation section (USDT-TRC20/TRON, native
+  USDT-on-TON, EVM multi-chain, BTC) with per-network notes, copy, and QR.
+- **Copy port-mode toggle** — every "Copy All" is a split button with a ▾ menu to
+  copy `ip:port` or IP-only per line. IPv6-aware, global, and persisted; applies to
+  all copy/download/QR paths.
+- **Colo/location filter** on the IP Scanner results (Direct + Nearby).
+- **Settings + results persistence** — per-tab settings and the last working
+  results survive a page reload; restored results stay copy/download-able after the
+  in-memory job expires.
+- **Auto-stop on N results** for the Endpoint and IP scanners — the scan halts
+  early once enough working results are found and reports `done` (not cancelled),
+  keeping partial results.
+- **Completion notifications** — optional per-tab "Notify when finished" toggle
+  (desktop Notification + a short WebAudio beep + toast; no external assets).
+- **Replacer upgrades** — config naming template (`{remark} {ip} {port} {ep}
+  {proto} {n}`), base64 subscription output ("Copy as sub" / "Download sub"), live
+  endpoint validation, and per-row Copy + QR on generated configs.
+- **Single-source versioning** — a repo-root `VERSION` file is now the one place to
+  bump the version; it is embedded into the binary as the ldflags fallback (plain
+  `go build` reports the right number), the build scripts default to it, and the
+  release workflow fails if a pushed tag doesn't match it.
+
+### Changed
+- `dist/` is gitignored so local build archives no longer show up as untracked.
+
 ---
 
 ## [v3.2.0] — 2026-06-09
