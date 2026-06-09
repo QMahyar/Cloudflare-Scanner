@@ -1233,9 +1233,15 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
     <div class="card" id="resultsCard">
       <div class="section-header">
         <h2><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg><span data-t="results.header">Results</span></h2>
-        <div class="compact-control">
-          <label for="outCount" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
-          <input class="compact-input" type="text" id="outCount" data-t-title="settings.outCountTitle" value="0" inputmode="numeric">
+        <div style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap">
+          <div class="compact-control">
+            <label for="maxLatency" data-t="results.maxLat" data-t-title="results.maxLatTitle">Max ms</label>
+            <input class="compact-input" type="text" id="maxLatency" data-t-title="results.maxLatTitle" value="0" inputmode="numeric" oninput="App.refreshEndpointResults()">
+          </div>
+          <div class="compact-control">
+            <label for="outCount" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
+            <input class="compact-input" type="text" id="outCount" data-t-title="settings.outCountTitle" value="0" inputmode="numeric" oninput="App.refreshEndpointResults()">
+          </div>
         </div>
       </div>
 
@@ -1502,6 +1508,10 @@ button:focus-visible, .file-label:focus-visible, .preset-btn:focus-visible, .tab
           <div class="compact-control">
             <label for="cleanColoFilter" data-t="clean.coloFilter" data-t-title="clean.coloFilterTitle">Colo</label>
             <input class="compact-input" type="text" id="cleanColoFilter" style="width:84px;text-align:left;font-family:var(--font-sans)" data-t-placeholder="clean.coloFilterPh" data-t-title="clean.coloFilterTitle" placeholder="e.g. FRA" oninput="App.applyCleanFilter()">
+          </div>
+          <div class="compact-control">
+            <label for="cleanMaxLatency" data-t="results.maxLat" data-t-title="results.maxLatTitle">Max ms</label>
+            <input class="compact-input" type="text" id="cleanMaxLatency" data-t-title="results.maxLatTitle" value="0" inputmode="numeric" oninput="App.applyCleanFilter()">
           </div>
           <div class="compact-control">
             <label for="cleanOutCount" data-t="settings.outCount" data-t-title="settings.outCountTitle">Show</label>
@@ -1804,6 +1814,7 @@ const App = (function() {
       'buttons.start': 'Start Scan', 'buttons.stop': 'Stop', 'buttons.rescan': 'Rescan',
       'buttons.reset': 'Reset', 'buttons.close': 'Close',
       'scan.scanning': 'Scanning...', 'scan.progressTemplate': '{p} / {t} endpoints tested',
+      'scan.eta': '~{s}s left', 'results.maxLat': 'Max ms', 'results.maxLatTitle': 'Hide results slower than this latency in ms (0 = no limit)',
       'results.header': 'Results', 'results.empty': 'Select a config and start scanning',
       'results.working': '{n} working endpoint(s) found',
       'results.notFound': 'No working endpoints found. Try enabling noise, switching IP version, or increasing scan depth.',
@@ -2064,6 +2075,7 @@ const App = (function() {
       'buttons.start': 'شروع اسکن', 'buttons.stop': 'توقف', 'buttons.rescan': 'اسکن مجدد',
       'buttons.reset': 'ریست', 'buttons.close': 'بستن',
       'scan.scanning': 'در حال اسکن...', 'scan.progressTemplate': '{p} / {t} اندپوینت تست شد',
+      'scan.eta': '~{s} ثانیه مانده', 'results.maxLat': 'حداکثر ms', 'results.maxLatTitle': 'نتایج کندتر از این تأخیر (میلی‌ثانیه) را پنهان کن (۰ = بدون محدودیت)',
       'results.header': 'نتایج', 'results.empty': 'یک کانفیگ انتخاب کنید و اسکن را شروع کنید',
       'results.working': '{n} اندپوینت working پیدا شد',
       'results.notFound': 'هیچ اندپوینت working پیدا نشد. نویز را فعال کنید، ورژن آی‌پی را عوض کنید یا تعداد اسکن را بیشتر کنید.',
@@ -2515,6 +2527,18 @@ const App = (function() {
     } catch {}
   }
 
+  // " · 320/s · ~12s left" — live throughput + ETA appended to progress text.
+  function scanRateText(progress, total, startMs) {
+    if (!startMs || progress <= 0) return '';
+    const elapsed = (Date.now() - startMs) / 1000;
+    if (elapsed < 0.6) return '';
+    const rate = progress / elapsed;
+    if (rate <= 0) return '';
+    let s = ' · ' + (rate >= 10 ? Math.round(rate) : rate.toFixed(1)) + '/s';
+    if (total > progress) s += ' · ' + t('scan.eta', { s: Math.max(1, Math.round((total - progress) / rate)) });
+    return s;
+  }
+
   // ─── Sorting ───
   function parseLatency(s) {
     if (!s) return Infinity;
@@ -2750,9 +2774,11 @@ const App = (function() {
     try {
       const data = await apiJSON('/api/scan', { method: 'POST', body: formData });
       state.endpoint.jobId = data.id;
+      state.endpoint.startTime = Date.now();
       const total = parseInt(data.total);
       pollStatus(data.id, total);
       pollResults(data.id);
+      $('#resultsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       showError(t('scan.failed', { msg: escapeHtml(e.message) }));
       setButtonsIdle();
@@ -2795,7 +2821,8 @@ const App = (function() {
         state.endpoint.lastStatus = data.status;
         const pct = total > 0 ? Math.round((data.progress / total) * 100) : 0;
         progressFill.style.width = pct + '%';
-        progressText.textContent = t('scan.progressTemplate', { p: data.progress, t: total });
+        const rate = (data.status === 'running') ? scanRateText(data.progress, total, state.endpoint.startTime) : '';
+        progressText.textContent = t('scan.progressTemplate', { p: data.progress, t: total }) + rate;
         if (data.status === 'done' || data.status === 'cancelled') {
           clearInterval(state.endpoint.statusTimer);
           state.endpoint.statusTimer = null;
@@ -2835,7 +2862,9 @@ const App = (function() {
     // Sort the full successful pool, then apply outCount limit — so the user
     // sorts all results, not just the already-truncated visible slice.
     const outCount = parseInt($('#outCount').value) || 0;
+    const maxLat = parseInt($('#maxLatency')?.value) || 0;
     let pool = sortEntries(state.endpoint.raw, state.endpoint.sort.field, state.endpoint.sort.dir);
+    if (maxLat > 0) pool = pool.filter(e => parseLatency(e.latency) <= maxLat);
     if (outCount > 0 && pool.length > outCount) pool = pool.slice(0, outCount);
     const sorted = pool;
     // During live polling the table is rebuilt every 1.5s. Skip the rebuild when
@@ -2923,6 +2952,12 @@ const App = (function() {
       return;
     }
     showError(t('results.failed'));
+  }
+
+  // Re-render endpoint results when the Max-ms / Show filters change.
+  function refreshEndpointResults() {
+    if (!state.endpoint.raw || !state.endpoint.raw.length) return;
+    renderResultsTable({ raw: state.endpoint.raw, total: state.endpoint.raw.length, scanned: state.endpoint.raw.length, status: state.endpoint.lastStatus || 'done' }, state.endpoint.jobId || '', false);
   }
 
   // "Use" on an Endpoint result hands the endpoint to the Replacer's WireGuard
@@ -3234,8 +3269,10 @@ const App = (function() {
         })
       });
       state.clean.jobId = data.id;
+      state.clean.startTime = Date.now();
       pollCleanStatus(data.id);
       pollCleanResults(data.id);
+      $('#cleanResultsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       $('#cleanStatusMsg').innerHTML = '<div class="error-msg">' + t('clean.errStart', { msg: escapeHtml(e.message) }) + '</div>';
       cleanStartBtn.disabled = false;
@@ -3289,7 +3326,7 @@ const App = (function() {
         if (data.status === 'running-phase1') {
           const p = data.phase1_progress || 0, tot = data.phase1_total || 1;
           fill.style.width = Math.round((p / tot) * 50) + '%';
-          text.textContent = t('clean.progressPhase1', { p, t: tot });
+          text.textContent = t('clean.progressPhase1', { p, t: tot }) + scanRateText(p, tot, state.clean.startTime);
         } else if (data.status === 'running-phase2') {
           const p = data.phase2_progress || 0, tot = data.phase2_total || 1;
           fill.style.width = Math.min(50 + Math.round((p / tot) * 50), 99) + '%';
@@ -3382,7 +3419,10 @@ const App = (function() {
     const listBar = $('#cleanListBar');
     // Colo/location filter — substring match over "colo loc" (e.g. "FRA", "germany").
     const coloQ = ($('#cleanColoFilter')?.value || '').trim().toLowerCase();
-    const matchColo = (e) => !coloQ || (((e.colo || '') + ' ' + (e.loc || '')).toLowerCase().includes(coloQ));
+    const maxLat = parseInt($('#cleanMaxLatency')?.value) || 0;
+    const matchColo = (e) =>
+      (!coloQ || ((e.colo || '') + ' ' + (e.loc || '')).toLowerCase().includes(coloQ)) &&
+      (!maxLat || parseLatency(e.latency) <= maxLat);
     const nearbyEntriesAll = data.nearby_entries || [];
     const nearbyEntries = nearbyEntriesAll.filter(matchColo);
     let outLimit = parseInt($('#cleanOutCount')?.value || '0');
@@ -4109,6 +4149,14 @@ const App = (function() {
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCopyMenu(); });
     window.addEventListener('resize', closeCopyMenu);
+    // Enter in a text field starts that tab's scan (textareas are excluded so
+    // multi-line range/paste inputs still accept newlines).
+    $('#endpointTab').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.matches('input[type=text]') && !startBtn.disabled) { e.preventDefault(); startScan(); }
+    });
+    $('#cleanTab').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.matches('input[type=text]') && !cleanStartBtn.disabled) { e.preventDefault(); startCleanScan(); }
+    });
   }
 
   // ─── Public API ───
@@ -4116,7 +4164,7 @@ const App = (function() {
     toggleLang: () => setLang(currentLang === 'en' ? 'fa' : 'en'),
     switchTab, selectPreset,
     startScan, stopScan, rescan, resetAll,
-    sortEndpoint, copyAllEndpoints, downloadRaw, useEndpoint,
+    sortEndpoint, copyAllEndpoints, downloadRaw, useEndpoint, refreshEndpointResults,
     selectAllEndpoint, copySelectedEndpoints, handleApplyEndpoint,
     startCleanScan, stopCleanScan, cleanRescan, cleanReset,
     portPreset(mode, btn) {
