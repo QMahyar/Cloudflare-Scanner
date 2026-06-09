@@ -460,7 +460,9 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 			conn.Close()
 			latency := time.Since(start)
 
-			colo, loc := probeCloudflareTrace(ctx, endpoint, 2*time.Second)
+			// Colo/loc are enriched separately (see enrichColo) for a bounded set
+			// of the fastest responders — keeping the trace round-trip out of this
+			// dial loop so dense ranges aren't throttled to ~2s per responder.
 			result := CleanIPResult{
 				Endpoint: endpoint,
 				Latency:  latency,
@@ -468,8 +470,6 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 				Attempts: 1,
 				Passes:   1,
 				Best:     latency,
-				Colo:     colo,
-				Loc:      loc,
 			}
 
 			mu.Lock()
@@ -502,7 +502,7 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 }
 
 func probeCloudflareTrace(ctx context.Context, endpoint string, timeout time.Duration) (colo, loc string) {
-	host, port, err := net.SplitHostPort(endpoint)
+	_, port, err := net.SplitHostPort(endpoint)
 	if err != nil {
 		return "", ""
 	}
@@ -543,8 +543,92 @@ func probeCloudflareTrace(ctx context.Context, endpoint string, timeout time.Dur
 			loc = strings.TrimSpace(strings.TrimPrefix(line, "loc="))
 		}
 	}
-	_ = host
 	return colo, loc
+}
+
+// ipOnly returns the host portion of an "ip:port" / "[ipv6]:port" endpoint.
+func ipOnly(endpoint string) string {
+	host, _, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return ""
+	}
+	return host
+}
+
+// buildColoMap probes /cdn-cgi/trace for up to maxIPs distinct responders
+// (deduped by IP, fastest first since results arrive latency-sorted) and returns
+// an IP -> {colo, loc} map. It only reads results, never mutates them, so it is
+// safe to run lock-free against a published slice. Bounded + concurrent so it
+// stays off the Phase-1 dial hot path regardless of how many IPs responded.
+func buildColoMap(ctx context.Context, results []CleanIPResult, maxIPs, concurrency int) map[string][2]string {
+	if maxIPs <= 0 {
+		maxIPs = 150
+	}
+	if concurrency <= 0 {
+		concurrency = 48
+	}
+
+	type target struct{ ip, endpoint string }
+	var targets []target
+	seen := make(map[string]bool)
+	for _, r := range results {
+		if !r.Success {
+			continue
+		}
+		ip := ipOnly(r.Endpoint)
+		if ip == "" || seen[ip] {
+			continue
+		}
+		seen[ip] = true
+		targets = append(targets, target{ip: ip, endpoint: r.Endpoint})
+		if len(targets) >= maxIPs {
+			break
+		}
+	}
+
+	coloMap := make(map[string][2]string, len(targets))
+	if len(targets) == 0 {
+		return coloMap
+	}
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, concurrency)
+	for _, tgt := range targets {
+		wg.Add(1)
+		go func(t target) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+			colo, loc := probeCloudflareTrace(ctx, t.endpoint, 2*time.Second)
+			if colo == "" && loc == "" {
+				return
+			}
+			mu.Lock()
+			coloMap[t.ip] = [2]string{colo, loc}
+			mu.Unlock()
+		}(tgt)
+	}
+	wg.Wait()
+	return coloMap
+}
+
+// applyColo writes the colo/loc from a coloMap onto every matching result.
+// Callers must hold job.mu when results is the published job slice.
+func applyColo(results []CleanIPResult, coloMap map[string][2]string) {
+	if len(coloMap) == 0 {
+		return
+	}
+	for i := range results {
+		if cl, ok := coloMap[ipOnly(results[i].Endpoint)]; ok {
+			results[i].Colo = cl[0]
+			results[i].Loc = cl[1]
+		}
+	}
 }
 
 func validateWithXrayAttempts(ctx context.Context, cfg *ProxyConfig, endpoint string, xrayPath string, socksPortBase int, timeout time.Duration, attempts int) CleanIPResult {
@@ -673,7 +757,10 @@ func validateWithXray(ctx context.Context, cfg *ProxyConfig, endpoint string, xr
 	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 
-	if resp.StatusCode == 204 || resp.StatusCode == 200 {
+	// www.gstatic.com/generate_204 always answers 204 through a working tunnel.
+	// Accepting 200 risks false positives from captive portals / edge error
+	// pages, so require an exact 204 (matches the WARP scanner's check).
+	if resp.StatusCode == 204 {
 		return CleanIPResult{Endpoint: endpoint, Success: true, Latency: time.Since(start)}
 	}
 
@@ -728,6 +815,18 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	job.Phase1Results = phase1Results
 	job.mu.Unlock()
 
+	// Enrich the fastest responders with their Cloudflare colo/country in a
+	// bounded, concurrent pass — kept off the Phase-1 dial loop. Covers at least
+	// the Phase-2 candidates plus a display buffer, and is reused for Phase 2.
+	coloCap := job.Phase2Count
+	if coloCap < 150 {
+		coloCap = 150
+	}
+	coloMap := buildColoMap(ctx, phase1Results, coloCap, 48)
+	job.mu.Lock()
+	applyColo(job.Phase1Results, coloMap)
+	job.mu.Unlock()
+
 	// Nearby scan: expand around working phase 1 results
 	var nearbyPhase1Results []CleanIPResult
 	if job.NearbyScan && len(phase1Results) > 0 {
@@ -761,6 +860,14 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			job.Phase1Total = savedPhase1Total
 			job.Phase1Progress = savedPhase1Progress
 			job.NearbyPhase1Results = nearbyPhase1Results
+			job.mu.Unlock()
+
+			nearbyColo := buildColoMap(ctx, nearbyPhase1Results, coloCap, 48)
+			for k, v := range nearbyColo {
+				coloMap[k] = v
+			}
+			job.mu.Lock()
+			applyColo(job.NearbyPhase1Results, nearbyColo)
 			job.mu.Unlock()
 		}
 	}
@@ -916,6 +1023,8 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	sortCleanIPResults(phase2Results)
 
 	job.mu.Lock()
+	applyColo(phase2Results, coloMap)
+	applyColo(nearbyPhase2Results, coloMap)
 	job.Phase2Results = phase2Results
 	job.NearbyPhase2Results = nearbyPhase2Results
 	job.Phase2Progress = len(phase2Results) + len(nearbyPhase2Results)

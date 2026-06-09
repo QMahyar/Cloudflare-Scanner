@@ -53,18 +53,18 @@ func main() {
 
 	openBrowser(url)
 
-	waitForShutdown(workDir)
+	waitForShutdown()
 }
 
 // waitForShutdown blocks until an interrupt/terminate signal arrives, then
 // removes the xray work dirs left behind by in-flight scans and exits cleanly.
-func waitForShutdown(workDir string) {
+func waitForShutdown() {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	<-sig
 
 	fmt.Println("\n  Shutting down — cleaning up xray work dirs...")
-	os.RemoveAll(filepath.Join(workDir, "_xray_work"))
+	os.RemoveAll(filepath.Join(os.TempDir(), "_xray_work"))
 	os.RemoveAll(filepath.Join(os.TempDir(), "_xray_clean"))
 	os.Exit(0)
 }

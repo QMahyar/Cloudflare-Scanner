@@ -75,14 +75,16 @@ type NoiseEntry struct {
 
 type XrayManager struct {
 	XrayPath string
-	WorkDir  string
 	Config   *WarpConfig
 	Noise    NoiseConfig
 }
 
 func (xm *XrayManager) GenerateConfig(endpoint string, socksPort int) (configPath string, err error) {
 	tag := fmt.Sprintf("wg_%d", socksPort)
-	configDir := filepath.Join(xm.WorkDir, "_xray_work", tag)
+	// Work dir lives under the OS temp dir (writable everywhere) rather than the
+	// app directory, so WARP scans keep working when the app is installed in a
+	// read-only location (Program Files, /opt, …). Mirrors the clean-IP path.
+	configDir := filepath.Join(os.TempDir(), "_xray_work", tag)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return "", fmt.Errorf("cannot create work dir: %w", err)
 	}

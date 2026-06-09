@@ -28,19 +28,17 @@ type Scanner struct {
 	Config      *WarpConfig
 	Noise       NoiseConfig
 	XrayPath    string
-	WorkDir     string
 	Concurrency int
 	Timeout     time.Duration
 	TCPOnly     bool
 	portCounter atomic.Int32
 }
 
-func NewScanner(cfg *WarpConfig, noise NoiseConfig, xrayPath, workDir string) *Scanner {
+func NewScanner(cfg *WarpConfig, noise NoiseConfig, xrayPath string) *Scanner {
 	return &Scanner{
 		Config:      cfg,
 		Noise:       noise,
 		XrayPath:    xrayPath,
-		WorkDir:     workDir,
 		Concurrency: 12,
 		Timeout:     6 * time.Second,
 	}
@@ -105,11 +103,23 @@ func (s *Scanner) testEndpointOnce(ctx context.Context, endpoint string) ScanRes
 		return ScanResult{Endpoint: endpoint, Success: true, Latency: time.Since(start)}
 	}
 
+	// Fast path: a native WireGuard handshake validates the endpoint over UDP —
+	// the protocol WARP actually speaks — using the uploaded config's registered
+	// credentials, with no xray process and no SOCKS hop. Only when noise /
+	// AmneziaWG obfuscation is requested do we fall back to xray, which is what
+	// applies that obfuscation on the wire.
+	if s.Noise.Type == "" {
+		rtt, err := WarpHandshakeProbe(s.Config, endpoint, s.Timeout)
+		if err != nil {
+			return ScanResult{Endpoint: endpoint, Error: err.Error()}
+		}
+		return ScanResult{Endpoint: endpoint, Success: true, Latency: rtt}
+	}
+
 	socksPort := s.nextPort() + 10799
 
 	xm := &XrayManager{
 		XrayPath: s.XrayPath,
-		WorkDir:  s.WorkDir,
 		Config:   s.Config,
 		Noise:    s.Noise,
 	}

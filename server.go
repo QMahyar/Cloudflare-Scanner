@@ -326,9 +326,6 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		jobID := fmt.Sprintf("job_%d", jobCounter)
 		scanJobsMu.Unlock()
 
-		exePath, _ := os.Executable()
-		workDir := filepath.Dir(exePath)
-
 		job := &ScanJob{
 			ID:          jobID,
 			Status:      "running",
@@ -346,14 +343,14 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		scanJobs[jobID] = job
 		scanJobsMu.Unlock()
 
-		go runScan(job, xrayPath, workDir)
+		go runScan(job, xrayPath)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"id": jobID, "total": fmt.Sprintf("%d", job.Total)})
 	}
 }
 
-func runScan(job *ScanJob, xrayPath, workDir string) {
+func runScan(job *ScanJob, xrayPath string) {
 	defer scheduleScanJobCleanup(job.ID)
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
@@ -366,7 +363,7 @@ func runScan(job *ScanJob, xrayPath, workDir string) {
 		}
 	}()
 
-	scanner := NewScanner(job.Config, job.Noise, xrayPath, workDir)
+	scanner := NewScanner(job.Config, job.Noise, xrayPath)
 	if job.Config == nil {
 		scanner.TCPOnly = true
 	}

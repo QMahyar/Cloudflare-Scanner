@@ -9,6 +9,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.2.0] — 2026-06-09
+
+### Added
+- **Native WireGuard handshake probing for the Endpoint Scanner.** WARP endpoints
+  are now validated with a real Noise_IKpsk2 handshake over UDP (`warp_probe.go`),
+  using the uploaded `.conf`'s registered credentials, instead of spinning up an
+  xray process per endpoint. It tests the protocol WARP actually speaks (UDP), is
+  far faster (48 endpoints in ~15 s vs. a process+SOCKS hop each), and reports the
+  handshake RTT as latency. xray is still used when noise/AmneziaWG obfuscation is
+  requested. Adds a dependency on `golang.org/x/crypto` (blake2s, chacha20poly1305).
+- **Working QR codes.** The QR buttons previously fell back to plain text because
+  no QR library was ever loaded; a CSP-compatible generator is now inlined, so
+  configs/endpoints render as scannable QR codes for mobile import.
+- **Cloudflare colo (data-center) column** in the IP Scanner results, with the
+  country code — surfacing the `/cdn-cgi/trace` data that was already collected but
+  never displayed.
+
+### Changed
+- **IP Scanner Phase 1 is much faster on dense ranges.** The `/cdn-cgi/trace`
+  colo/loc probe was moved out of the TCP-dial hot path; it now runs as a bounded,
+  concurrent enrichment pass over the fastest responders (`buildColoMap`) instead
+  of a 2 s round-trip per responder while holding a concurrency slot.
+- **xray work dirs now live under `os.TempDir()`** (was the app directory for WARP
+  scans), so scanning works when the app is installed in a read-only location.
+
+### Fixed
+- Clean-IP validation now requires an exact HTTP 204 (was 204 *or* 200), avoiding
+  false positives from captive-portal / edge error pages.
+- Apply-results filenames, paths, and config contents are now HTML-escaped before
+  rendering (previously unescaped, which could corrupt the view or self-inject).
+
+---
+
 ## [v3.1.1] — 2026-06-08
 
 ### Fixed
