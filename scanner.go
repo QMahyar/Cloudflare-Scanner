@@ -32,16 +32,38 @@ type Scanner struct {
 	Timeout     time.Duration
 	TCPOnly     bool
 	portCounter atomic.Int32
+	prober      *warpProber
 }
 
 func NewScanner(cfg *WarpConfig, noise NoiseConfig, xrayPath string) *Scanner {
-	return &Scanner{
+	s := &Scanner{
 		Config:      cfg,
 		Noise:       noise,
 		XrayPath:    xrayPath,
-		Concurrency: 12,
+		Concurrency: DefaultConcurrency(cfg, noise),
 		Timeout:     6 * time.Second,
 	}
+	// Build the handshake prober once when the native UDP path is in play
+	// (a config is present and no obfuscation forces the xray fallback). The
+	// expensive static-static DH and key parsing then happen a single time
+	// instead of once per endpoint.
+	if cfg != nil && noise.Type == "" {
+		if p, err := newWarpProber(cfg); err == nil {
+			s.prober = p
+		}
+	}
+	return s
+}
+
+// DefaultConcurrency picks a starting worker count for the scan path that will
+// actually run. The native WireGuard handshake is just a UDP socket plus some
+// cheap crypto, so it scales to hundreds of concurrent probes; the xray
+// noise-fallback path spawns a process per probe and must stay modest.
+func DefaultConcurrency(cfg *WarpConfig, noise NoiseConfig) int {
+	if noise.Type != "" {
+		return 12 // xray process per probe — keep it small
+	}
+	return 256 // native handshake or plain TCP dial — lightweight
 }
 
 func (s *Scanner) nextPort() int {
@@ -109,7 +131,17 @@ func (s *Scanner) testEndpointOnce(ctx context.Context, endpoint string) ScanRes
 	// AmneziaWG obfuscation is requested do we fall back to xray, which is what
 	// applies that obfuscation on the wire.
 	if s.Noise.Type == "" {
-		rtt, err := WarpHandshakeProbe(s.Config, endpoint, s.Timeout)
+		prober := s.prober
+		if prober == nil {
+			// Defensive fallback: build a one-shot prober if NewScanner could
+			// not (should not happen for a valid config).
+			p, err := newWarpProber(s.Config)
+			if err != nil {
+				return ScanResult{Endpoint: endpoint, Error: err.Error()}
+			}
+			prober = p
+		}
+		rtt, err := prober.Probe(endpoint, s.Timeout)
 		if err != nil {
 			return ScanResult{Endpoint: endpoint, Error: err.Error()}
 		}

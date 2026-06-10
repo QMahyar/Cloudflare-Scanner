@@ -82,32 +82,74 @@ func tai64n(t time.Time) [12]byte {
 	return ts
 }
 
-// WarpHandshakeProbe performs a single WireGuard handshake against endpoint
-// using cfg's credentials and returns the round-trip time to the handshake
-// response. A non-nil error means the endpoint did not complete a handshake
-// within timeout (unreachable, wrong protocol, or wrong credentials).
-func WarpHandshakeProbe(cfg *WarpConfig, endpoint string, timeout time.Duration) (time.Duration, error) {
+// warpProber holds the handshake material that is constant across endpoints for
+// a given WARP config. Building it performs the expensive X25519 static-static
+// DH and key parsing exactly once, so a scan of thousands of endpoints reuses
+// that work instead of repeating it per probe.
+type warpProber struct {
+	curve      ecdh.Curve
+	staticPriv *ecdh.PrivateKey
+	peerPub    *ecdh.PublicKey
+	peerBytes  []byte
+	staticPub  []byte
+	dh2        []byte             // DH(static, peer-static) — endpoint-independent
+	mac1Key    [blake2s.Size]byte // HASH(LABEL_MAC1 || peer-static)
+	reserved   [3]byte            // WARP client-id carried in the reserved triple
+}
+
+// newWarpProber precomputes the per-config handshake constants.
+func newWarpProber(cfg *WarpConfig) (*warpProber, error) {
 	privBytes, err := base64.StdEncoding.DecodeString(cfg.PrivateKey)
 	if err != nil || len(privBytes) != 32 {
-		return 0, fmt.Errorf("invalid private key")
+		return nil, fmt.Errorf("invalid private key")
 	}
 	peerBytes, err := base64.StdEncoding.DecodeString(cfg.PublicKey)
 	if err != nil || len(peerBytes) != 32 {
-		return 0, fmt.Errorf("invalid peer public key")
+		return nil, fmt.Errorf("invalid peer public key")
 	}
 
 	curve := ecdh.X25519()
 	staticPriv, err := curve.NewPrivateKey(privBytes)
 	if err != nil {
-		return 0, fmt.Errorf("static private key: %w", err)
+		return nil, fmt.Errorf("static private key: %w", err)
 	}
 	peerPub, err := curve.NewPublicKey(peerBytes)
 	if err != nil {
-		return 0, fmt.Errorf("peer public key: %w", err)
+		return nil, fmt.Errorf("peer public key: %w", err)
 	}
-	staticPub := staticPriv.PublicKey().Bytes()
 
-	ephPriv, err := curve.GenerateKey(rand.Reader)
+	// DH(static, peer-static) does not depend on the endpoint or the per-probe
+	// ephemeral key, so compute it once here rather than once per endpoint.
+	dh2, err := staticPriv.ECDH(peerPub)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &warpProber{
+		curve:      curve,
+		staticPriv: staticPriv,
+		peerPub:    peerPub,
+		peerBytes:  peerBytes,
+		staticPub:  staticPriv.PublicKey().Bytes(),
+		dh2:        dh2,
+		mac1Key:    blake2sHash(wgLabelMAC1, peerBytes),
+	}
+	if len(cfg.Reserved) >= 3 {
+		p.reserved[0] = byte(cfg.Reserved[0])
+		p.reserved[1] = byte(cfg.Reserved[1])
+		p.reserved[2] = byte(cfg.Reserved[2])
+	}
+	return p, nil
+}
+
+// Probe performs a single WireGuard handshake against endpoint and returns the
+// round-trip time to the handshake response. A non-nil error means the endpoint
+// did not complete a handshake within timeout (unreachable, wrong protocol, or
+// wrong credentials). The initiation is retransmitted periodically within the
+// timeout window so a single dropped UDP datagram does not condemn an otherwise
+// reachable endpoint.
+func (p *warpProber) Probe(endpoint string, timeout time.Duration) (time.Duration, error) {
+	ephPriv, err := p.curve.GenerateKey(rand.Reader)
 	if err != nil {
 		return 0, err
 	}
@@ -116,14 +158,14 @@ func WarpHandshakeProbe(cfg *WarpConfig, endpoint string, timeout time.Duration)
 	// Noise IKpsk2 initiator hash/chain init.
 	ck := blake2sHash(wgConstruction)
 	h := blake2sHash(ck[:], wgIdentifier)
-	h = blake2sHash(h[:], peerBytes)
+	h = blake2sHash(h[:], p.peerBytes)
 
 	// Mix in the ephemeral public key.
 	ck = kdf1(ck[:], ephPub)
 	h = blake2sHash(h[:], ephPub)
 
 	// Encrypt our static public key under DH(eph, peer-static).
-	dh1, err := ephPriv.ECDH(peerPub)
+	dh1, err := ephPriv.ECDH(p.peerPub)
 	if err != nil {
 		return 0, err
 	}
@@ -134,15 +176,11 @@ func WarpHandshakeProbe(cfg *WarpConfig, endpoint string, timeout time.Duration)
 		return 0, err
 	}
 	var zeroNonce [12]byte
-	encStatic := aeadStatic.Seal(nil, zeroNonce[:], staticPub, h[:]) // 48 bytes
+	encStatic := aeadStatic.Seal(nil, zeroNonce[:], p.staticPub, h[:]) // 48 bytes
 	h = blake2sHash(h[:], encStatic)
 
-	// Encrypt the timestamp under DH(static, peer-static).
-	dh2, err := staticPriv.ECDH(peerPub)
-	if err != nil {
-		return 0, err
-	}
-	ck, key = kdf2(ck[:], dh2)
+	// Encrypt the timestamp under the precomputed DH(static, peer-static).
+	ck, key = kdf2(ck[:], p.dh2)
 	aeadTime, err := chacha20poly1305.New(key[:])
 	if err != nil {
 		return 0, err
@@ -154,11 +192,9 @@ func WarpHandshakeProbe(cfg *WarpConfig, endpoint string, timeout time.Duration)
 	// Assemble the 148-byte handshake initiation.
 	msg := make([]byte, 148)
 	msg[0] = 1 // message type 1 (handshake initiation); bytes 1..3 are reserved
-	if len(cfg.Reserved) >= 3 {
-		msg[1] = byte(cfg.Reserved[0])
-		msg[2] = byte(cfg.Reserved[1])
-		msg[3] = byte(cfg.Reserved[2])
-	}
+	msg[1] = p.reserved[0]
+	msg[2] = p.reserved[1]
+	msg[3] = p.reserved[2]
 	var idxBuf [4]byte
 	if _, err := rand.Read(idxBuf[:]); err != nil {
 		return 0, err
@@ -170,8 +206,7 @@ func WarpHandshakeProbe(cfg *WarpConfig, endpoint string, timeout time.Duration)
 	copy(msg[88:116], encTime)
 
 	// MAC1 = keyed-BLAKE2s(HASH(LABEL_MAC1 || peer-static), msg[0:116]).
-	mac1Key := blake2sHash(wgLabelMAC1, peerBytes)
-	mac1 := wgMAC(mac1Key[:], msg[0:116])
+	mac1 := wgMAC(p.mac1Key[:], msg[0:116])
 	copy(msg[116:132], mac1[:])
 	// MAC2 stays zero (no cookie challenge outstanding).
 
@@ -180,31 +215,68 @@ func WarpHandshakeProbe(cfg *WarpConfig, endpoint string, timeout time.Duration)
 		return 0, err
 	}
 	defer conn.Close()
-	conn.SetDeadline(time.Now().Add(timeout))
 
-	start := time.Now()
+	deadline := time.Now().Add(timeout)
+	// Retransmit interval: a fraction of the budget, clamped so short timeouts
+	// still get at least one resend and long ones don't flood the path.
+	retransmit := timeout / 3
+	if retransmit > 700*time.Millisecond {
+		retransmit = 700 * time.Millisecond
+	}
+	if retransmit < 100*time.Millisecond {
+		retransmit = 100 * time.Millisecond
+	}
+
+	sendTime := time.Now()
 	if _, err := conn.Write(msg); err != nil {
 		return 0, err
 	}
 
 	buf := make([]byte, 256)
 	for {
+		now := time.Now()
+		if !now.Before(deadline) {
+			return 0, fmt.Errorf("no handshake response within %v", timeout)
+		}
+		readUntil := now.Add(retransmit)
+		if readUntil.After(deadline) {
+			readUntil = deadline
+		}
+		conn.SetReadDeadline(readUntil)
+
 		n, err := conn.Read(buf)
 		if err != nil {
+			// A per-read timeout with budget left means the datagram was likely
+			// lost — retransmit the identical initiation and keep waiting.
+			if ne, ok := err.(net.Error); ok && ne.Timeout() && time.Now().Before(deadline) {
+				sendTime = time.Now()
+				if _, werr := conn.Write(msg); werr != nil {
+					return 0, werr
+				}
+				continue
+			}
 			return 0, err
 		}
 		// Handshake response (type 2, 92 bytes): receiver index echoes ours.
-		if n >= 92 && buf[0] == 2 {
-			if binary.LittleEndian.Uint32(buf[8:12]) == senderIndex {
-				return time.Since(start), nil
-			}
+		if n >= 92 && buf[0] == 2 && binary.LittleEndian.Uint32(buf[8:12]) == senderIndex {
+			return time.Since(sendTime), nil
 		}
 		// Cookie reply (type 3): still proves a live WireGuard responder.
-		if n >= 64 && buf[0] == 3 {
-			if binary.LittleEndian.Uint32(buf[4:8]) == senderIndex {
-				return time.Since(start), nil
-			}
+		if n >= 64 && buf[0] == 3 && binary.LittleEndian.Uint32(buf[4:8]) == senderIndex {
+			return time.Since(sendTime), nil
 		}
 		// Anything else: keep reading until the deadline fires.
 	}
+}
+
+// WarpHandshakeProbe performs a single WireGuard handshake against endpoint
+// using cfg's credentials and returns the round-trip time to the handshake
+// response. It builds a one-shot prober; callers probing many endpoints should
+// build a warpProber once and reuse it via Probe.
+func WarpHandshakeProbe(cfg *WarpConfig, endpoint string, timeout time.Duration) (time.Duration, error) {
+	p, err := newWarpProber(cfg)
+	if err != nil {
+		return 0, err
+	}
+	return p.Probe(endpoint, timeout)
 }
