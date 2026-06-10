@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/semaphore"
 )
 
 //go:embed ui
@@ -46,11 +48,6 @@ type ScanJob struct {
 var errFolderSelectionCancelled = errors.New("folder selection cancelled")
 
 func handleSelectOutputDir(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		jsonError(w, "GET required", 405)
-		return
-	}
-
 	dir, err := selectOutputDir()
 	if err != nil {
 		if errors.Is(err, errFolderSelectionCancelled) {
@@ -205,22 +202,22 @@ func startServer(xrayPath string) (int, error) {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", handleIndex)
-	mux.HandleFunc("/api/scan", handleScanStart(xrayPath))
-	mux.HandleFunc("/api/status/", handleScanStatus)
-	mux.HandleFunc("/api/results/", handleScanResults)
-	mux.HandleFunc("/api/stop/", handleScanStop)
-	mux.HandleFunc("/api/apply-endpoint", handleApplyEndpoint)
-	mux.HandleFunc("/api/select-output-dir", handleSelectOutputDir)
-	mux.HandleFunc("/api/clean-scan", handleCleanScanStart(xrayPath))
-	mux.HandleFunc("/api/clean-status/", handleCleanScanStatus)
-	mux.HandleFunc("/api/clean-results/", handleCleanScanResults)
-	mux.HandleFunc("/api/clean-stop/", handleCleanScanStop)
-	mux.HandleFunc("/api/clean-export", handleCleanExport)
-	mux.HandleFunc("/api/replacer/fetch", handleReplacerFetch)
-	mux.HandleFunc("/api/replacer/parse", handleReplacerParse)
-	mux.HandleFunc("/api/replacer/apply", handleReplacerApply)
-	mux.HandleFunc("/api/version", handleVersion)
-	mux.HandleFunc("/api/update-check", handleUpdateCheck)
+	mux.HandleFunc("POST /api/scan", handleScanStart(xrayPath))
+	mux.HandleFunc("GET /api/status/{id}", handleScanStatus)
+	mux.HandleFunc("GET /api/results/{id}", handleScanResults)
+	mux.HandleFunc("POST /api/stop/{id}", handleScanStop)
+	mux.HandleFunc("POST /api/apply-endpoint", handleApplyEndpoint)
+	mux.HandleFunc("GET /api/select-output-dir", handleSelectOutputDir)
+	mux.HandleFunc("POST /api/clean-scan", handleCleanScanStart(xrayPath))
+	mux.HandleFunc("GET /api/clean-status/{id}", handleCleanScanStatus)
+	mux.HandleFunc("GET /api/clean-results/{id}", handleCleanScanResults)
+	mux.HandleFunc("POST /api/clean-stop/{id}", handleCleanScanStop)
+	mux.HandleFunc("POST /api/clean-export", handleCleanExport)
+	mux.HandleFunc("POST /api/replacer/fetch", handleReplacerFetch)
+	mux.HandleFunc("POST /api/replacer/parse", handleReplacerParse)
+	mux.HandleFunc("POST /api/replacer/apply", handleReplacerApply)
+	mux.HandleFunc("GET /api/version", handleVersion)
+	mux.HandleFunc("GET /api/update-check", handleUpdateCheck)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -257,11 +254,6 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 
 func handleScanStart(xrayPath string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			jsonError(w, "POST required", 405)
-			return
-		}
-
 		r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 		if err := r.ParseMultipartForm(10 << 20); err != nil {
 			jsonError(w, err.Error(), 400)
@@ -395,7 +387,7 @@ func runScan(job *ScanJob, xrayPath string) {
 	}
 
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, scanner.Concurrency)
+	sem := semaphore.NewWeighted(int64(scanner.Concurrency))
 
 	for i, ep := range job.Endpoints {
 		select {
@@ -415,12 +407,10 @@ func runScan(job *ScanJob, xrayPath string) {
 		wg.Add(1)
 		go func(endpoint string, idx int) {
 			defer wg.Done()
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-ctx.Done():
+			if err := sem.Acquire(ctx, 1); err != nil {
 				return
 			}
+			defer sem.Release(1)
 
 			result := scanner.testEndpointAttempts(ctx, endpoint, job.Attempts)
 
@@ -474,7 +464,7 @@ func runScan(job *ScanJob, xrayPath string) {
 }
 
 func handleScanStop(w http.ResponseWriter, r *http.Request) {
-	jobID := r.URL.Path[len("/api/stop/"):]
+	jobID := r.PathValue("id")
 
 	scanJobsMu.Lock()
 	job, ok := scanJobs[jobID]
@@ -501,7 +491,7 @@ func handleScanStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleScanStatus(w http.ResponseWriter, r *http.Request) {
-	jobID := r.URL.Path[len("/api/status/"):]
+	jobID := r.PathValue("id")
 
 	scanJobsMu.Lock()
 	job, ok := scanJobs[jobID]
@@ -527,7 +517,7 @@ func handleScanStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleScanResults(w http.ResponseWriter, r *http.Request) {
-	jobID := r.URL.Path[len("/api/results/"):]
+	jobID := r.PathValue("id")
 
 	scanJobsMu.Lock()
 	job, ok := scanJobs[jobID]
@@ -626,11 +616,6 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonError(w, "POST required", 405)
-		return
-	}
-
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<22)
 	if err := r.ParseMultipartForm(10 << 22); err != nil {
 		jsonError(w, err.Error(), 400)
@@ -771,11 +756,6 @@ type cleanScanRequest struct {
 
 func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
-			jsonError(w, "POST required", 405)
-			return
-		}
-
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var req cleanScanRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -885,7 +865,7 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 }
 
 func handleCleanScanStop(w http.ResponseWriter, r *http.Request) {
-	jobID := r.URL.Path[len("/api/clean-stop/"):]
+	jobID := r.PathValue("id")
 
 	cleanJobsMu.Lock()
 	job, ok := cleanJobs[jobID]
@@ -912,7 +892,7 @@ func handleCleanScanStop(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCleanScanStatus(w http.ResponseWriter, r *http.Request) {
-	jobID := r.URL.Path[len("/api/clean-status/"):]
+	jobID := r.PathValue("id")
 
 	cleanJobsMu.Lock()
 	job, ok := cleanJobs[jobID]
@@ -942,7 +922,7 @@ func handleCleanScanStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
-	jobID := r.URL.Path[len("/api/clean-results/"):]
+	jobID := r.PathValue("id")
 
 	cleanJobsMu.Lock()
 	job, ok := cleanJobs[jobID]
@@ -1092,11 +1072,6 @@ type cleanExportRequest struct {
 }
 
 func handleCleanExport(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonError(w, "POST required", 405)
-		return
-	}
-
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var req cleanExportRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1224,11 +1199,6 @@ func (e replacerConfigEntry) toProxyConfig() *ProxyConfig {
 }
 
 func handleReplacerFetch(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonError(w, "POST required", 405)
-		return
-	}
-
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var req replacerFetchRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1278,11 +1248,6 @@ type replacerParseRequest struct {
 }
 
 func handleReplacerParse(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonError(w, "POST required", 405)
-		return
-	}
-
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 	var req replacerParseRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -1324,11 +1289,6 @@ type replacerApplyRequest struct {
 }
 
 func handleReplacerApply(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		jsonError(w, "POST required", 405)
-		return
-	}
-
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 	var req replacerApplyRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

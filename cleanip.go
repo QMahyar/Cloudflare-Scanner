@@ -18,6 +18,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"golang.org/x/sync/semaphore"
 )
 
 var cfIPv4CIDRs = []string{
@@ -455,7 +457,7 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 	if concurrency <= 0 {
 		concurrency = 500
 	}
-	sem := make(chan struct{}, concurrency)
+	sem := semaphore.NewWeighted(int64(concurrency))
 	results := make([]CleanIPResult, 0, len(endpoints))
 
 	// localStop lets phase 1 finish early once stopAfter responders are found,
@@ -463,6 +465,19 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 	localStop := make(chan struct{})
 	var stopOnce sync.Once
 	stopNow := func() { stopOnce.Do(func() { close(localStop) }) }
+
+	// phaseCtx is cancelled on either job cancel or local early-stop, so a
+	// single context drives all semaphore Acquire calls without per-goroutine
+	// cancel watchers.
+	phaseCtx, phaseCancel := context.WithCancel(ctx)
+	defer phaseCancel()
+	go func() {
+		select {
+		case <-localStop:
+			phaseCancel()
+		case <-phaseCtx.Done():
+		}
+	}()
 
 	for i, ep := range endpoints {
 		select {
@@ -477,14 +492,10 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 		wg.Add(1)
 		go func(endpoint string, idx int) {
 			defer wg.Done()
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-cancel:
-				return
-			case <-localStop:
+			if err := sem.Acquire(phaseCtx, 1); err != nil {
 				return
 			}
+			defer sem.Release(1)
 
 			latency, ok := dialReachable(endpoint, timeout, 2)
 			if !ok {
@@ -638,17 +649,15 @@ func buildColoMap(ctx context.Context, results []CleanIPResult, maxIPs, concurre
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, concurrency)
+	sem := semaphore.NewWeighted(int64(concurrency))
 	for _, tgt := range targets {
 		wg.Add(1)
 		go func(t target) {
 			defer wg.Done()
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-ctx.Done():
+			if err := sem.Acquire(ctx, 1); err != nil {
 				return
 			}
+			defer sem.Release(1)
 			colo, loc := probeCloudflareTrace(ctx, t.endpoint, 2*time.Second)
 			if colo == "" && loc == "" {
 				return
@@ -1002,7 +1011,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	var portCounter atomic.Int32
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, p2Probes)
+	sem := semaphore.NewWeighted(int64(p2Probes))
 	phase2Results := make([]CleanIPResult, 0, len(tcpResults))
 	var nearbyPhase2Results []CleanIPResult
 	if len(nearbyTcpResults) > 0 {
@@ -1013,13 +1022,11 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		select {
 		case <-job.Cancel:
 			sortCleanIPResults(phase2Results)
-			mu.Lock()
 			job.mu.Lock()
 			job.Phase2Results = phase2Results
 			job.Phase2Progress = len(phase2Results)
 			job.Status = "cancelled"
 			job.mu.Unlock()
-			mu.Unlock()
 			return
 		default:
 		}
@@ -1027,12 +1034,10 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		wg.Add(1)
 		go func(ep string) {
 			defer wg.Done()
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-ctx.Done():
+			if err := sem.Acquire(ctx, 1); err != nil {
 				return
 			}
+			defer sem.Release(1)
 
 			socksPort := int(portCounter.Add(10)) + 20799
 			result := validateWithXrayAttempts(ctx, &validationCfg, ep, xrayPath, socksPort, phase2Timeout, 2)
@@ -1040,15 +1045,14 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			mu.Lock()
 			phase2Results = append(phase2Results, result)
 			progress := len(phase2Results)
+			snapshot := make([]CleanIPResult, len(phase2Results))
+			copy(snapshot, phase2Results)
 			mu.Unlock()
 
-			mu.Lock()
 			job.mu.Lock()
-			job.Phase2Results = make([]CleanIPResult, len(phase2Results))
-			copy(job.Phase2Results, phase2Results)
+			job.Phase2Results = snapshot
 			job.Phase2Progress = progress
 			job.mu.Unlock()
-			mu.Unlock()
 		}(pr.Endpoint)
 	}
 
@@ -1070,12 +1074,10 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			nearbyWg.Add(1)
 			go func(ep string) {
 				defer nearbyWg.Done()
-				select {
-				case sem <- struct{}{}:
-					defer func() { <-sem }()
-				case <-ctx.Done():
+				if err := sem.Acquire(ctx, 1); err != nil {
 					return
 				}
+				defer sem.Release(1)
 
 				socksPort := int(portCounter.Add(10)) + 20799
 				result := validateWithXrayAttempts(ctx, &validationCfg, ep, xrayPath, socksPort, phase2Timeout, 2)
