@@ -12,7 +12,7 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 
 ## Key Architecture
 
-- **Single binary + embedded UI**: `//go:embed ui` in `server.go` compiles `ui/index.html` into the binary. No runtime files.
+- **Single binary + embedded UI**: `//go:embed all:ui/dist` in `server.go` compiles the built Svelte bundle (`ui/dist/`) into the binary. No runtime files. Rebuild the UI with `cd frontend && npm run build` before `go build`; `ui/dist/` is committed so `go build` needs no Node.
 - **Requires `xray.exe`/`xray` co-located** — app exits with download link if missing.
 - **Entrypoint**: `main.go` → `startServer(xrayPath)` (random `127.0.0.1` port) → auto-open browser → `waitForShutdown` (blocks on SIGINT/SIGTERM, then cleans temp dirs and exits).
 - **No HTTP router**: plain `http.ServeMux`; job IDs sliced out of the path (`r.URL.Path[len(prefix):]`).
@@ -55,9 +55,10 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 - **Release** (`.github/workflows/release.yml`): auto-triggered on `v*` tag. Builds 7 platforms, bundles matching xray-core v1.8.24, uploads `.tar.gz` to GitHub Release.
 - Tag: `git tag vX.Y.Z && git push origin vX.Y.Z`
 
-## UI (vanilla HTML/CSS/JS)
+## UI (Vite + Svelte 5)
 
-- Single `ui/index.html` with inline `<style>` and `<script>`.
-- All i18n in `TR` object (`en` + `fa`), switched via `setLang()`.
-- API calls through `apiJSON()` wrapper.
+- Source in `frontend/src/`: one `*.svelte` component per tab in `components/` (`EndpointScanner`, `IpScanner`, `Replacer`, `About`) plus shared helpers in `lib/`.
+- All i18n in `frontend/src/locales/en.json` + `fa.json` (identical keys), via `svelte-i18n`; language toggled in `lib/i18n.js`.
+- API calls through `lib/api.js` `apiJSON()` wrapper.
 - Scan polling: `setInterval` at 300-1500ms intervals.
+- Build: `cd frontend && npm run build` → emits `ui/dist/` (committed, embedded by Go). `npm run dev` for a hot-reload dev server.

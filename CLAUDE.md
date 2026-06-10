@@ -21,7 +21,7 @@ CI (`.github/workflows/ci.yml`) vets + builds all 6 platform combos and runs `go
 
 `main.go` requires `xray`/`xray.exe` co-located with the executable — it exits with a download link if missing. It calls `startServer` (binds `127.0.0.1:0`, OS-assigned random port), prints the URL, auto-opens a browser, then blocks until an interrupt/terminate signal (`waitForShutdown`), on which it removes the `_xray_work`/`_xray_clean` temp dirs and exits. (xray is still required for clean-IP Phase 2 and the WARP noise fallback; the native WARP handshake path doesn't use it.)
 
-The UI is a single `ui/index.html` embedded via `//go:embed ui` in `server.go` — **the binary is fully self-contained at runtime except for the xray sidecar.** Edits to `ui/index.html` require a rebuild to take effect.
+The UI is a Vite + Svelte 5 app under `frontend/`, built to `ui/dist/` and embedded via `//go:embed all:ui/dist` in `server.go` — **the binary is fully self-contained at runtime except for the xray sidecar.** The committed `ui/dist/` bundle is what `go build` embeds, so a UI change is a two-step rebuild: `cd frontend && npm run build` (regenerates `ui/dist/`), then `go build`. Source lives in `frontend/src/` (one `*.svelte` component per tab under `components/`, shared logic in `lib/`, i18n in `locales/en.json`+`fa.json`). Node is only needed to rebuild `ui/dist`, never to `go build`.
 
 `module` is `WarpEndpointScanner` (legacy name); the product/repo is `Cloudflare-Scanner`. Both names are load-bearing — don't "fix" the module path.
 
@@ -56,6 +56,6 @@ The app is one Go binary serving a 3-tab UI. Each tab is a distinct pipeline:
 - No HTTP router/framework — plain `http.ServeMux` with prefix path matching (`r.URL.Path[len(prefix):]` to extract IDs). No env-var config; everything flows through the web UI.
 - Latency stats (median/best/jitter across N attempts) live in `metrics.go`; reuse those rather than re-deriving.
 - Tests cover parsing (`parsers_test.go`) and IP generation (`cleanip_test.go`) — the network/xray paths are not unit-tested. Add table-driven tests in those files for any parser/generator change.
-- Docs are bilingual (English + Persian `.fa.md` / `docs/fa/`); UI i18n is a `TR` object in `index.html`. Update both sides when changing user-facing strings.
+- Docs are bilingual (English + Persian `.fa.md` / `docs/fa/`); UI i18n lives in `frontend/src/locales/en.json` + `fa.json` (keyed identically, loaded via `svelte-i18n`). Update both sides when changing user-facing strings.
 </content>
 </invoke>
