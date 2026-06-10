@@ -1,0 +1,3 @@
+# The embedded frontend bundle is committed build output — never apply EOL
+# conversion to it, so the bytes Go embeds are identical on every platform.
+ui/dist/** -text

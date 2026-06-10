@@ -1,9 +1,16 @@
 # Build artifacts
 dist/
+# ...except the embedded frontend bundle, which is committed so `go build`
+# works with no Node toolchain (built from frontend/ via `npm run build`).
+!ui/dist/
+!ui/dist/**
 Cloudflare-Scanner.exe
 WarpEndpointScanner.exe
 *.exe
 !*.go
+
+# Frontend toolchain
+frontend/node_modules/
 
 # Local xray-core runtime artifacts
 _xray_work/

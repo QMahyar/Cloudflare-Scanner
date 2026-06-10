@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"os"
@@ -21,8 +22,12 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-//go:embed ui
+//go:embed all:ui/dist
 var uiFS embed.FS
+
+// distFS is the embedded Vite build output (ui/dist) rooted so that
+// "index.html" and "assets/..." resolve directly. Initialized in startServer.
+var distFS fs.FS
 
 type ScanJob struct {
 	ID            string
@@ -199,9 +204,16 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 }
 
 func startServer(xrayPath string) (int, error) {
+	sub, err := fs.Sub(uiFS, "ui/dist")
+	if err != nil {
+		return 0, fmt.Errorf("embed ui/dist: %w", err)
+	}
+	distFS = sub
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/", handleIndex)
+	mux.Handle("GET /assets/", http.FileServerFS(distFS))
 	mux.HandleFunc("POST /api/scan", handleScanStart(xrayPath))
 	mux.HandleFunc("GET /api/status/{id}", handleScanStatus)
 	mux.HandleFunc("GET /api/results/{id}", handleScanResults)
@@ -242,8 +254,11 @@ func startServer(xrayPath string) (int, error) {
 func handleIndex(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:")
-	data, err := uiFS.ReadFile("ui/index.html")
+	// Vite emits external module scripts, so script-src no longer needs
+	// 'unsafe-inline'. style-src keeps it for Svelte's dynamic style= bindings
+	// and inline styles; connect-src 'self' covers fetch/SSE to the API.
+	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'")
+	data, err := fs.ReadFile(distFS, "index.html")
 	if err != nil {
 		http.Error(w, "UI unavailable", http.StatusInternalServerError)
 		return
