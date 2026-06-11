@@ -38,3 +38,10 @@ xray.exe
 xray
 verify_*
 cmd/verify/
+
+# Claude Code local config / session artifacts (settings.local.json holds
+# machine-specific paths + permissions; workflows are personal tooling)
+.claude/
+
+# Playwright MCP page snapshots (transient debugging artifacts)
+.playwright-mcp/
