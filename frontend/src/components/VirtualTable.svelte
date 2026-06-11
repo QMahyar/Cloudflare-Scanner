@@ -1,4 +1,5 @@
 <script>
+  import { untrack } from 'svelte'
   import { get } from 'svelte/store'
   import { createVirtualizer } from '@tanstack/svelte-virtual'
 
@@ -30,11 +31,14 @@
   let vItems = $state([])
   let totalSize = $state(0)
 
+  // overscan is re-applied reactively via setOptions() below; the constructor
+  // only needs a starting value, so untrack avoids the "referenced locally"
+  // warning for a prop we deliberately don't track here.
   const virtualizer = createVirtualizer({
-    count: items.length,
+    count: untrack(() => items.length),
     getScrollElement: () => scrollEl,
     estimateSize: () => estimateSize,
-    overscan,
+    overscan: untrack(() => overscan),
   })
 
   // Persistent subscription (defined first so it owns the store's lifetime).
@@ -66,6 +70,7 @@
     get(virtualizer).measureElement(node)
     return {
       update() { get(virtualizer).measureElement(node) },
+      destroy() { get(virtualizer).measureElement(null) },
     }
   }
 

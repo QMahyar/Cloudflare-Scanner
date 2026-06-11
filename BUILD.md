@@ -21,6 +21,7 @@ architecture, or extend the app. For user installation instructions see [README.
 - [HTTP API Reference](#http-api-reference)
 - [Config Parsing](#config-parsing)
 - [UDP Noise](#udp-noise)
+- [Frontend (Svelte UI)](#frontend-svelte-ui)
 - [Testing](#testing)
 - [CI/CD](#cicd)
 - [Environment Variables](#environment-variables)
@@ -37,7 +38,10 @@ cd Cloudflare-Scanner
 go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
 ```
 
-The binary embeds `ui/index.html` via Go's `//go:embed` directive — no external files needed at runtime.
+The binary embeds the built frontend (`ui/dist/`, a Vite + Svelte 5 SPA — see
+[Frontend (Svelte UI)](#frontend-svelte-ui)) via Go's `//go:embed all:ui/dist`
+directive. `ui/dist/` is committed, so a plain `go build` needs no Node — only
+rebuild it with `npm run build` when you change `frontend/src/`.
 
 ## Build Scripts (All Platforms)
 
@@ -146,21 +150,32 @@ On PowerShell: `$env:GOOS="windows"; $env:GOARCH="amd64"; go build ...`
 ```
 Cloudflare-Scanner/
 ├── main.go           # Entry point — xray check, server start, browser open
-├── server.go         # HTTP handlers, scan jobs, API, embedding
+├── server.go         # HTTP handlers, scan jobs, API, embedded UI (//go:embed all:ui/dist)
+├── about.go          # /api/version + /api/update-check (GitHub releases)
 ├── config.go         # WireGuard .conf parser (standard + Hogwarts formats)
 ├── endpoint.go       # Random WARP endpoint generator (known CF prefixes/ports)
-├── scanner.go        # Endpoint scanner — parallel xray-based WARP validation
+├── scanner.go        # Endpoint scanner — native WireGuard handshake + xray noise fallback
+├── warp_probe.go     # Native WireGuard (Noise_IKpsk2) handshake prober
 ├── xray.go           # xray-core config builder (WireGuard outbound, SOCKS5 inbound)
 ├── cleanip.go        # Clean IP scanner — CIDR generation, TCP probe, xray validate, nearby scan
+├── iprange.go        # Custom IP-range parsing/generation for the IP Scanner
 ├── replacer.go       # Subscription fetch, config dedup, bulk IP replacement
-├── proxy.go          # VLESS/Trojan URL parser, xray JSON builder, share URL generator
+├── proxy.go          # VLESS/Trojan/VMess URL parser, xray JSON builder, share URL generator
 ├── metrics.go        # Scan quality helpers (median, best, jitter, success-first sort)
 ├── noise.go          # UDP noise config and validation
 ├── parsers_test.go   # Unit tests for parsing, replacer, path traversal
 ├── cleanip_test.go   # Tests for clean IP generation
+├── iprange_test.go   # Tests for custom IP-range parsing
+├── replacer_name_test.go # Tests for config naming templates
+├── warp_probe_test.go    # Tests for the native WireGuard handshake prober
+├── frontend/         # Vite + Svelte 5 SPA source (see Frontend (Svelte UI))
+│   └── src/
+│       ├── components/  # One *.svelte component per tab
+│       ├── lib/          # Shared helpers (api, sse, stores, i18n, ...)
+│       └── locales/      # en.json / fa.json (svelte-i18n)
 ├── ui/
-│   └── index.html    # Single-page web UI (3 tabs, bilingual, no external deps)
-├── scripts/          # One-liner install scripts per platform
+│   └── dist/         # Built frontend bundle, committed and embedded by Go
+├── scripts/          # Build + one-liner install scripts per platform
 ├── docs/             # User guides (English + Farsi)
 ├── README.md         # User-facing English documentation
 ├── README.fa.md      # User-facing Farsi documentation
@@ -168,8 +183,9 @@ Cloudflare-Scanner/
 ├── BUILD.fa.md       # Farsi developer guide
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml    # CI: vet + test + build (all platforms)
-│       └── release.yml  # Release: build 7 platforms, bundle xray, publish
+│       ├── ci.yml         # CI: Go vet + test + build (6 platform/arch combos)
+│       ├── frontend.yml   # CI: frontend rebuild + ui/dist freshness check (paths-filtered)
+│       └── release.yml    # Release: build 7 platforms, bundle xray, publish
 ├── AGENTS.md         # Agent/Copilot instructions
 ├── CHANGELOG.md      # Release history
 ├── LICENSE           # MIT
@@ -271,7 +287,7 @@ the embedded UI — no authentication.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/` | GET | Serves embedded `ui/index.html` |
+| `/` | GET | Serves the embedded Svelte SPA (`ui/dist/index.html` + assets) |
 | `/api/scan` | POST | Start WARP endpoint scan |
 | `/api/status/{id}` | GET | `{status, progress, total}` |
 | `/api/results/{id}` | GET | `{entries[], raw[], failures[], status}` |
@@ -423,6 +439,39 @@ traffic.
 
 ---
 
+## Frontend (Svelte UI)
+
+The UI is a Vite + Svelte 5 single-page app under `frontend/`. The committed
+`ui/dist/` bundle is what `go build` embeds, so **a UI change is a two-step
+rebuild**: rebuild `ui/dist/`, then rebuild the Go binary.
+
+```bash
+cd frontend
+npm install        # first time only
+npm run dev        # hot-reload dev server
+npm run build      # regenerates ../ui/dist — commit this with your change
+cd ..
+go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
+```
+
+Layout:
+
+- `src/components/` — one `*.svelte` file per tab (`EndpointScanner`,
+  `IpScanner`, `Replacer`, `About`) plus shared widgets (`VirtualTable`,
+  `SplitCopyButton`, `QrModal`, ...).
+- `src/lib/` — shared helpers: `api.js` (fetch wrapper), `sse.js` (status
+  streaming), `stores.js` (persisted settings/results), `handoff.js`
+  (cross-tab "use this endpoint" handoff), `sort.js`, `copymode.js`, etc.
+- `src/locales/en.json` + `fa.json` — UI strings via `svelte-i18n`, keyed
+  identically. Update **both** files for any user-facing string change.
+
+For `npm run dev`, also run the Go server (`go run .`) and note the random
+port it prints, then point Vite's dev proxy at it so `/api/*` calls resolve:
+
+```bash
+VITE_API_TARGET=http://127.0.0.1:<port> npm run dev   # see frontend/vite.config.js
+```
+
 ## Testing
 
 ```bash
@@ -441,9 +490,9 @@ Tests cover:
 
 ## CI/CD
 
-### CI (`.github/workflows/ci.yml`)
+### CI — Go (`ci.yml`)
 
-Runs on push/PR to `master`. Matrix: 6 platform/arch combos.
+Runs on every push/PR to `master`. Matrix: 6 platform/arch combos (windows/linux/darwin × amd64/arm64).
 
 ```yaml
 steps:
@@ -452,7 +501,19 @@ steps:
   - go build -o /dev/null . # all platforms
 ```
 
-### Release (`.github/workflows/release.yml`)
+### CI — Frontend (`frontend.yml`)
+
+Runs only when `frontend/**` or `ui/dist/**` changes (paths-filtered, so
+Go-only pushes skip it). Rebuilds the Svelte bundle and verifies `ui/dist/`
+matches the committed artifact:
+
+```yaml
+steps:
+  - npm ci && npm run build
+  - git diff --quiet -- ui/dist  # fails if ui/dist is stale
+```
+
+### Release (`release.yml`)
 
 Triggered by `git tag v*` or manually via GitHub UI. Builds 7 targets,
 downloads matching xray-core v1.8.24, creates `.zip`/`.tar.gz` archives,

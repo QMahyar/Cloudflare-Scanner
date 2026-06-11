@@ -14,7 +14,7 @@ export function setCopyMode(withPorts) {
 //   162.159.1.1:443    -> 162.159.1.1
 //   [2606:4700::1]:443 -> 2606:4700::1
 //   2606:4700::1       -> 2606:4700::1  (bare IPv6, no port — kept whole)
-export function stripPort(ep) {
+function stripPort(ep) {
   ep = (ep || '').trim()
   if (!ep) return ep
   if (ep[0] === '[') {

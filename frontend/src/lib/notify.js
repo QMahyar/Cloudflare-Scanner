@@ -1,11 +1,22 @@
 import { showToast } from './toast.js'
 
+// Shared AudioContext — browsers cap concurrent instances (Chrome: 6). Lazily
+// created on first beep so it's never allocated on pages that don't use audio.
+let _ac = null
+function getAC() {
+  if (_ac && _ac.state !== 'closed') return _ac
+  const Ctx = window.AudioContext || window.webkitAudioContext
+  if (!Ctx) return null
+  _ac = new Ctx()
+  return _ac
+}
+
 // Short two-tone beep via WebAudio, matching the original completion chime.
-export function beep() {
+function beep() {
   try {
-    const Ctx = window.AudioContext || window.webkitAudioContext
-    if (!Ctx) return
-    const ac = new Ctx()
+    const ac = getAC()
+    if (!ac) return
+    if (ac.state === 'suspended') ac.resume()
     const o = ac.createOscillator()
     const g = ac.createGain()
     o.type = 'sine'
@@ -18,7 +29,6 @@ export function beep() {
     g.gain.setValueAtTime(0.08, ac.currentTime + 0.22)
     g.gain.linearRampToValueAtTime(0, ac.currentTime + 0.3)
     o.stop(ac.currentTime + 0.32)
-    setTimeout(() => { try { ac.close() } catch {} }, 600)
   } catch {}
 }
 

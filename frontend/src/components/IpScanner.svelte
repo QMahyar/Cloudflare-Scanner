@@ -4,6 +4,7 @@
   import { copyToClipboard, downloadText } from '../lib/clipboard.js'
   import { formatEps } from '../lib/copymode.js'
   import { sortEntries, parseLatency, latClass, toggleSort } from '../lib/sort.js'
+  import { activateKey } from '../lib/a11y.js'
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
@@ -370,7 +371,8 @@
 {#snippet row(e, i, measure)}
   <tr data-index={i} use:measure>
     <td class="num">{i + 1}</td>
-    <td><span class="tag" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
     <td class={latClass(e.latency)}>{e.latency}</td>
     <td class="colo-cell">
       {#if e.colo}<span class="colo-tag" title={e.loc || ''}>{e.colo}{#if e.loc}<span class="colo-loc">{e.loc}</span>{/if}</span>
@@ -410,7 +412,7 @@
       <span>{$_('settings.header')}</span>
     </h2>
 
-    <label title={$_('clean.sourceTitle')}>{$_('clean.sourceLabel')}</label>
+    <div class="field-label" title={$_('clean.sourceTitle')}>{$_('clean.sourceLabel')}</div>
     <div class="input-method-bar" style="margin-bottom:var(--space-md)">
       <button class:active={source === 'pool'} onclick={() => (source = 'pool')} title={$_('clean.sourceTitle')}>{$_('clean.sourcePool')}</button>
       <button class:active={source === 'custom'} onclick={() => (source = 'custom')} title={$_('clean.sourceTitle')}>{$_('clean.sourceCustom')}</button>
@@ -442,7 +444,7 @@
 
     <div class="row">
       <div class="col">
-        <label title={$_('clean.depthTitle')}>{$_('settings.scanDepth')}</label>
+        <div class="field-label" title={$_('clean.depthTitle')}>{$_('settings.scanDepth')}</div>
         <div class="preset-bar">
           {#each DEPTHS as d}
             <button class="preset-btn" class:active={scanDepth === d.v} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
@@ -490,7 +492,7 @@
       </div>
 
       <div style="margin:var(--space-sm) 0">
-        <label style="display:block;margin-bottom:6px">{$_('settings.portMode')}</label>
+        <div class="field-label" style="margin-bottom:6px">{$_('settings.portMode')}</div>
         <div class="preset-bar" style="margin-bottom:10px">
           <button class="preset-btn" onclick={() => portPreset('443')}>{$_('settings.portPreset443')}</button>
           <button class="preset-btn" onclick={() => portPreset('https')}>{$_('settings.portPresetHttps')}</button>

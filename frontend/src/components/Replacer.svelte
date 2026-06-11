@@ -3,6 +3,7 @@
   import { apiJSON } from '../lib/api.js'
   import { copyToClipboard, downloadText } from '../lib/clipboard.js'
   import { sortEntries, toggleSort } from '../lib/sort.js'
+  import { activateKey } from '../lib/a11y.js'
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
   import { replacerGenerated } from '../lib/stores.js'
@@ -255,7 +256,7 @@
           <input type="text" id="replacerURL" bind:value={subURL} placeholder={$_('replacer.subPlaceholder')} title={$_('replacer.urlTitle')} onkeydown={(e) => e.key === 'Enter' && doFetch()} />
         </div>
         <div class="col" style="flex:none;min-width:auto">
-          <label>&nbsp;</label>
+          <div class="field-label" aria-hidden="true">&nbsp;</div>
           <button class="btn btn-primary" onclick={doFetch} disabled={fetching} title={$_('replacer.fetchTitle')}>{fetching ? $_('replacer.fetching') : $_('replacer.fetch')}</button>
         </div>
       </div>
@@ -293,7 +294,8 @@
               <tr>
                 <td class="checkbox-cell"><input type="checkbox" checked={cfgSelected.has(idx)} onchange={(e) => toggleCfg(idx, e.currentTarget.checked)} /></td>
                 <td class="num">{i + 1}</td>
-                <td><span class="tag" onclick={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }}>{c.address}</span></td>
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }}>{c.address}</span></td>
                 <td>{c.port}</td>
                 <td><span class="replacer-config-remark" title={c.remark || ''}>{c.remark || c.protocol + '://' + (c.uuid || '').substring(0, 8) + '…'}</span></td>
               </tr>
@@ -343,7 +345,8 @@
             {#each generated as u, i (i)}
               <tr>
                 <td class="num">{i + 1}</td>
-                <td class="mono-break"><span class="tag" onclick={() => copyRow(u)} title={$_('replacer.copyAllTitle')}>{u.length > 100 ? u.substring(0, 100) + '…' : u}</span></td>
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <td class="mono-break"><span class="tag" role="button" tabindex="0" onclick={() => copyRow(u)} use:activateKey={() => copyRow(u)} title={$_('replacer.copyAllTitle')}>{u.length > 100 ? u.substring(0, 100) + '…' : u}</span></td>
                 <td style="white-space:nowrap">
                   <button class="btn btn-secondary btn-sm" onclick={() => copyRow(u)} title={$_('replacer.copyAllTitle')}>{$_('buttons.copy')}</button>
                   <button class="btn btn-secondary btn-sm" onclick={() => rowQR(u)}>QR</button>

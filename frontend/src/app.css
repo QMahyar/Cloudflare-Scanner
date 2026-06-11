@@ -256,6 +256,20 @@ label {
 }
 @media (min-width: 640px) { label { font-size: 0.75rem; margin-bottom: 3px; } }
 
+/* Same look as <label>, for group headings that don't address a single
+   control (e.g. a row of preset buttons) — keeps a11y linting happy without
+   a dangling `for`. */
+.field-label {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+@media (min-width: 640px) { .field-label { font-size: 0.75rem; margin-bottom: 3px; } }
+
 /* ─── Inputs ─── */
 input[type="text"], select, textarea {
   padding: 10px 12px;

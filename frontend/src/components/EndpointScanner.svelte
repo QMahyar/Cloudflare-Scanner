@@ -4,6 +4,7 @@
   import { copyToClipboard, sleep, downloadText } from '../lib/clipboard.js'
   import { formatEps } from '../lib/copymode.js'
   import { sortEntries, parseLatency, latClass, toggleSort } from '../lib/sort.js'
+  import { activateKey } from '../lib/a11y.js'
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
@@ -252,7 +253,8 @@
 {#snippet row(e, i, measure)}
   <tr data-index={i} use:measure>
     <td class="num">{i + 1}</td>
-    <td><span class="tag" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
     <td class={latClass(e.latency)}>{e.latency}</td>
     <td><button class="btn btn-secondary btn-sm" onclick={() => useEndpoint(e.endpoint)} title={$_('results.tableUse')}>{$_('results.tableUse')}</button></td>
     <td class="checkbox-cell"><input type="checkbox" checked={selected.has(e.endpoint)} onchange={(ev) => toggleSelect(e.endpoint, ev.currentTarget.checked)} /></td>
@@ -295,7 +297,7 @@
     </h2>
     <div class="row">
       <div class="col">
-        <label title={$_('settings.depthTitle')}>{$_('settings.scanDepth')}</label>
+        <div class="field-label" title={$_('settings.depthTitle')}>{$_('settings.scanDepth')}</div>
         <div class="preset-bar">
           {#each DEPTHS as d}
             <button class="preset-btn" class:active={scanDepth === d.v} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>

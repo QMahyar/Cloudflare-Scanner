@@ -5,7 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## [Unreleased]
+## [v3.4.0] — 2026-06-11
+
+### Changed
+- **Frontend rewritten as a Vite + Svelte 5 SPA** (`frontend/`), built to
+  `ui/dist/` and embedded via `//go:embed all:ui/dist`. Replaces the old
+  monolithic hand-written HTML/JS UI; behavior, settings keys, and persisted
+  localStorage data are unchanged. Each tab (Endpoint Scanner, IP Scanner, IP
+  Replacer, About) is now its own component, with shared i18n
+  (`locales/en.json` / `fa.json`) and helpers under `lib/`.
+- Scan status now streams over Server-Sent Events (`/api/scan-events`,
+  `/api/clean-events`) with a polling fallback; result tables are virtualized
+  for large result sets.
+- **Keyboard accessibility** — all clickable result-row tags (`role="button"`)
+  now respond to Enter/Space via a Svelte `activateKey` action. Uses an action
+  (not an inline `onkeydown` handler) so the DOM event listener is stable
+  across virtual-table scroll re-renders.
+- **CI split into two workflows** — Go vet/test/build stays in `ci.yml`; the
+  frontend rebuild + `ui/dist` freshness check moves to `frontend.yml` with a
+  `paths:` trigger so Go-only pushes don't needlessly run `npm ci && npm build`.
+
+### Fixed
+- **AudioContext exhaustion on rapid scan completions** — `beep()` previously
+  created a new `AudioContext` per call and closed it 600 ms later. Chrome caps
+  concurrent instances at 6; back-to-back completions silently failed beyond
+  that limit. `notify.js` now lazily creates one shared context and reuses it.
+- **VirtualTable ResizeObserver leak** — the `use:measure` Svelte action for
+  virtualizer row measurement had no `destroy()` hook. When virtual rows were
+  removed from the DOM on scroll, the `@tanstack/virtual` ResizeObserver entry
+  for each node was never released. Added `destroy()` that calls
+  `measureElement(null)` to let the virtualizer clean up its observer.
 
 ---
 
