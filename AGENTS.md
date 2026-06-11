@@ -60,5 +60,5 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 - Source in `frontend/src/`: one `*.svelte` component per tab in `components/` (`EndpointScanner`, `IpScanner`, `Replacer`, `About`) plus shared helpers in `lib/`.
 - All i18n in `frontend/src/locales/en.json` + `fa.json` (identical keys), via `svelte-i18n`; language toggled in `lib/i18n.js`.
 - API calls through `lib/api.js` `apiJSON()` wrapper.
-- Scan polling: `setInterval` at 300-1500ms intervals.
+- Scan status streams over SSE (`lib/sse.js` `subscribeStatus`, `/api/scan-events` / `/api/clean-events`), with `setInterval` polling fallback; results still poll. Large tables use `components/VirtualTable.svelte` (@tanstack/svelte-virtual).
 - Build: `cd frontend && npm run build` → emits `ui/dist/` (committed, embedded by Go). `npm run dev` for a hot-reload dev server.
