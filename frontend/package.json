@@ -17,5 +17,8 @@
     "@tanstack/svelte-virtual": "^3.13.0",
     "qrcode": "^1.5.4",
     "svelte-i18n": "^4.0.1"
+  },
+  "overrides": {
+    "esbuild": "^0.25.0"
   }
 }
