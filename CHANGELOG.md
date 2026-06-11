@@ -5,6 +5,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.4.1] — 2026-06-11
+
+### Fixed
+- **IP Scanner Phase 2 failed for every clean IP when the config had no explicit
+  `sni=`.** Validation repoints the config's address at each candidate IP, after
+  which xray fell back to using that raw IP as the TLS SNI — which Cloudflare
+  can't route, so the whole tunnel timed out (`no usable response through the
+  tunnel`). `WithEndpoint` now pins the original hostname into the SNI before the
+  swap (mirroring the existing WS Host→SNI fallback), fixing both validation and
+  the exported share URLs. Configs that already set `sni=`, and configs whose
+  address is already a bare IP, are unaffected. (`proxy.go`)
+
+### Changed
+- **Phase-2 failures now surface the real cause from xray's log** instead of a
+  generic "no usable response through the tunnel". A reset handshake now reads as
+  `connection reset mid-handshake (likely ISP/DPI filtering or a dead origin)`,
+  and per-endpoint errors carry xray's deepest message (e.g. a TLS RST), so an
+  all-failed Phase 2 is diagnosable rather than a silent dead end. (`cleanip.go`)
+
+### Security
+- Force `esbuild` to `^0.25.0` via an npm `overrides`, clearing the transitive
+  `svelte-i18n → esbuild@0.19.12` advisory (GHSA-67mh-4wv8-2f99). Dev-only with
+  no runtime exposure — the build already used Vite's patched esbuild and the
+  embedded `ui/dist` is byte-identical. (`frontend/package.json`)
+
+---
+
 ## [v3.4.0] — 2026-06-11
 
 ### Changed
