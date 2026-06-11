@@ -7,6 +7,7 @@
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
+  import { subscribeStatus } from '../lib/sse.js'
   import { endpointRaw, activeTab, getSetting, setSetting } from '../lib/stores.js'
   import { pendingWarpEndpoint, replacerCtype } from '../lib/handoff.js'
   import SplitCopyButton from './SplitCopyButton.svelte'
@@ -63,7 +64,7 @@
   let liveCountN = $state(0)
   let total = $state(0)
   let startTime = 0
-  let statusTimer = null
+  let statusStop = null
   let resultsTimer = null
   let selected = $state(new Set())
 
@@ -81,7 +82,7 @@
   })
 
   function clearTimers() {
-    clearInterval(statusTimer); statusTimer = null
+    if (statusStop) { statusStop(); statusStop = null }
     clearInterval(resultsTimer); resultsTimer = null
   }
 
@@ -123,10 +124,9 @@
   }
 
   function pollStatus(id) {
-    clearInterval(statusTimer)
-    statusTimer = setInterval(async () => {
-      try {
-        const data = await apiJSON('/api/status/' + id)
+    if (statusStop) statusStop()
+    statusStop = subscribeStatus('/api/scan-events/' + id, '/api/status/' + id, {
+      onStatus(data) {
         const pct = total > 0 ? Math.round((data.progress / total) * 100) : 0
         progressPct = pct
         const rate = data.status === 'running'
@@ -134,15 +134,18 @@
           : ''
         progressText = $_('scan.progressTemplate', { values: { p: data.progress, t: total } }) + rate
         if (data.status === 'done' || data.status === 'cancelled') {
-          clearTimers()
-          status = data.status
-          await fetchResults(id, data.status)
-          if (notify) notifyDone($_('notify.title'), $_('notify.endpointBody', { values: { n: ($endpointRaw || []).length } }))
+          finishScan(id, data.status)
         }
-      } catch {
-        clearInterval(statusTimer); statusTimer = null
-      }
-    }, 300)
+      },
+      isDone: (d) => d.status === 'done' || d.status === 'cancelled',
+    })
+  }
+
+  async function finishScan(id, st) {
+    clearTimers()
+    status = st
+    await fetchResults(id, st)
+    if (notify) notifyDone($_('notify.title'), $_('notify.endpointBody', { values: { n: ($endpointRaw || []).length } }))
   }
 
   function pollResults(id) {

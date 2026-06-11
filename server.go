@@ -216,12 +216,14 @@ func startServer(xrayPath string) (int, error) {
 	mux.Handle("GET /assets/", http.FileServerFS(distFS))
 	mux.HandleFunc("POST /api/scan", handleScanStart(xrayPath))
 	mux.HandleFunc("GET /api/status/{id}", handleScanStatus)
+	mux.HandleFunc("GET /api/scan-events/{id}", handleScanEvents)
 	mux.HandleFunc("GET /api/results/{id}", handleScanResults)
 	mux.HandleFunc("POST /api/stop/{id}", handleScanStop)
 	mux.HandleFunc("POST /api/apply-endpoint", handleApplyEndpoint)
 	mux.HandleFunc("GET /api/select-output-dir", handleSelectOutputDir)
 	mux.HandleFunc("POST /api/clean-scan", handleCleanScanStart(xrayPath))
 	mux.HandleFunc("GET /api/clean-status/{id}", handleCleanScanStatus)
+	mux.HandleFunc("GET /api/clean-events/{id}", handleCleanScanEvents)
 	mux.HandleFunc("GET /api/clean-results/{id}", handleCleanScanResults)
 	mux.HandleFunc("POST /api/clean-stop/{id}", handleCleanScanStop)
 	mux.HandleFunc("POST /api/clean-export", handleCleanExport)
@@ -528,6 +530,73 @@ func handleScanStatus(w http.ResponseWriter, r *http.Request) {
 		"status":   status,
 		"progress": progress,
 		"total":    total,
+	})
+}
+
+// streamSSE drives a Server-Sent Events response from periodic snapshots of a
+// job. It calls snapshot() immediately, then every 250ms, emitting a `data:`
+// frame only when the JSON changes, and returns once snapshot reports done or
+// the client disconnects. This is server-pushed polling: the scan goroutines
+// stay untouched, but the client holds one connection instead of hammering the
+// status endpoint a few times a second. Results stay on their own poll.
+func streamSSE(w http.ResponseWriter, r *http.Request, snapshot func() (map[string]interface{}, bool)) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		jsonError(w, "streaming unsupported", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // disable proxy buffering if any
+
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	ctx := r.Context()
+
+	var last string
+	for {
+		data, done := snapshot()
+		b, _ := json.Marshal(data)
+		if s := string(b); s != last {
+			last = s
+			fmt.Fprintf(w, "data: %s\n\n", s)
+			flusher.Flush()
+		}
+		if done {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func handleScanEvents(w http.ResponseWriter, r *http.Request) {
+	jobID := r.PathValue("id")
+
+	scanJobsMu.Lock()
+	job, ok := scanJobs[jobID]
+	scanJobsMu.Unlock()
+
+	if !ok {
+		jsonError(w, "not found", 404)
+		return
+	}
+
+	streamSSE(w, r, func() (map[string]interface{}, bool) {
+		job.mu.Lock()
+		status := job.Status
+		progress := job.Progress
+		total := job.Total
+		job.mu.Unlock()
+		return map[string]interface{}{
+			"status":   status,
+			"progress": progress,
+			"total":    total,
+		}, status == "done" || status == "cancelled"
 	})
 }
 
@@ -933,6 +1002,36 @@ func handleCleanScanStatus(w http.ResponseWriter, r *http.Request) {
 		"phase1_total":    phase1Total,
 		"phase2_progress": phase2Progress,
 		"phase2_total":    phase2Total,
+	})
+}
+
+func handleCleanScanEvents(w http.ResponseWriter, r *http.Request) {
+	jobID := r.PathValue("id")
+
+	cleanJobsMu.Lock()
+	job, ok := cleanJobs[jobID]
+	cleanJobsMu.Unlock()
+
+	if !ok {
+		jsonError(w, "not found", 404)
+		return
+	}
+
+	streamSSE(w, r, func() (map[string]interface{}, bool) {
+		job.mu.Lock()
+		status := job.Status
+		phase1Progress := job.Phase1Progress
+		phase1Total := job.Phase1Total
+		phase2Progress := job.Phase2Progress
+		phase2Total := job.Phase2Total
+		job.mu.Unlock()
+		return map[string]interface{}{
+			"status":          status,
+			"phase1_progress": phase1Progress,
+			"phase1_total":    phase1Total,
+			"phase2_progress": phase2Progress,
+			"phase2_total":    phase2Total,
+		}, status == "done" || status == "cancelled"
 	})
 }
 

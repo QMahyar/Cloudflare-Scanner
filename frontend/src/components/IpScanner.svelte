@@ -7,6 +7,7 @@
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
+  import { subscribeStatus } from '../lib/sse.js'
   import { cleanData, activeTab, getSetting, setSetting } from '../lib/stores.js'
   import { pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
   import SplitCopyButton from './SplitCopyButton.svelte'
@@ -81,7 +82,7 @@
   let progressPct = $state(0)
   let progressText = $state('')
   let startTime = 0
-  let statusTimer = null
+  let statusStop = null
   let resultsTimer = null
   let rangesFileName = $state('')
 
@@ -115,7 +116,7 @@
   const failExamples = $derived((data?.failures || []).slice(0, 5))
 
   function clearTimers() {
-    clearInterval(statusTimer); statusTimer = null
+    if (statusStop) { statusStop(); statusStop = null }
     clearInterval(resultsTimer); resultsTimer = null
   }
 
@@ -215,10 +216,11 @@
   }
 
   function pollStatus(id) {
-    clearInterval(statusTimer)
-    statusTimer = setInterval(async () => {
-      try {
-        const d = await apiJSON('/api/clean-status/' + id)
+    if (statusStop) statusStop()
+    // Status only — pollResults below keeps fetching cleanData and self-stops
+    // once it sees the terminal status, so this handler must not touch it.
+    statusStop = subscribeStatus('/api/clean-events/' + id, '/api/clean-status/' + id, {
+      onStatus(d) {
         if (d.status === 'running-phase1') {
           const p = d.phase1_progress || 0, tot = d.phase1_total || 1
           progressPct = Math.round((p / tot) * 50)
@@ -235,14 +237,12 @@
           progressText = $_('clean.progressCancelled')
         }
         if (d.status === 'done' || d.status === 'cancelled') {
-          clearInterval(statusTimer); statusTimer = null
           status = d.status
           if (notify) notifyDone($_('notify.title'), $_('notify.cleanBody', { values: { n: data?.entries?.length || 0 } }))
         }
-      } catch {
-        clearInterval(statusTimer); statusTimer = null
-      }
-    }, 300)
+      },
+      isDone: (d) => d.status === 'done' || d.status === 'cancelled',
+    })
   }
 
   function pollResults(id) {
