@@ -702,6 +702,10 @@ func summarizeFailure(err string) string {
 		return "couldn't reach xray's local SOCKS port"
 	case strings.Contains(e, "socks5"):
 		return "tunnel handshake failed (proxy refused the connection)"
+	case strings.Contains(e, "forcibly closed"), strings.Contains(e, "connection reset"), strings.Contains(e, "reset by peer"), strings.Contains(e, "unexpected eof"):
+		return "connection reset mid-handshake (likely ISP/DPI filtering or a dead origin)"
+	case strings.Contains(e, "connection refused"):
+		return "origin refused the connection (dead endpoint or wrong port)"
 	case strings.Contains(e, "http write"), strings.Contains(e, "http read"):
 		return "no usable response through the tunnel (timeout / reset)"
 	case strings.HasPrefix(e, "http "):
@@ -711,6 +715,52 @@ func summarizeFailure(err string) string {
 	default:
 		return err
 	}
+}
+
+// withXrayCause formats a Phase-2 transport error, appending the deepest cause
+// from xray's log when one is available so the failure is self-explanatory.
+func withXrayCause(stage string, err error, logPath string) string {
+	if cause := extractXrayError(logPath); cause != "" {
+		return fmt.Sprintf("%s: %v | xray: %s", stage, err, cause)
+	}
+	return fmt.Sprintf("%s: %v", stage, err)
+}
+
+// extractXrayError mines xray's run log for the concrete reason a Phase-2 tunnel
+// failed. The error we observe locally is always a generic "http read timeout"
+// once the SOCKS CONNECT is (optimistically) accepted; the real cause — a TLS
+// reset, a refused dial, a routing rejection — only lives in xray's log. Folding
+// it into the result turns "no usable response" into something actionable (e.g.
+// distinguishing ISP/DPI filtering from a dead origin). Returns "" when nothing
+// useful is found.
+func extractXrayError(logPath string) string {
+	data, err := os.ReadFile(logPath)
+	if err != nil || len(data) == 0 {
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		l := strings.TrimSpace(lines[i])
+		low := strings.ToLower(l)
+		if !strings.Contains(low, "[error]") && !strings.Contains(low, "[warning]") {
+			continue
+		}
+		if !strings.Contains(low, "failed") && !strings.Contains(low, "forcibly closed") &&
+			!strings.Contains(low, "refused") && !strings.Contains(low, "reset") &&
+			!strings.Contains(low, "eof") && !strings.Contains(low, "rejected") {
+			continue
+		}
+		// Keep only the deepest cause (xray chains them with "> ").
+		if idx := strings.LastIndex(l, "> "); idx >= 0 {
+			l = l[idx+2:]
+		}
+		l = strings.TrimSpace(l)
+		if len(l) > 160 {
+			l = l[:160] + "…"
+		}
+		return l
+	}
+	return ""
 }
 
 func validateWithXrayAttempts(ctx context.Context, cfg *ProxyConfig, endpoint string, xrayPath string, socksPortBase int, timeout time.Duration, attempts int) CleanIPResult {
@@ -827,14 +877,16 @@ func validateWithXray(ctx context.Context, cfg *ProxyConfig, endpoint string, xr
 		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("socks5: %v", err)}
 	}
 
+	logPath := filepath.Join(filepath.Dir(configPath), "xray.log")
+
 	req := "GET /generate_204 HTTP/1.1\r\nHost: www.gstatic.com\r\nConnection: close\r\nUser-Agent: Mozilla/5.0\r\n\r\n"
 	if _, err := conn.Write([]byte(req)); err != nil {
-		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("http write: %v", err)}
+		return CleanIPResult{Endpoint: endpoint, Error: withXrayCause("http write", err, logPath)}
 	}
 
 	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
 	if err != nil {
-		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("http read: %v", err)}
+		return CleanIPResult{Endpoint: endpoint, Error: withXrayCause("http read", err, logPath)}
 	}
 	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()

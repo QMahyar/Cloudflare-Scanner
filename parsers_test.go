@@ -222,6 +222,44 @@ func TestBuildXrayJSON_WSHostFallsBackToSNI(t *testing.T) {
 	}
 }
 
+func TestBuildXrayJSON_SNIFallsBackToOriginalHost(t *testing.T) {
+	// No sni= param: the config relies on its hostname doubling as the TLS SNI.
+	// Phase-2 validation swaps Address for a scan IP, so the SNI must fall back
+	// to the ORIGINAL hostname — otherwise xray sends SNI:<ip>, Cloudflare can't
+	// route, and every clean IP fails with "no usable response through the tunnel".
+	cfg := &ProxyConfig{
+		Protocol: "vless", UUID: "u", Address: "panel.example.ir", Port: 443,
+		Security: "tls", Network: "tcp",
+	}
+	path, err := cfg.BuildXrayJSON("104.16.5.3:443", 35997)
+	if err != nil {
+		t.Fatalf("BuildXrayJSON error: %v", err)
+	}
+	defer os.RemoveAll(filepath.Dir(path))
+	data, _ := os.ReadFile(path)
+	js := string(data)
+	if !strings.Contains(js, `"serverName": "panel.example.ir"`) {
+		t.Errorf("TLS SNI did not fall back to original host:\n%s", js)
+	}
+	if strings.Contains(js, `"serverName": "104.16.5.3"`) {
+		t.Errorf("TLS SNI was set to the scan IP (Cloudflare can't route this):\n%s", js)
+	}
+}
+
+func TestWithEndpoint_KeepsExplicitSNIAndBareIP(t *testing.T) {
+	// An explicit sni= must be preserved verbatim (not overwritten by the host).
+	withSNI := (&ProxyConfig{Address: "real.example.com", SNI: "keep.example.com"}).WithEndpoint("104.16.5.3:443")
+	if withSNI.SNI != "keep.example.com" {
+		t.Errorf("explicit SNI clobbered: %q", withSNI.SNI)
+	}
+	// A config whose address is already a bare IP has no hostname to recover, so
+	// SNI must stay empty rather than become an unroutable IP literal.
+	ipOnly := (&ProxyConfig{Address: "203.0.113.7", SNI: ""}).WithEndpoint("104.16.5.3:443")
+	if ipOnly.SNI != "" {
+		t.Errorf("SNI should stay empty when original address is a bare IP, got %q", ipOnly.SNI)
+	}
+}
+
 func TestParseProxyURL_Trojan(t *testing.T) {
 	raw := "trojan://password123@192.168.1.1:8443?security=tls&sni=host.example"
 	cfg, err := ParseProxyURL(raw)

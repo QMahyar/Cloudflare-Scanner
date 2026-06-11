@@ -307,6 +307,17 @@ func (c *ProxyConfig) WithEndpoint(endpoint string) *ProxyConfig {
 		port = c.Port
 	}
 	clone := *c
+	// We're about to repoint Address at a raw scan IP. For CDN-fronted configs
+	// the original hostname doubles as the implicit TLS SNI (and, via the WS/
+	// httpupgrade Host fallback, the routing host) whenever those aren't set
+	// explicitly. Once Address is an IP, xray would send SNI:<ip> — which
+	// Cloudflare can't route — failing every Phase-2 validation and producing a
+	// dead exported config. Pin the original hostname into SNI first so both the
+	// validation tunnel and the emitted share URL keep working. Mirrors the WS
+	// Host->SNI fallback in buildStreamSettings.
+	if clone.SNI == "" && net.ParseIP(c.Address) == nil {
+		clone.SNI = c.Address
+	}
 	clone.Address = host
 	clone.Port = port
 	return &clone
