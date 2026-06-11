@@ -566,6 +566,20 @@ body[dir="rtl"] .tab-badge { margin-left: 0; margin-right: 4px; }
 }
 @media (min-width: 640px) { .results-table-wrap { margin: 0; padding: 0; } }
 
+/* Virtualized results: the wrap becomes the scroll container so only the
+   visible window of rows is in the DOM. The sticky <thead> still works. */
+.results-table-wrap.virtual-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  contain: paint;
+}
+.results-table-wrap.virtual-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.results-table-wrap.virtual-scroll::-webkit-scrollbar-track { background: transparent; }
+.results-table-wrap.virtual-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+.results-table-wrap.virtual-scroll::-webkit-scrollbar-thumb:hover { background: #484f58; }
+.virtual-pad td { background: transparent !important; }
+.virtual-pad:hover td { background: transparent !important; }
+
 .scrollable-list {
   max-height: 400px;
   overflow-y: auto;

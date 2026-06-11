@@ -10,6 +10,7 @@
   import { cleanData, activeTab, getSetting, setSetting } from '../lib/stores.js'
   import { pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
   import SplitCopyButton from './SplitCopyButton.svelte'
+  import VirtualTable from './VirtualTable.svelte'
 
   // Official published Cloudflare ranges (cloudflare.com/ips).
   const CF_V4_RANGES = ['173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22']
@@ -356,6 +357,29 @@
   }
 </script>
 
+{#snippet header()}
+  <tr>
+    <th class="sortable" onclick={() => onSort('num')}>{$_('results.tableNum')}{#if sort.field === 'num'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onSort('endpoint')}>{$_('results.tableEndpoint')}{#if sort.field === 'endpoint'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onSort('latency')}>{$_('results.tableLatency')}{#if sort.field === 'latency'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onSort('colo')}>{$_('results.tableColo')}{#if sort.field === 'colo'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="checkbox-cell"></th>
+  </tr>
+{/snippet}
+
+{#snippet row(e, i, measure)}
+  <tr data-index={i} use:measure>
+    <td class="num">{i + 1}</td>
+    <td><span class="tag" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
+    <td class={latClass(e.latency)}>{e.latency}</td>
+    <td class="colo-cell">
+      {#if e.colo}<span class="colo-tag" title={e.loc || ''}>{e.colo}{#if e.loc}<span class="colo-loc">{e.loc}</span>{/if}</span>
+      {:else}<span class="colo-empty">—</span>{/if}
+    </td>
+    <td class="checkbox-cell"><input type="checkbox" checked={selected.has(e.endpoint)} onchange={(ev) => toggleSelect(e.endpoint, ev.currentTarget.checked)} /></td>
+  </tr>
+{/snippet}
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div onkeydown={onKeydown}>
   <div class="card">
@@ -598,33 +622,7 @@
         </div>
       {/if}
 
-      <div class="results-table-wrap">
-        <table class="results-table">
-          <thead>
-            <tr>
-              <th class="sortable" onclick={() => onSort('num')}>{$_('results.tableNum')}{#if sort.field === 'num'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
-              <th class="sortable" onclick={() => onSort('endpoint')}>{$_('results.tableEndpoint')}{#if sort.field === 'endpoint'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
-              <th class="sortable" onclick={() => onSort('latency')}>{$_('results.tableLatency')}{#if sort.field === 'latency'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
-              <th class="sortable" onclick={() => onSort('colo')}>{$_('results.tableColo')}{#if sort.field === 'colo'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
-              <th class="checkbox-cell"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each activePool as e, i (e.endpoint)}
-              <tr>
-                <td class="num">{i + 1}</td>
-                <td><span class="tag" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
-                <td class={latClass(e.latency)}>{e.latency}</td>
-                <td class="colo-cell">
-                  {#if e.colo}<span class="colo-tag" title={e.loc || ''}>{e.colo}{#if e.loc}<span class="colo-loc">{e.loc}</span>{/if}</span>
-                  {:else}<span class="colo-empty">—</span>{/if}
-                </td>
-                <td class="checkbox-cell"><input type="checkbox" checked={selected.has(e.endpoint)} onchange={(ev) => toggleSelect(e.endpoint, ev.currentTarget.checked)} /></td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <VirtualTable items={activePool} getKey={(e) => e.endpoint} colspan={5} {header} {row} />
 
       {#if isPhase2 && failReasons.length > 0}
         <div class="fail-panel">

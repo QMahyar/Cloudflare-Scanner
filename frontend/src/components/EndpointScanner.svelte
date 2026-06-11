@@ -11,6 +11,7 @@
   import { pendingWarpEndpoint, replacerCtype } from '../lib/handoff.js'
   import SplitCopyButton from './SplitCopyButton.svelte'
   import HelpPanel from './HelpPanel.svelte'
+  import VirtualTable from './VirtualTable.svelte'
 
   const DEPTHS = [
     { v: '100', k: 'settings.depth.quick' },
@@ -235,6 +236,26 @@
   }
 </script>
 
+{#snippet header()}
+  <tr>
+    <th class="sortable" onclick={() => onSort('num')}>{$_('results.tableNum')}{#if sort.field === 'num'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onSort('endpoint')}>{$_('results.tableEndpoint')}{#if sort.field === 'endpoint'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onSort('latency')}>{$_('results.tableLatency')}{#if sort.field === 'latency'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th></th>
+    <th class="checkbox-cell"></th>
+  </tr>
+{/snippet}
+
+{#snippet row(e, i, measure)}
+  <tr data-index={i} use:measure>
+    <td class="num">{i + 1}</td>
+    <td><span class="tag" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
+    <td class={latClass(e.latency)}>{e.latency}</td>
+    <td><button class="btn btn-secondary btn-sm" onclick={() => useEndpoint(e.endpoint)} title={$_('results.tableUse')}>{$_('results.tableUse')}</button></td>
+    <td class="checkbox-cell"><input type="checkbox" checked={selected.has(e.endpoint)} onchange={(ev) => toggleSelect(e.endpoint, ev.currentTarget.checked)} /></td>
+  </tr>
+{/snippet}
+
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div onkeydown={onKeydown}>
   <div class="card">
@@ -376,30 +397,7 @@
         <button class="btn btn-secondary btn-sm" onclick={() => selectAll(true)}>{$_('results.selectAll')}</button>
         <button class="btn btn-secondary btn-sm" onclick={() => selectAll(false)}>{$_('results.deselectAll')}</button>
       </div>
-      <div class="results-table-wrap">
-        <table class="results-table">
-          <thead>
-            <tr>
-              <th class="sortable" onclick={() => onSort('num')}>{$_('results.tableNum')}{#if sort.field === 'num'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
-              <th class="sortable" onclick={() => onSort('endpoint')}>{$_('results.tableEndpoint')}{#if sort.field === 'endpoint'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
-              <th class="sortable" onclick={() => onSort('latency')}>{$_('results.tableLatency')}{#if sort.field === 'latency'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
-              <th></th>
-              <th class="checkbox-cell"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each pool as e, i (e.endpoint)}
-              <tr>
-                <td class="num">{i + 1}</td>
-                <td><span class="tag" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
-                <td class={latClass(e.latency)}>{e.latency}</td>
-                <td><button class="btn btn-secondary btn-sm" onclick={() => useEndpoint(e.endpoint)} title={$_('results.tableUse')}>{$_('results.tableUse')}</button></td>
-                <td class="checkbox-cell"><input type="checkbox" checked={selected.has(e.endpoint)} onchange={(ev) => toggleSelect(e.endpoint, ev.currentTarget.checked)} /></td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <VirtualTable items={pool} getKey={(e) => e.endpoint} colspan={5} {header} {row} />
       {#if status === 'done' || status === 'cancelled'}
         <div class={status === 'cancelled' ? 'error-msg' : 'success-msg'}>
           {status === 'cancelled' ? $_('results.scanCancelled') : $_('results.found', { values: { n: ($endpointRaw || []).length, s: total || ($endpointRaw || []).length } })}
