@@ -1,4 +1,4 @@
-module WarpEndpointScanner
+module github.com/QMahyar/Cloudflare-Scanner
 
 go 1.26.2
 

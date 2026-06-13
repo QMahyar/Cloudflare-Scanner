@@ -3,7 +3,8 @@
   import { apiJSON } from '../lib/api.js'
   import { copyToClipboard, sleep, downloadText } from '../lib/clipboard.js'
   import { formatEps } from '../lib/copymode.js'
-  import { sortEntries, parseLatency, latClass, toggleSort } from '../lib/sort.js'
+  import { sortEntries, parseLatency, latClass, latBar, toggleSort } from '../lib/sort.js'
+  import { computeSummary } from '../lib/scanMetrics.js'
   import { activateKey } from '../lib/a11y.js'
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
@@ -14,6 +15,7 @@
   import SplitCopyButton from './SplitCopyButton.svelte'
   import HelpPanel from './HelpPanel.svelte'
   import VirtualTable from './VirtualTable.svelte'
+  import ScanProgress from './ScanProgress.svelte'
 
   const DEPTHS = [
     { v: '100', k: 'settings.depth.quick' },
@@ -32,6 +34,7 @@
   let advOpen = $state(getSetting('endpointAdv', false))
   let noise = $state(getSetting('noiseToggle', true))
   let timeoutMs = $state(getSetting('endpointTimeout', '6000'))
+  let concurrency = $state(getSetting('endpointConcurrency', '0'))
   let stopAfter = $state(getSetting('stopAfter', '0'))
   let notify = $state(getSetting('notifyEndpoint', false))
 
@@ -43,6 +46,7 @@
     setSetting('endpointAdv', advOpen)
     setSetting('noiseToggle', noise)
     setSetting('endpointTimeout', timeoutMs)
+    setSetting('endpointConcurrency', concurrency)
     setSetting('stopAfter', stopAfter)
     setSetting('notifyEndpoint', notify)
   })
@@ -65,13 +69,21 @@
   let liveCountN = $state(0)
   let total = $state(0)
   let startTime = 0
+  let scanMs = $state(0)
   let statusStop = null
   let resultsTimer = null
   let selected = $state(new Set())
+  let failInfo = $state(null) // { reasons: [{k,n}], examples: [{endpoint,error}], scanned }
 
   const scanDesc = $derived(useConfig ? $_('endpoint.descFull') : $_('endpoint.descTCP'))
   const startDisabled = $derived(status === 'running' || (useConfig && !hasFile))
   const hasResults = $derived(($endpointRaw?.length || 0) > 0)
+
+  const failReasons = $derived.by(() => {
+    const reasons = failInfo?.reasons || {}
+    return Object.keys(reasons).sort((a, b) => reasons[b] - reasons[a]).map((k) => ({ k, n: reasons[k] }))
+  })
+  const failExamples = $derived((failInfo?.examples || []).slice(0, 5))
 
   const pool = $derived.by(() => {
     let p = sortEntries($endpointRaw, sort.field, sort.dir)
@@ -80,6 +92,12 @@
     if (maxLat > 0) p = p.filter((e) => parseLatency(e.latency) <= maxLat)
     if (oc > 0 && p.length > oc) p = p.slice(0, oc)
     return p
+  })
+
+  // Post-scan metrics for the summary strip (null until a scan finishes).
+  const summary = $derived.by(() => {
+    if (status !== 'done' && status !== 'cancelled') return null
+    return computeSummary($endpointRaw, total, scanMs)
   })
 
   function clearTimers() {
@@ -95,6 +113,7 @@
     progressText = $_('scan.progressTemplate', { values: { p: 0, t: 0 } })
     liveCountN = 0
     selected = new Set()
+    failInfo = null
 
     let count = parseInt(scanDepth)
     if (scanDepth === '0') { count = parseInt(customCount) || 100; if (count < 1) count = 100 }
@@ -104,6 +123,7 @@
       ipv6: ipVersion === '6' || ipVersion === '46',
       count,
       outCount: parseInt(outCount) || 0,
+      concurrency: parseInt(concurrency) || 0,
       timeoutMs: parseInt(timeoutMs) || 0,
       stop_after: parseInt(stopAfter) || 0,
     }
@@ -143,6 +163,7 @@
   }
 
   async function finishScan(id, st) {
+    scanMs = startTime ? Date.now() - startTime : 0
     clearTimers()
     status = st
     await fetchResults(id, st)
@@ -169,6 +190,7 @@
         const data = await apiJSON('/api/results/' + id)
         endpointRaw.set(data.raw || [])
         liveCountN = 0
+        failInfo = { reasons: data.fail_reasons || {}, examples: data.failures || [], scanned: data.scanned || 0 }
         return
       } catch {
         await sleep(250)
@@ -190,6 +212,7 @@
     progressText = ''
     liveCountN = 0
     selected = new Set()
+    failInfo = null
     endpointRaw.set([])
   }
 
@@ -255,7 +278,7 @@
     <td class="num">{i + 1}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
-    <td class={latClass(e.latency)}>{e.latency}</td>
+    <td class="lat-cell {latClass(e.latency)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{latBar(e.latency)}%"></span></span><span class="lat-val">{e.latency}</span></td>
     <td><button class="btn btn-secondary btn-sm" onclick={() => useEndpoint(e.endpoint)} title={$_('results.tableUse')}>{$_('results.tableUse')}</button></td>
     <td class="checkbox-cell"><input type="checkbox" checked={selected.has(e.endpoint)} onchange={(ev) => toggleSelect(e.endpoint, ev.currentTarget.checked)} /></td>
   </tr>
@@ -265,7 +288,7 @@
 <div onkeydown={onKeydown}>
   <div class="card">
     <h2>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <span class="step-num">1</span>
       <span>{$_('config.header')}</span>
     </h2>
     <div class="row">
@@ -292,7 +315,7 @@
 
   <div class="card">
     <h2>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span class="step-num">2</span>
       <span>{$_('settings.header')}</span>
     </h2>
     <div class="row">
@@ -330,9 +353,16 @@
             <span class="toggle-label" title={$_('settings.noiseTitle')}>{$_('settings.noise')}</span>
           </div>
         </div>
+        <div class="col"></div>
+      </div>
+      <div class="row">
         <div class="col">
           <label for="endpointTimeout" title={$_('settings.timeoutTitle')}>{$_('settings.timeoutLabel')}</label>
           <input id="endpointTimeout" type="text" bind:value={timeoutMs} inputmode="numeric" title={$_('settings.timeoutTitle')} />
+        </div>
+        <div class="col">
+          <label for="endpointConcurrency" title={$_('settings.concurrencyTitle')}>{$_('settings.concurrencyLabel')}</label>
+          <input id="endpointConcurrency" type="text" bind:value={concurrency} inputmode="numeric" placeholder="0 (auto)" title={$_('settings.concurrencyTitle')} />
         </div>
       </div>
       <div class="row">
@@ -354,20 +384,25 @@
     <div class="scan-desc">{scanDesc}</div>
   </div>
 
-  <div class="btn-bar">
-    <button class="btn btn-primary" onclick={startScan} disabled={startDisabled} title={$_('buttons.startTitle')}>
+  <div class="action-bar">
+    <button class="btn btn-primary action-primary" onclick={startScan} disabled={startDisabled} title={$_('buttons.startTitle')}>
       {status === 'running' ? $_('scan.scanning') : $_('buttons.start')}
     </button>
-    <button class="btn btn-danger" onclick={stopScan} disabled={status !== 'running'} title={$_('buttons.stopTitle')}>{$_('buttons.stop')}</button>
-    <button class="btn btn-secondary" onclick={startScan} disabled={status === 'running' || !hasResults} title={$_('buttons.rescanTitle')}>{$_('buttons.rescan')}</button>
-    <button class="btn btn-secondary" onclick={resetAll} title={$_('buttons.resetTitle')}>{$_('buttons.reset')}</button>
+    {#if status === 'running'}
+      <button class="btn btn-danger" onclick={stopScan} title={$_('buttons.stopTitle')}>{$_('buttons.stop')}</button>
+    {/if}
+    <div class="action-bar-rest">
+      <button class="btn btn-secondary btn-sm" onclick={startScan} disabled={status === 'running' || !hasResults} title={$_('buttons.rescanTitle')}>{$_('buttons.rescan')}</button>
+      <button class="btn btn-ghost btn-sm" onclick={resetAll} title={$_('buttons.resetTitle')}>{$_('buttons.reset')}</button>
+    </div>
   </div>
 
   <div class="card" id="resultsCard">
     <div class="section-header">
       <h2>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        <span class="step-num">3</span>
         <span>{$_('results.header')}</span>
+        {#if hasResults}<span class="count-chip">{pool.length}</span>{/if}
       </h2>
       <div style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap">
         <div class="compact-control">
@@ -381,18 +416,36 @@
       </div>
     </div>
 
-    {#if status === 'running' || status === 'done' || status === 'cancelled'}
-      <div class="progress-wrap active">
-        <div class="progress-bar"><div class="progress-fill" class:cancelled={status === 'cancelled'} style="width:{progressPct}%"></div></div>
-        <div class="progress-text">{progressText}</div>
-      </div>
-    {/if}
+    <ScanProgress {status} {progressPct} {progressText} {summary} runningLabel={$_('scan.scanning')} />
 
     {#if !hasResults}
       <div class="empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <p>{status === 'done' || status === 'cancelled' ? $_('results.notFound') : $_('results.empty')}</p>
+        {#if status === 'done' || status === 'cancelled'}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
+          <p>{$_('results.notFound')}{#if failInfo?.scanned > 0} ({failInfo.scanned} {$_('results.testedAllFailed')}){/if}</p>
+        {:else}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <p>{$_('results.empty')}</p>
+        {/if}
       </div>
+      {#if (status === 'done' || status === 'cancelled') && failReasons.length > 0}
+        <div class="fail-panel">
+          <div class="fail-title">{$_('results.whyFailed')}</div>
+          <ul class="fail-list">
+            {#each failReasons as r}<li><span class="fail-count">{r.n}×</span> {r.k}</li>{/each}
+          </ul>
+          {#if failExamples.length > 0}
+            <details class="fail-examples">
+              <summary>{$_('clean.failExamples')}</summary>
+              <div class="fail-ex-wrap">
+                {#each failExamples as f}
+                  <div class="fail-ex"><span class="tag">{f.endpoint}</span> <span class="fail-ex-err">{f.error || ''}</span></div>
+                {/each}
+              </div>
+            </details>
+          {/if}
+        </div>
+      {/if}
     {:else}
       <div class="results-actions results-actions-top">
         <SplitCopyButton oncopy={copyAll} title={$_('results.copyAllTitle')} />
@@ -403,11 +456,6 @@
         <button class="btn btn-secondary btn-sm" onclick={() => selectAll(false)}>{$_('results.deselectAll')}</button>
       </div>
       <VirtualTable items={pool} getKey={(e) => e.endpoint} colspan={5} {header} {row} />
-      {#if status === 'done' || status === 'cancelled'}
-        <div class={status === 'cancelled' ? 'error-msg' : 'success-msg'}>
-          {status === 'cancelled' ? $_('results.scanCancelled') : $_('results.found', { values: { n: ($endpointRaw || []).length, s: total || ($endpointRaw || []).length } })}
-        </div>
-      {/if}
     {/if}
 
     {#if liveCountN > 0}

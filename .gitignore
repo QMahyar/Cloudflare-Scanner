@@ -1,9 +1,10 @@
 # Build artifacts
 dist/
-# ...except the embedded frontend bundle, which is committed so `go build`
-# works with no Node toolchain (built from frontend/ via `npm run build`).
-!ui/dist/
-!ui/dist/**
+# Local dev build + run loop output (scripts/dev.ps1): per-platform binaries,
+# the cached xray sidecar, everything throwaway.
+builds/
+# Frontend bundle: built from frontend/ via `npm run build`, CI builds it before go build
+ui/dist/
 Cloudflare-Scanner.exe
 WarpEndpointScanner.exe
 *.exe
