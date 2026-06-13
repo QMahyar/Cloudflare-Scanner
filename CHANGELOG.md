@@ -5,6 +5,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.5.0] — 2026-06-13
+
+### Added
+- **Concurrency control in Endpoint Scanner Advanced settings.** Users can now
+  tune the number of concurrent workers (default: 0 = auto, which uses 256 for
+  native WireGuard handshake or 12 for noise mode). Useful for optimizing scan
+  speed on fast connections or preventing network overwhelm on slow/mobile
+  connections. (`frontend/src/components/EndpointScanner.svelte`)
+
+### Changed
+- **Frontend build artifacts (`ui/dist/`) no longer committed to Git.** CI/CD
+  workflows now automatically build the UI before Go compilation. Local builds
+  require `cd frontend && npm run build` before `go build`. Keeps the repository
+  clean of generated artifacts and prevents merge conflicts on UI changes.
+  (`.gitignore`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`)
+- **Module name aligned with repository path.** Changed `go.mod` module from
+  `WarpEndpointScanner` to `github.com/QMahyar/Cloudflare-Scanner`, enabling
+  proper Go tooling support and `go install` compatibility. (`go.mod`)
+
+### Documentation
+- Added `IMPROVEMENTS.md` documenting the three architectural improvements,
+  including rationale, implementation details, testing recommendations, and
+  rollout plan.
+
+---
+
 ## [v3.4.1] — 2026-06-11
 
 ### Fixed
