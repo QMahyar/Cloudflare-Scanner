@@ -40,6 +40,15 @@ export function latClass(ms) {
   return v < 100 ? 'latency-fast' : v < 200 ? 'latency-medium' : 'latency-slow'
 }
 
+// latBar maps a latency to a 0–100 width for the in-cell latency meter. A sqrt
+// curve over a fixed ~1200ms reference keeps the busy sub-200ms range visually
+// distinct while staying stable — bars don't reflow as new results stream in.
+export function latBar(ms) {
+  const v = parseLatency(ms)
+  if (!isFinite(v) || v <= 0) return 0
+  return Math.max(6, Math.min(100, Math.round(Math.sqrt(v / 1200) * 100)))
+}
+
 // toggleSort returns the next {field, dir} given a clicked column.
 export function toggleSort(cur, field) {
   if (cur.field === field) return { field, dir: cur.dir === 'asc' ? 'desc' : 'asc' }
