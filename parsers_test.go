@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -243,6 +244,125 @@ func TestBuildXrayJSON_SNIFallsBackToOriginalHost(t *testing.T) {
 	}
 	if strings.Contains(js, `"serverName": "104.16.5.3"`) {
 		t.Errorf("TLS SNI was set to the scan IP (Cloudflare can't route this):\n%s", js)
+	}
+}
+
+func TestBuildXrayJSONBatch_StructureAndRouting(t *testing.T) {
+	// The pooled Phase-2 path multiplexes a whole batch into ONE xray process:
+	// one SOCKS inbound + outbound + routing rule per endpoint. Verify the
+	// generated config is valid JSON with that exact shape, distinct sequential
+	// ports, each endpoint's IP as its outbound address, and the SNI preserved
+	// (not rewritten to a scan IP — Cloudflare couldn't route that).
+	cfg := &ProxyConfig{
+		Protocol: "vless", UUID: "uuid-1", Address: "panel.example.ir", Port: 443,
+		Security: "tls", Network: "ws", Path: "/", SNI: "panel.example.ir",
+	}
+	endpoints := []string{"104.16.5.3:443", "172.67.1.2:443", "188.114.96.7:8443"}
+
+	path, ports, err := cfg.BuildXrayJSONBatch(endpoints, 41000)
+	if err != nil {
+		t.Fatalf("BuildXrayJSONBatch error: %v", err)
+	}
+	defer os.RemoveAll(filepath.Dir(path))
+
+	if len(ports) != len(endpoints) {
+		t.Fatalf("got %d ports, want %d", len(ports), len(endpoints))
+	}
+	for i, p := range ports {
+		if p != 41000+i {
+			t.Errorf("port[%d] = %d, want %d", i, p, 41000+i)
+		}
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	var xc XrayConfig
+	if err := json.Unmarshal(data, &xc); err != nil {
+		t.Fatalf("batch config is not valid JSON: %v\n%s", err, data)
+	}
+
+	if len(xc.Inbounds) != len(endpoints) {
+		t.Fatalf("got %d inbounds, want %d", len(xc.Inbounds), len(endpoints))
+	}
+	if len(xc.Outbounds) != len(endpoints)+2 { // proxies + direct + block
+		t.Fatalf("got %d outbounds, want %d", len(xc.Outbounds), len(endpoints)+2)
+	}
+	if xc.Routing == nil || len(xc.Routing.Rules) != len(endpoints) {
+		t.Fatalf("expected %d routing rules", len(endpoints))
+	}
+	for i := range endpoints {
+		inTag := xc.Inbounds[i].Tag
+		outTag := xc.Outbounds[i].Tag
+		rule := xc.Routing.Rules[i]
+		if len(rule.InboundTag) != 1 || rule.InboundTag[0] != inTag || rule.OutboundTag != outTag {
+			t.Errorf("rule %d: %v -> %q, want [%s] -> %s", i, rule.InboundTag, rule.OutboundTag, inTag, outTag)
+		}
+		if xc.Inbounds[i].Port != ports[i] {
+			t.Errorf("inbound %d port = %d, want %d", i, xc.Inbounds[i].Port, ports[i])
+		}
+	}
+
+	js := string(data)
+	for _, ip := range []string{"104.16.5.3", "172.67.1.2", "188.114.96.7"} {
+		if !strings.Contains(js, `"address": "`+ip+`"`) {
+			t.Errorf("batch config missing outbound address %s", ip)
+		}
+	}
+	if !strings.Contains(js, `"serverName": "panel.example.ir"`) {
+		t.Errorf("batch config lost SNI:\n%s", js)
+	}
+	if strings.Contains(js, `"serverName": "104.16.5.3"`) {
+		t.Errorf("batch config set SNI to a scan IP (Cloudflare can't route)")
+	}
+}
+
+func TestGenerateConfigBatch_Structure(t *testing.T) {
+	// The pooled WARP-noise path mirrors the clean batch: one SOCKS inbound +
+	// WireGuard outbound + routing rule per endpoint, with each endpoint as its
+	// peer Endpoint and the shared credentials/noise on every outbound.
+	xm := &XrayManager{
+		Config: &WarpConfig{
+			PrivateKey: "cHJpdmF0ZWtleXBsYWNlaG9sZGVy",
+			Addresses:  []string{"172.16.0.2/32"},
+			PublicKey:  "cHVibGlja2V5cGxhY2Vob2xkZXI=",
+			Reserved:   []int{1, 2, 3},
+			MTU:        1280,
+		},
+		Noise: DefaultNoise(),
+	}
+	endpoints := []string{"188.114.96.1:2408", "162.159.192.5:1701"}
+
+	path, ports, err := xm.GenerateConfigBatch(endpoints, 12000)
+	if err != nil {
+		t.Fatalf("GenerateConfigBatch error: %v", err)
+	}
+	defer os.RemoveAll(filepath.Dir(path))
+
+	if len(ports) != len(endpoints) || ports[0] != 12000 || ports[1] != 12001 {
+		t.Fatalf("unexpected ports: %v", ports)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	var xc XrayConfig
+	if err := json.Unmarshal(data, &xc); err != nil {
+		t.Fatalf("WARP batch config is not valid JSON: %v\n%s", err, data)
+	}
+	if len(xc.Inbounds) != len(endpoints) || len(xc.Outbounds) != len(endpoints)+2 {
+		t.Fatalf("got %d inbounds / %d outbounds", len(xc.Inbounds), len(xc.Outbounds))
+	}
+	js := string(data)
+	for _, ep := range endpoints {
+		if !strings.Contains(js, `"endpoint": "`+ep+`"`) {
+			t.Errorf("WARP batch config missing peer endpoint %s", ep)
+		}
+	}
+	if !strings.Contains(js, `"wireguard"`) {
+		t.Errorf("WARP batch config missing wireguard outbound:\n%s", js)
 	}
 }
 

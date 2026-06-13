@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/semaphore"
@@ -403,6 +404,15 @@ func runScan(job *ScanJob, xrayPath string) {
 		scanner.Timeout = time.Duration(job.TimeoutMs) * time.Millisecond
 	}
 
+	// The noise/AmneziaWG fallback spawns an xray process per endpoint. Route it
+	// through the pooled batch runner (one process per batch) instead. The default
+	// native-handshake path and the TCP-only path are process-free and stay on the
+	// per-endpoint loop below, untouched.
+	if job.Config != nil && job.Noise.Type != "" {
+		runScanNoiseBatched(ctx, job, scanner)
+		return
+	}
+
 	var wg sync.WaitGroup
 	sem := semaphore.NewWeighted(int64(scanner.Concurrency))
 
@@ -480,6 +490,133 @@ func runScan(job *ScanJob, xrayPath string) {
 	job.mu.Unlock()
 }
 
+// runScanNoiseBatched validates WARP endpoints through pooled xray processes (one
+// process per batch) instead of one process per endpoint. It is used only for the
+// noise/AmneziaWG fallback; the native-handshake and TCP-only paths are
+// process-free and never reach here. Honors stop-after and cancellation, retries
+// each batch's failures once, and keeps partial results on cancel.
+func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
+	const batchSize = 16
+	concurrentBatches := (scanner.Concurrency + batchSize - 1) / batchSize
+	if concurrentBatches < 1 {
+		concurrentBatches = 1
+	}
+
+	var portBase atomic.Int32
+	allocPortBase := func() int {
+		// Non-overlapping port windows in the WARP band (+10800), clear of the
+		// clean-IP Phase-2 band (+20799).
+		n := int(portBase.Add(1))
+		return 10800 + (n*batchSize)%9000
+	}
+
+	var batches [][]string
+	for i := 0; i < len(job.Endpoints); i += batchSize {
+		end := i + batchSize
+		if end > len(job.Endpoints) {
+			end = len(job.Endpoints)
+		}
+		batches = append(batches, job.Endpoints[i:end])
+	}
+
+	sem := semaphore.NewWeighted(int64(concurrentBatches))
+	var wg sync.WaitGroup
+
+	for _, b := range batches {
+		select {
+		case <-ctx.Done():
+			goto wait
+		default:
+		}
+
+		wg.Add(1)
+		go func(batch []string) {
+			defer wg.Done()
+			if err := sem.Acquire(ctx, 1); err != nil {
+				return
+			}
+			defer sem.Release(1)
+
+			res := scanner.scanBatchNoise(ctx, batch, allocPortBase())
+
+			// Retry the failures once in a fresh batch — mirrors the old 2-attempt
+			// behavior without paying 2× on endpoints that pass first try.
+			var retryIdx []int
+			var retryEps []string
+			for i, r := range res {
+				if !r.Success {
+					retryIdx = append(retryIdx, i)
+					retryEps = append(retryEps, batch[i])
+				}
+			}
+			if len(retryEps) > 0 {
+				select {
+				case <-ctx.Done():
+				default:
+					rres := scanner.scanBatchNoise(ctx, retryEps, allocPortBase())
+					for j, rr := range rres {
+						if rr.Success {
+							rr.Attempts = 2
+							res[retryIdx[j]] = rr
+						} else {
+							res[retryIdx[j]].Attempts = 2
+						}
+					}
+				}
+			}
+
+			job.mu.Lock()
+			for i := range res {
+				if res[i].Attempts == 0 {
+					res[i].Attempts = 1
+				}
+				if res[i].Success && res[i].Passes == 0 {
+					res[i].Passes = 1
+					res[i].Best = res[i].Latency
+				}
+				job.Results = append(job.Results, res[i])
+				if res[i].Success {
+					job.Successes++
+				}
+			}
+			job.Progress = len(job.Results)
+			reached := job.StopAfter > 0 && job.Successes >= job.StopAfter
+			if reached {
+				job.TargetReached = true
+			}
+			job.mu.Unlock()
+
+			if reached {
+				job.stop()
+			}
+		}(b)
+	}
+
+wait:
+	wg.Wait()
+
+	job.mu.Lock()
+	if !job.TargetReached {
+		select {
+		case <-ctx.Done():
+			job.Status = "cancelled"
+		default:
+			job.Status = "done"
+		}
+	} else {
+		job.Status = "done"
+	}
+	results := append([]ScanResult(nil), job.Results...)
+	job.mu.Unlock()
+
+	sortScanResults(results)
+
+	job.mu.Lock()
+	job.Results = results
+	job.Progress = len(results)
+	job.mu.Unlock()
+}
+
 func handleScanStop(w http.ResponseWriter, r *http.Request) {
 	jobID := r.PathValue("id")
 
@@ -544,6 +681,16 @@ func streamSSE(w http.ResponseWriter, r *http.Request, snapshot func() (map[stri
 	if !ok {
 		jsonError(w, "streaming unsupported", 500)
 		return
+	}
+	// The server-wide WriteTimeout (set in startServer) is a deadline on the
+	// whole response, which is correct for normal JSON handlers but fatal for an
+	// SSE stream that legitimately stays open for the entire scan (a noise scan
+	// can run minutes). Once it fires mid-stream the connection is torn down and
+	// the browser logs ERR_INCOMPLETE_CHUNKED_ENCODING. Clear the deadline for
+	// this one response so the stream lives as long as the scan does; the
+	// ctx.Done() select below still tears it down when the client disconnects.
+	if rc := http.NewResponseController(w); rc != nil {
+		_ = rc.SetWriteDeadline(time.Time{})
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -681,9 +828,15 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 		Error    string `json:"error"`
 	}
 	failures := make([]failEntry, 0)
+	reasons := map[string]int{}
+	failedCount := 0
 	for _, r := range results {
 		if !r.Success {
-			failures = append(failures, failEntry{Endpoint: r.Endpoint, Error: r.Error})
+			failedCount++
+			reasons[summarizeWarpFailure(r.Error)]++
+			if len(failures) < 40 {
+				failures = append(failures, failEntry{Endpoint: r.Endpoint, Error: r.Error})
+			}
 		}
 	}
 
@@ -692,7 +845,8 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 		"entries":      entries,
 		"raw":          raw,
 		"failures":     failures,
-		"failed_count": len(failures),
+		"fail_reasons": reasons,
+		"failed_count": failedCount,
 		"total":        len(entries),
 		"scanned":      len(results),
 		"status":       status,

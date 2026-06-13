@@ -557,10 +557,22 @@ wait:
 	return results
 }
 
-func probeCloudflareTrace(ctx context.Context, endpoint string, timeout time.Duration) (colo, loc string) {
+func probeCloudflareTrace(ctx context.Context, endpoint, sni string, timeout time.Duration) (colo, loc string) {
 	_, port, err := net.SplitHostPort(endpoint)
 	if err != nil {
 		return "", ""
+	}
+	// /cdn-cgi/trace is answered by the Cloudflare edge that terminates the
+	// connection, and exists on every CF-proxied hostname. The well-known
+	// speed.cloudflare.com SNI is exactly what DPI on filtered ISPs resets on
+	// sight, which is why a direct edge probe returns nothing there and the colo
+	// column stays empty. Reusing the user's own config SNI — which their working
+	// config proves is unblocked — lets the probe complete and report that IP's
+	// real colo. Falls back to speed.cloudflare.com when no domain SNI is given
+	// (e.g. one-phase scans with no config).
+	host := strings.TrimSpace(sni)
+	if host == "" || net.ParseIP(host) != nil {
+		host = "speed.cloudflare.com"
 	}
 	scheme := "http"
 	if port == "443" || port == "8443" || port == "2053" || port == "2083" || port == "2087" || port == "2096" {
@@ -571,14 +583,14 @@ func probeCloudflareTrace(ctx context.Context, endpoint string, timeout time.Dur
 			var d net.Dialer
 			return d.DialContext(ctx, network, endpoint)
 		},
-		TLSClientConfig: &tls.Config{ServerName: "speed.cloudflare.com", MinVersion: tls.VersionTLS12},
+		TLSClientConfig: &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12},
 	}
 	client := &http.Client{Transport: transport, Timeout: timeout}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, scheme+"://speed.cloudflare.com/cdn-cgi/trace", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, scheme+"://"+host+"/cdn-cgi/trace", nil)
 	if err != nil {
 		return "", ""
 	}
-	req.Host = "speed.cloudflare.com"
+	req.Host = host
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", ""
@@ -616,7 +628,7 @@ func ipOnly(endpoint string) string {
 // an IP -> {colo, loc} map. It only reads results, never mutates them, so it is
 // safe to run lock-free against a published slice. Bounded + concurrent so it
 // stays off the Phase-1 dial hot path regardless of how many IPs responded.
-func buildColoMap(ctx context.Context, results []CleanIPResult, maxIPs, concurrency int) map[string][2]string {
+func buildColoMap(ctx context.Context, results []CleanIPResult, sni string, maxIPs, concurrency int) map[string][2]string {
 	if maxIPs <= 0 {
 		maxIPs = 150
 	}
@@ -658,7 +670,7 @@ func buildColoMap(ctx context.Context, results []CleanIPResult, maxIPs, concurre
 				return
 			}
 			defer sem.Release(1)
-			colo, loc := probeCloudflareTrace(ctx, t.endpoint, 2*time.Second)
+			colo, loc := probeCloudflareTrace(ctx, t.endpoint, sni, 2*time.Second)
 			if colo == "" && loc == "" {
 				return
 			}
@@ -763,102 +775,13 @@ func extractXrayError(logPath string) string {
 	return ""
 }
 
-func validateWithXrayAttempts(ctx context.Context, cfg *ProxyConfig, endpoint string, xrayPath string, socksPortBase int, timeout time.Duration, attempts int) CleanIPResult {
-	if attempts <= 0 {
-		attempts = 1
-	}
-	var latencies []time.Duration
-	var lastErr string
-	for i := 0; i < attempts; i++ {
-		result := validateWithXray(ctx, cfg, endpoint, xrayPath, socksPortBase+i, timeout)
-		if result.Success {
-			latencies = append(latencies, result.Latency)
-		} else {
-			lastErr = result.Error
-		}
-		select {
-		case <-ctx.Done():
-			lastErr = "cancelled"
-			i = attempts
-		default:
-		}
-	}
-	passes := len(latencies)
-	if passes == 0 {
-		return CleanIPResult{Endpoint: endpoint, Error: lastErr, Attempts: attempts, Passes: passes}
-	}
-	return CleanIPResult{
-		Endpoint: endpoint,
-		Success:  true,
-		Latency:  medianDuration(latencies),
-		Attempts: attempts,
-		Passes:   passes,
-		Best:     bestDuration(latencies),
-		Jitter:   jitterDuration(latencies),
-	}
-}
-
-func validateWithXray(ctx context.Context, cfg *ProxyConfig, endpoint string, xrayPath string, socksPort int, timeout time.Duration) CleanIPResult {
-	select {
-	case <-ctx.Done():
-		return CleanIPResult{Endpoint: endpoint, Error: "cancelled"}
-	default:
-	}
-
-	if cfg.UUID == "" {
-		return CleanIPResult{Endpoint: endpoint, Error: "no UUID in config"}
-	}
-
-	configPath, err := cfg.BuildXrayJSON(endpoint, socksPort)
-	if err != nil {
-		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("xray config: %v", err)}
-	}
-	defer os.RemoveAll(filepath.Dir(configPath))
-
-	cmd := exec.Command(xrayPath, "run", "-c", configPath)
-	cmd.Dir = filepath.Dir(configPath)
-
-	stderrPath := filepath.Join(filepath.Dir(configPath), "stderr.log")
-	f, err := os.Create(stderrPath)
-	if err != nil {
-		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("create stderr log: %v", err)}
-	}
-	cmd.Stderr = f
-
-	if err := cmd.Start(); err != nil {
-		f.Close()
-		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("start xray: %v", err)}
-	}
-	f.Close()
-	defer func() {
-		if cmd != nil && cmd.Process != nil {
-			cmd.Process.Kill()
-			cmd.Wait()
-		}
-	}()
-
+// socks204Probe runs the SOCKS5 + GET /generate_204 check against an already-up
+// local SOCKS port and returns the result. It is the shared core of the pooled
+// validateBatchWithXray path, keeping the success criterion (exact 204) and the
+// xray-log enrichment in one place. The caller owns the xray process and its
+// lifecycle; logPath points at that process's run log for failure-cause extraction.
+func socks204Probe(ctx context.Context, endpoint string, socksPort int, timeout time.Duration, logPath string) CleanIPResult {
 	addr := fmt.Sprintf("127.0.0.1:%d", socksPort)
-	startupDeadline := time.Now().Add(4 * time.Second)
-	started := false
-	for time.Now().Before(startupDeadline) {
-		select {
-		case <-ctx.Done():
-			return CleanIPResult{Endpoint: endpoint, Error: "cancelled"}
-		default:
-		}
-		conn, err := net.DialTimeout("tcp", addr, 300*time.Millisecond)
-		if err == nil {
-			conn.Close()
-			started = true
-			break
-		}
-		time.Sleep(80 * time.Millisecond)
-	}
-
-	if !started {
-		return CleanIPResult{Endpoint: endpoint, Error: "xray startup timeout"}
-	}
-
 	start := time.Now()
 
 	var d net.Dialer
@@ -877,8 +800,6 @@ func validateWithXray(ctx context.Context, cfg *ProxyConfig, endpoint string, xr
 		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("socks5: %v", err)}
 	}
 
-	logPath := filepath.Join(filepath.Dir(configPath), "xray.log")
-
 	req := "GET /generate_204 HTTP/1.1\r\nHost: www.gstatic.com\r\nConnection: close\r\nUser-Agent: Mozilla/5.0\r\n\r\n"
 	if _, err := conn.Write([]byte(req)); err != nil {
 		return CleanIPResult{Endpoint: endpoint, Error: withXrayCause("http write", err, logPath)}
@@ -891,14 +812,112 @@ func validateWithXray(ctx context.Context, cfg *ProxyConfig, endpoint string, xr
 	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
 
-	// www.gstatic.com/generate_204 always answers 204 through a working tunnel.
-	// Accepting 200 risks false positives from captive portals / edge error
-	// pages, so require an exact 204 (matches the WARP scanner's check).
 	if resp.StatusCode == 204 {
 		return CleanIPResult{Endpoint: endpoint, Success: true, Latency: time.Since(start)}
 	}
-
 	return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("HTTP %d", resp.StatusCode)}
+}
+
+// validateBatchWithXray validates a whole batch of endpoints through a SINGLE
+// xray process: one SOCKS inbound + outbound + routing rule per endpoint (see
+// BuildXrayJSONBatch). This trades N process spawns (each with its own exec +
+// up-to-4s port-wait) for one, the dominant Phase-2 cost. Each endpoint is still
+// probed independently (its own port, its own 204 check), and the probes run
+// concurrently against the shared process. Results are aligned to the input
+// endpoints slice. Honors ctx cancellation between and during probes.
+func validateBatchWithXray(ctx context.Context, cfg *ProxyConfig, endpoints []string, xrayPath string, basePort int, timeout time.Duration) []CleanIPResult {
+	results := make([]CleanIPResult, len(endpoints))
+	for i, ep := range endpoints {
+		results[i] = CleanIPResult{Endpoint: ep, Error: "not run"}
+	}
+
+	select {
+	case <-ctx.Done():
+		for i := range results {
+			results[i].Error = "cancelled"
+		}
+		return results
+	default:
+	}
+
+	configPath, ports, err := cfg.BuildXrayJSONBatch(endpoints, basePort)
+	if err != nil {
+		for i := range results {
+			results[i].Error = fmt.Sprintf("xray config: %v", err)
+		}
+		return results
+	}
+	defer os.RemoveAll(filepath.Dir(configPath))
+
+	cmd := exec.Command(xrayPath, "run", "-c", configPath)
+	cmd.Dir = filepath.Dir(configPath)
+	stderrPath := filepath.Join(filepath.Dir(configPath), "stderr.log")
+	if f, ferr := os.Create(stderrPath); ferr == nil {
+		cmd.Stderr = f
+		defer f.Close()
+	}
+
+	if err := cmd.Start(); err != nil {
+		for i := range results {
+			results[i].Error = fmt.Sprintf("start xray: %v", err)
+		}
+		return results
+	}
+	defer func() {
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+			cmd.Wait()
+		}
+	}()
+
+	// Wait for the LAST inbound port to come up. xray binds inbounds in order, so
+	// once the highest port accepts connections the whole batch is listening.
+	lastAddr := fmt.Sprintf("127.0.0.1:%d", ports[len(ports)-1])
+	startupDeadline := time.Now().Add(6 * time.Second)
+	started := false
+	for time.Now().Before(startupDeadline) {
+		select {
+		case <-ctx.Done():
+			for i := range results {
+				results[i].Error = "cancelled"
+			}
+			return results
+		default:
+		}
+		conn, derr := net.DialTimeout("tcp", lastAddr, 300*time.Millisecond)
+		if derr == nil {
+			conn.Close()
+			started = true
+			break
+		}
+		time.Sleep(80 * time.Millisecond)
+	}
+	if !started {
+		for i := range results {
+			results[i].Error = "xray startup timeout"
+		}
+		return results
+	}
+
+	logPath := filepath.Join(filepath.Dir(configPath), "xray.log")
+
+	// Probe every endpoint concurrently against the shared process.
+	var wg sync.WaitGroup
+	for i := range endpoints {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				results[idx] = CleanIPResult{Endpoint: endpoints[idx], Error: "cancelled"}
+				return
+			default:
+			}
+			results[idx] = socks204Probe(ctx, endpoints[idx], ports[idx], timeout, logPath)
+		}(i)
+	}
+	wg.Wait()
+	return results
 }
 
 func runCleanScan(job *CleanIPJob, xrayPath string) {
@@ -966,7 +985,15 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	if coloCap < 150 {
 		coloCap = 150
 	}
-	coloMap := buildColoMap(ctx, phase1Results, coloCap, 48)
+	// Use the config's SNI for the direct edge trace — it's a CF-proxied hostname
+	// the user's working config proves is unblocked, unlike the well-known
+	// speed.cloudflare.com SNI that DPI resets. Empty in one-phase mode (no
+	// config), where probeCloudflareTrace falls back to the default SNI.
+	coloSNI := ""
+	if job.Config != nil {
+		coloSNI = job.Config.SNI
+	}
+	coloMap := buildColoMap(ctx, phase1Results, coloSNI, coloCap, 48)
 	job.mu.Lock()
 	applyColo(job.Phase1Results, coloMap)
 	job.mu.Unlock()
@@ -1006,7 +1033,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			job.NearbyPhase1Results = nearbyPhase1Results
 			job.mu.Unlock()
 
-			nearbyColo := buildColoMap(ctx, nearbyPhase1Results, coloCap, 48)
+			nearbyColo := buildColoMap(ctx, nearbyPhase1Results, coloSNI, coloCap, 48)
 			for k, v := range nearbyColo {
 				coloMap[k] = v
 			}
@@ -1060,91 +1087,166 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	validationCfg := *job.Config
 	validationCfg.PacketEncoding = ""
 
-	var portCounter atomic.Int32
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-	sem := semaphore.NewWeighted(int64(p2Probes))
-	phase2Results := make([]CleanIPResult, 0, len(tcpResults))
-	var nearbyPhase2Results []CleanIPResult
-	if len(nearbyTcpResults) > 0 {
-		nearbyPhase2Results = make([]CleanIPResult, 0, len(nearbyTcpResults))
+	// Phase 2 validates endpoints in BATCHES: a single xray process serves a whole
+	// batch (one SOCKS inbound + outbound + routing rule per endpoint — see
+	// BuildXrayJSONBatch), instead of one process per endpoint. The old per-probe
+	// spawn (exec + up-to-4s port wait) was the dominant Phase-2 cost; batching
+	// collapses it by the batch factor. p2Probes (the old per-endpoint concurrency
+	// knob) now bounds how many endpoints are in flight at once, mapped onto
+	// (batchSize × concurrentBatches) so parallelism is preserved with far fewer
+	// process launches.
+	const phase2BatchSize = 16
+	concurrentBatches := (p2Probes + phase2BatchSize - 1) / phase2BatchSize
+	if concurrentBatches < 1 {
+		concurrentBatches = 1
 	}
 
-	for _, pr := range tcpResults {
-		select {
-		case <-job.Cancel:
-			sortCleanIPResults(phase2Results)
-			job.mu.Lock()
-			job.Phase2Results = phase2Results
-			job.Phase2Progress = len(phase2Results)
-			job.Status = "cancelled"
-			job.mu.Unlock()
-			return
-		default:
+	var portBase atomic.Int32
+	allocPortBase := func() int {
+		// Each batch gets a non-overlapping window of phase2BatchSize ports.
+		// Stride monotonically and wrap inside a wide band well below the OS
+		// ephemeral range; a process is always killed before its window could be
+		// reused. Offset 20799 keeps clear of the WARP path's +10799 band.
+		n := int(portBase.Add(1))
+		return 20799 + (n*phase2BatchSize)%20000
+	}
+
+	// runPhase2Batches splits endpoints into batches, runs up to concurrentBatches
+	// xray processes at once, retries an endpoint's failures once in a follow-up
+	// batch (mirroring the old 2-attempt behavior without paying 2× on the common
+	// success path), and calls onBatch with each completed batch's results.
+	// Returns true if the job was cancelled mid-run.
+	runPhase2Batches := func(endpoints []string, onBatch func([]CleanIPResult)) bool {
+		var batches [][]string
+		for i := 0; i < len(endpoints); i += phase2BatchSize {
+			end := i + phase2BatchSize
+			if end > len(endpoints) {
+				end = len(endpoints)
+			}
+			batches = append(batches, endpoints[i:end])
 		}
 
-		wg.Add(1)
-		go func(ep string) {
-			defer wg.Done()
-			if err := sem.Acquire(ctx, 1); err != nil {
-				return
-			}
-			defer sem.Release(1)
+		sem := semaphore.NewWeighted(int64(concurrentBatches))
+		var wg sync.WaitGroup
+		var cancelled atomic.Bool
 
-			socksPort := int(portCounter.Add(10)) + 20799
-			result := validateWithXrayAttempts(ctx, &validationCfg, ep, xrayPath, socksPort, phase2Timeout, 2)
-
-			mu.Lock()
-			phase2Results = append(phase2Results, result)
-			progress := len(phase2Results)
-			snapshot := make([]CleanIPResult, len(phase2Results))
-			copy(snapshot, phase2Results)
-			mu.Unlock()
-
-			job.mu.Lock()
-			job.Phase2Results = snapshot
-			job.Phase2Progress = progress
-			job.mu.Unlock()
-		}(pr.Endpoint)
-	}
-
-	wg.Wait()
-
-	// Phase 2 for nearby results
-	if len(nearbyTcpResults) > 0 {
-		var nearbyWg sync.WaitGroup
-		for _, pr := range nearbyTcpResults {
+		for _, b := range batches {
 			select {
 			case <-job.Cancel:
-				job.mu.Lock()
-				job.Status = "cancelled"
-				job.mu.Unlock()
-				return
+				cancelled.Store(true)
 			default:
 			}
+			if cancelled.Load() {
+				break
+			}
 
-			nearbyWg.Add(1)
-			go func(ep string) {
-				defer nearbyWg.Done()
+			wg.Add(1)
+			go func(batch []string) {
+				defer wg.Done()
 				if err := sem.Acquire(ctx, 1); err != nil {
 					return
 				}
 				defer sem.Release(1)
 
-				socksPort := int(portCounter.Add(10)) + 20799
-				result := validateWithXrayAttempts(ctx, &validationCfg, ep, xrayPath, socksPort, phase2Timeout, 2)
+				res := validateBatchWithXray(ctx, &validationCfg, batch, xrayPath, allocPortBase(), phase2Timeout)
 
-				mu.Lock()
-				nearbyPhase2Results = append(nearbyPhase2Results, result)
-				mu.Unlock()
+				// Retry the ones that failed, once, in a fresh batch — a single
+				// dropped TLS/handshake under load shouldn't condemn an IP.
+				var retryIdx []int
+				var retryEps []string
+				for i, r := range res {
+					if !r.Success {
+						retryIdx = append(retryIdx, i)
+						retryEps = append(retryEps, batch[i])
+					}
+				}
+				if len(retryEps) > 0 {
+					select {
+					case <-ctx.Done():
+					default:
+						rres := validateBatchWithXray(ctx, &validationCfg, retryEps, xrayPath, allocPortBase(), phase2Timeout)
+						for j, rr := range rres {
+							if rr.Success {
+								rr.Attempts = 2
+								res[retryIdx[j]] = rr
+							} else {
+								res[retryIdx[j]].Attempts = 2
+							}
+						}
+					}
+				}
 
-				job.mu.Lock()
-				job.Phase2Progress++
-				job.mu.Unlock()
-			}(pr.Endpoint)
+				for i := range res {
+					if res[i].Attempts == 0 {
+						res[i].Attempts = 1
+					}
+					if res[i].Success && res[i].Passes == 0 {
+						res[i].Passes = 1
+						res[i].Best = res[i].Latency
+					}
+				}
+				onBatch(res)
+			}(b)
 		}
-		nearbyWg.Wait()
 
+		wg.Wait()
+		return cancelled.Load()
+	}
+
+	var mu sync.Mutex
+	phase2Results := make([]CleanIPResult, 0, len(tcpResults))
+
+	mainEps := make([]string, len(tcpResults))
+	for i, pr := range tcpResults {
+		mainEps[i] = pr.Endpoint
+	}
+
+	cancelledMain := runPhase2Batches(mainEps, func(res []CleanIPResult) {
+		mu.Lock()
+		phase2Results = append(phase2Results, res...)
+		progress := len(phase2Results)
+		snapshot := make([]CleanIPResult, progress)
+		copy(snapshot, phase2Results)
+		mu.Unlock()
+
+		job.mu.Lock()
+		job.Phase2Results = snapshot
+		job.Phase2Progress = progress
+		job.mu.Unlock()
+	})
+
+	if cancelledMain {
+		sortCleanIPResults(phase2Results)
+		job.mu.Lock()
+		job.Phase2Results = phase2Results
+		job.Phase2Progress = len(phase2Results)
+		job.Status = "cancelled"
+		job.mu.Unlock()
+		return
+	}
+
+	// Phase 2 for nearby results
+	var nearbyPhase2Results []CleanIPResult
+	if len(nearbyTcpResults) > 0 {
+		nearbyEps := make([]string, len(nearbyTcpResults))
+		for i, pr := range nearbyTcpResults {
+			nearbyEps[i] = pr.Endpoint
+		}
+		var nmu sync.Mutex
+		cancelledNearby := runPhase2Batches(nearbyEps, func(res []CleanIPResult) {
+			nmu.Lock()
+			nearbyPhase2Results = append(nearbyPhase2Results, res...)
+			nmu.Unlock()
+			job.mu.Lock()
+			job.Phase2Progress += len(res)
+			job.mu.Unlock()
+		})
+		if cancelledNearby {
+			job.mu.Lock()
+			job.Status = "cancelled"
+			job.mu.Unlock()
+			return
+		}
 		sortCleanIPResults(nearbyPhase2Results)
 	}
 

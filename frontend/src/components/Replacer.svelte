@@ -275,6 +275,7 @@
       <h2>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v13H3V8"/><path d="M1 3h22v5H1z"/><path d="M10 12h4"/></svg>
         <span>{$_('replacer.configsHeader')}</span>
+        <span class="count-chip">{configs.length}</span>
       </h2>
       <p class="desc">{$_('replacer.configCount', { values: { n: configs.length } })}</p>
       <div class="results-table-wrap scrollable-list">
@@ -336,6 +337,7 @@
       <h2>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
         <span>{$_('replacer.resultsHeader')}</span>
+        <span class="count-chip">{generated.length}</span>
       </h2>
       <p class="desc">{$_('replacer.resultsCount', { values: { n: generated.length, c: genCount, e: genCountEp } })}</p>
       <div class="results-table-wrap scrollable-list">

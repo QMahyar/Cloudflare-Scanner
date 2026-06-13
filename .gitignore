@@ -46,3 +46,11 @@ cmd/verify/
 
 # Playwright MCP page snapshots (transient debugging artifacts)
 .playwright-mcp/
+
+# Serena MCP local project config / cache
+.serena/
+
+# Local UI debugging scratch (screenshots, RTL probes)
+.shots/
+frontend/debug/
+frontend/debug-rtl.html

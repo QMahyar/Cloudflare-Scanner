@@ -1,6 +1,8 @@
 <script>
+  import { onMount } from 'svelte'
   import { _ } from 'svelte-i18n'
   import { toggleLanguage } from '../lib/i18n.js'
+  import { apiJSON } from '../lib/api.js'
   import { activeTab, endpointRaw, cleanData, replacerGenerated, loadResults, beginResultsPersistence } from '../lib/stores.js'
   import EndpointScanner from './EndpointScanner.svelte'
   import IpScanner from './IpScanner.svelte'
@@ -21,6 +23,14 @@
   const epBadge = $derived($endpointRaw?.length || 0)
   const cleanBadge = $derived($cleanData?.entries?.length || 0)
   const repBadge = $derived($replacerGenerated?.length || 0)
+
+  // Local-host indicator: the page is served from the scanner's own
+  // 127.0.0.1:<port> listener, so window.location.host is the real address.
+  const host = typeof window !== 'undefined' ? window.location.host : ''
+  let version = $state('')
+  onMount(async () => {
+    try { const v = await apiJSON('/api/version'); version = v?.version || '' } catch {}
+  })
 </script>
 
 <div class="noise-overlay"></div>
@@ -41,7 +51,14 @@
           <p class="subtitle">{$_('subtitle')}</p>
         </div>
       </div>
-      <button class="lang-btn" onclick={toggleLanguage}>{$_('langBtn')}</button>
+      <div class="header-actions">
+        {#if version}<span class="ver-chip" title={$_('about.header')}>{version}</span>{/if}
+        <span class="host-pill" title={$_('about.privacy')}>
+          <span class="host-dot"></span>
+          <span class="host-text">{host}</span>
+        </span>
+        <button class="lang-btn" onclick={toggleLanguage}>{$_('langBtn')}</button>
+      </div>
     </div>
 
     <div class="tab-bar" role="tablist" aria-label="Scanner tabs">

@@ -10,6 +10,16 @@ go test ./...
 
 Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64, arm64). CI matrix covers all 6 + termux-arm64.
 
+### Local build scripts
+
+- **`scripts\dev.ps1`** — fast inner dev loop. Rebuilds the UI only when `frontend\src` changed, builds the Go binary into `builds\<platform>\`, drops the matching xray-core sidecar next to it (cached under `builds\.cache\`, downloaded once), and optionally launches it. `builds\` is git-ignored.
+  ```powershell
+  .\scripts\dev.ps1            # build host platform -> builds\windows-amd64\
+  .\scripts\dev.ps1 -Run       # build, then launch (finds xray next to the binary)
+  .\scripts\dev.ps1 -SkipUI -Run   # Go-only rebuild + run (fastest)
+  ```
+- **`scripts\build.ps1`** — release packager: all-platform, re-downloads xray each run, emits release-identical archives to `dist\`. Use for producing distributables, not iterating.
+
 ## Key Architecture
 
 - **Single binary + embedded UI**: `//go:embed all:ui/dist` in `server.go` compiles the built Svelte bundle (`ui/dist/`) into the binary. No runtime files. Rebuild the UI with `cd frontend && npm run build` before `go build`; `ui/dist/` is committed so `go build` needs no Node.
@@ -62,3 +72,31 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 - API calls through `lib/api.js` `apiJSON()` wrapper.
 - Scan status streams over SSE (`lib/sse.js` `subscribeStatus`, `/api/scan-events` / `/api/clean-events`), with `setInterval` polling fallback; results still poll. Large tables use `components/VirtualTable.svelte` (@tanstack/svelte-virtual).
 - Build: `cd frontend && npm run build` → emits `ui/dist/` (committed, embedded by Go). `npm run dev` for a hot-reload dev server.
+
+## Key Architectural Decisions
+
+- **Native WireGuard Handshake** (`warp_probe.go`): Uses `golang.org/x/crypto` (blake2s + chacha20poly1305) for cryptographically valid WARP endpoint validation — no xray process needed. Only falls back to xray when noise/obfuscation is requested.
+- **Clean-IP Two-Phase Scan**:
+  - **Phase 1**: High-concurrency TCP dial (500 workers) with retry on timeout only.
+  - **Phase 2**: xray validation (SOCKS5 → HTTP/204) + `/cdn-cgi/trace` for colo/country.
+  - **Nearby scan**: Expands `/24` (IPv4) or `/64` (IPv6) around working IPs.
+- **Two xray Temp Dirs** (auto-cleaned on shutdown):
+  - `_xray_work/` — WARP noise-fallback scans
+  - `_xray_clean/` — Clean-IP Phase 2 validation
+- **No HTTP Router**: Uses `http.ServeMux` with `r.PathValue()` for job IDs.
+- **In-Memory Job Maps**: `scanJobs` and `cleanJobs` with 10-min TTL cleanup.
+- **SSE Streaming**: Real-time progress via `/api/scan-events` and `/api/clean-events` with polling fallback.
+- **Embedded UI**: `//go:embed all:ui/dist` — `frontend/build` → `ui/dist/` committed to repo.
+
+## Test Coverage
+
+- **Tested**: `parsers_test.go` (WARP config, proxy URL parsing, share URL round-trip, apply-endpoint path traversal), `cleanip_test.go` (IP generation, weight calculation, IPv6), `iprange_test.go` (CIDR/dash/single parsing, enumerate vs sample).
+- **Untested**: Network/xray paths (handshake, xray process management, clean-IP Phase 2 validation, subscription fetch).
+
+## Potential Areas for Improvement
+
+- Expand test coverage to network/xray integration paths.
+- Add more context to error paths (e.g., xray startup failures in `cleanip.go`).
+- Consider architecture documentation for onboarding.
+- Current security: path traversal guard in `handleApplyEndpoint`; folder picker uses native OS dialogs.
+- Performance: Native WARP handshake precomputes DH; clean-IP uses high concurrency (500 TCP, 12 xray).

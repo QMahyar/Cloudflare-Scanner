@@ -182,6 +182,119 @@ func (xm *XrayManager) GenerateConfig(endpoint string, socksPort int) (configPat
 	return configPath, nil
 }
 
+// GenerateConfigBatch builds a SINGLE xray config that probes a whole batch of
+// WARP endpoints at once: one SOCKS inbound per endpoint, one WireGuard outbound
+// per endpoint (identical credentials/noise, only the peer Endpoint differs), and
+// a routing rule wiring each inbound to its outbound. The noise/AmneziaWG fallback
+// otherwise spawns one xray PROCESS per endpoint; collapsing a batch into one
+// process cuts that spawn cost by the batch factor while keeping each endpoint's
+// probe independent. Returns the config path and per-endpoint SOCKS ports (aligned
+// to the endpoints slice).
+func (xm *XrayManager) GenerateConfigBatch(endpoints []string, basePort int) (configPath string, ports []int, err error) {
+	if len(endpoints) == 0 {
+		return "", nil, fmt.Errorf("no endpoints in batch")
+	}
+
+	tag := fmt.Sprintf("wgbatch_%d", basePort)
+	configDir := filepath.Join(os.TempDir(), "_xray_work", tag)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return "", nil, fmt.Errorf("cannot create work dir: %w", err)
+	}
+
+	logFile := filepath.Join(configDir, "xray.log")
+	_ = os.WriteFile(logFile, []byte{}, 0644)
+
+	var noiseEntries []NoiseEntry
+	if xm.Noise.Type != "" {
+		noiseEntries = []NoiseEntry{
+			{
+				Type:   xm.Noise.Type,
+				Packet: xm.Noise.Packet,
+				Delay:  xm.Noise.Delay,
+				Count:  xm.Noise.Count,
+			},
+		}
+	}
+
+	socksSettings, _ := json.Marshal(map[string]interface{}{
+		"auth": "noauth",
+		"udp":  true,
+	})
+
+	cfg := XrayConfig{
+		Log: &LogConfig{
+			Access:   logFile,
+			Error:    logFile,
+			Loglevel: "warning",
+		},
+		Inbounds:  make([]InboundConfig, 0, len(endpoints)),
+		Outbounds: make([]OutboundConfig, 0, len(endpoints)+2),
+		Routing: &RoutingConfig{
+			DomainStrategy: "AsIs",
+			Rules:          make([]RoutingRule, 0, len(endpoints)),
+		},
+	}
+
+	ports = make([]int, len(endpoints))
+	for i, ep := range endpoints {
+		port := basePort + i
+		ports[i] = port
+		inTag := fmt.Sprintf("in-%d", i)
+		outTag := fmt.Sprintf("out-%d", i)
+
+		wgSettings := WireGuardSettings{
+			SecretKey: xm.Config.PrivateKey,
+			Address:   xm.Config.Addresses,
+			Peers: []WireGuardPeer{
+				{
+					PublicKey: xm.Config.PublicKey,
+					Endpoint:  ep,
+				},
+			},
+			Reserved:   xm.Config.Reserved,
+			Noises:     noiseEntries,
+			MTU:        xm.Config.MTU,
+			KernelMode: false,
+		}
+		wgJSON, _ := json.Marshal(wgSettings)
+
+		cfg.Inbounds = append(cfg.Inbounds, InboundConfig{
+			Tag:      inTag,
+			Port:     port,
+			Listen:   "127.0.0.1",
+			Protocol: "socks",
+			Settings: socksSettings,
+		})
+		cfg.Outbounds = append(cfg.Outbounds, OutboundConfig{
+			Tag:      outTag,
+			Protocol: "wireguard",
+			Settings: wgJSON,
+		})
+		cfg.Routing.Rules = append(cfg.Routing.Rules, RoutingRule{
+			Type:        "field",
+			InboundTag:  []string{inTag},
+			OutboundTag: outTag,
+		})
+	}
+
+	cfg.Outbounds = append(cfg.Outbounds,
+		OutboundConfig{Tag: "direct", Protocol: "freedom"},
+		OutboundConfig{Tag: "block", Protocol: "blackhole"},
+	)
+
+	configJSON, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return "", nil, fmt.Errorf("marshal config: %w", err)
+	}
+
+	configPath = filepath.Join(configDir, "config.json")
+	if err := os.WriteFile(configPath, configJSON, 0644); err != nil {
+		return "", nil, fmt.Errorf("write config: %w", err)
+	}
+
+	return configPath, ports, nil
+}
+
 func (xm *XrayManager) StartXray(configPath string) (*exec.Cmd, error) {
 	cmd := exec.Command(xm.XrayPath, "run", "-c", configPath)
 	cmd.Dir = filepath.Dir(configPath)

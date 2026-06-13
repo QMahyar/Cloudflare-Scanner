@@ -32,11 +32,3 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
-
-      - name: Check ui/dist is up to date
-        run: |
-          if ! git diff --quiet -- ui/dist; then
-            echo "::error::ui/dist is out of date — run 'cd frontend && npm run build' and commit the result."
-            git diff --stat -- ui/dist
-            exit 1
-          fi

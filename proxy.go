@@ -812,3 +812,105 @@ func (c *ProxyConfig) BuildXrayJSON(endpoint string, socksPort int) (configPath 
 
 	return configPath, nil
 }
+
+// BuildXrayJSONBatch builds a SINGLE xray config that proxies a whole batch of
+// endpoints at once: one SOCKS inbound per endpoint (ports basePort, basePort+1,
+// …), one outbound per endpoint (the shared proxy config repointed at that
+// endpoint's IP via WithEndpoint), and a routing rule wiring each inbound to its
+// own outbound. Phase-2 previously spawned one xray PROCESS per endpoint — the
+// config-write + exec + port-wait of that spawn was the dominant cost. Collapsing
+// a batch into one process keeps full per-endpoint isolation (separate ports,
+// separate outbounds, independent 204 checks) while cutting process spawns by the
+// batch factor. Returns the config path and the per-endpoint SOCKS ports (aligned
+// to the endpoints slice).
+func (c *ProxyConfig) BuildXrayJSONBatch(endpoints []string, basePort int) (configPath string, ports []int, err error) {
+	if len(endpoints) == 0 {
+		return "", nil, fmt.Errorf("no endpoints in batch")
+	}
+	if c.UUID == "" {
+		return "", nil, fmt.Errorf("empty UUID/password")
+	}
+
+	tag := fmt.Sprintf("batch_%d", basePort)
+	configDir := filepath.Join(os.TempDir(), "_xray_clean", tag)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return "", nil, fmt.Errorf("cannot create work dir: %w", err)
+	}
+
+	logFile := filepath.Join(configDir, "xray.log")
+	os.WriteFile(logFile, []byte{}, 0644)
+
+	socksSettings, _ := json.Marshal(map[string]interface{}{
+		"auth": "noauth",
+		"udp":  true,
+	})
+
+	xcfg := XrayConfig{
+		Log: &LogConfig{
+			Access:   logFile,
+			Error:    logFile,
+			Loglevel: "warning",
+		},
+		Inbounds:  make([]InboundConfig, 0, len(endpoints)),
+		Outbounds: make([]OutboundConfig, 0, len(endpoints)+2),
+		Routing: &RoutingConfig{
+			DomainStrategy: "AsIs",
+			Rules:          make([]RoutingRule, 0, len(endpoints)),
+		},
+	}
+
+	ports = make([]int, len(endpoints))
+	for i, ep := range endpoints {
+		port := basePort + i
+		ports[i] = port
+		inTag := fmt.Sprintf("in-%d", i)
+		outTag := fmt.Sprintf("out-%d", i)
+
+		// Each endpoint gets the shared proxy config repointed at its IP, with the
+		// original hostname pinned into SNI (WithEndpoint handles that) so CDN
+		// routing keeps working — same correctness invariant as the single path.
+		epCfg := c.WithEndpoint(ep)
+
+		xcfg.Inbounds = append(xcfg.Inbounds, InboundConfig{
+			Tag:      inTag,
+			Port:     port,
+			Listen:   "127.0.0.1",
+			Protocol: "socks",
+			Settings: socksSettings,
+		})
+
+		ob := OutboundConfig{
+			Tag:      outTag,
+			Protocol: epCfg.Protocol,
+			Settings: epCfg.buildOutboundSettings(),
+		}
+		if ss := epCfg.buildStreamSettings(); ss != nil {
+			ob.StreamSettings = ss
+		}
+		xcfg.Outbounds = append(xcfg.Outbounds, ob)
+
+		xcfg.Routing.Rules = append(xcfg.Routing.Rules, RoutingRule{
+			Type:        "field",
+			InboundTag:  []string{inTag},
+			OutboundTag: outTag,
+		})
+	}
+
+	// Default outbounds for completeness; all real traffic is matched by a rule.
+	xcfg.Outbounds = append(xcfg.Outbounds,
+		OutboundConfig{Tag: "direct", Protocol: "freedom"},
+		OutboundConfig{Tag: "block", Protocol: "blackhole"},
+	)
+
+	configJSON, err := json.MarshalIndent(xcfg, "", "  ")
+	if err != nil {
+		return "", nil, fmt.Errorf("marshal config: %w", err)
+	}
+
+	configPath = filepath.Join(configDir, "config.json")
+	if err := os.WriteFile(configPath, configJSON, 0644); err != nil {
+		return "", nil, fmt.Errorf("write config: %w", err)
+	}
+
+	return configPath, ports, nil
+}

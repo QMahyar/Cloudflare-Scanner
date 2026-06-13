@@ -3,7 +3,8 @@
   import { apiJSON } from '../lib/api.js'
   import { copyToClipboard, downloadText } from '../lib/clipboard.js'
   import { formatEps } from '../lib/copymode.js'
-  import { sortEntries, parseLatency, latClass, toggleSort } from '../lib/sort.js'
+  import { sortEntries, parseLatency, latClass, latBar, toggleSort } from '../lib/sort.js'
+  import { computeSummary } from '../lib/scanMetrics.js'
   import { activateKey } from '../lib/a11y.js'
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
@@ -13,6 +14,7 @@
   import { pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
   import SplitCopyButton from './SplitCopyButton.svelte'
   import VirtualTable from './VirtualTable.svelte'
+  import ScanProgress from './ScanProgress.svelte'
 
   // Official published Cloudflare ranges (cloudflare.com/ips).
   const CF_V4_RANGES = ['173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22']
@@ -83,6 +85,7 @@
   let progressPct = $state(0)
   let progressText = $state('')
   let startTime = 0
+  let scanMs = $state(0)
   let statusStop = null
   let resultsTimer = null
   let rangesFileName = $state('')
@@ -110,6 +113,12 @@
   const nearbyAll = $derived(data?.nearby_entries || [])
   const activePool = $derived(list === 'nearby' ? nearbyPool : directPool)
   const isPhase2 = $derived(data?.phase === 'phase2')
+
+  // Post-scan metrics for the summary strip (null until a scan finishes).
+  const summary = $derived.by(() => {
+    if (status !== 'done' && status !== 'cancelled') return null
+    return computeSummary(data?.entries, data?.scanned || data?.phase1_total, scanMs)
+  })
   const failReasons = $derived.by(() => {
     const reasons = data?.fail_reasons || {}
     return Object.keys(reasons).sort((a, b) => reasons[b] - reasons[a]).map((k) => ({ k, n: reasons[k] }))
@@ -239,6 +248,7 @@
         }
         if (d.status === 'done' || d.status === 'cancelled') {
           status = d.status
+          scanMs = startTime ? Date.now() - startTime : 0
           if (notify) notifyDone($_('notify.title'), $_('notify.cleanBody', { values: { n: data?.entries?.length || 0 } }))
         }
       },
@@ -373,7 +383,7 @@
     <td class="num">{i + 1}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
-    <td class={latClass(e.latency)}>{e.latency}</td>
+    <td class="lat-cell {latClass(e.latency)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{latBar(e.latency)}%"></span></span><span class="lat-val">{e.latency}</span></td>
     <td class="colo-cell">
       {#if e.colo}<span class="colo-tag" title={e.loc || ''}>{e.colo}{#if e.loc}<span class="colo-loc">{e.loc}</span>{/if}</span>
       {:else}<span class="colo-empty">—</span>{/if}
@@ -386,7 +396,7 @@
 <div onkeydown={onKeydown}>
   <div class="card">
     <h2>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>
+      <span class="step-num">1</span>
       <span>{$_('config.header')}</span>
     </h2>
     <div class="row">
@@ -408,7 +418,7 @@
 
   <div class="card">
     <h2>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span class="step-num">2</span>
       <span>{$_('settings.header')}</span>
     </h2>
 
@@ -554,20 +564,25 @@
     <div class="scan-desc">{scanDesc}</div>
   </div>
 
-  <div class="btn-bar">
-    <button class="btn btn-primary" onclick={startScan} disabled={startDisabled} title={$_('clean.startTitle')}>
+  <div class="action-bar">
+    <button class="btn btn-primary action-primary" onclick={startScan} disabled={startDisabled} title={$_('clean.startTitle')}>
       {status === 'running' ? $_('clean.scanning') : $_('clean.start')}
     </button>
-    <button class="btn btn-danger" onclick={stopScan} disabled={status !== 'running'} title={$_('clean.stopTitle')}>{$_('buttons.stop')}</button>
-    <button class="btn btn-secondary" onclick={startScan} disabled={status === 'running' || !hasResults} title={$_('buttons.rescanTitle')}>{$_('buttons.rescan')}</button>
-    <button class="btn btn-secondary" onclick={resetAll} title={$_('buttons.resetTitle')}>{$_('buttons.reset')}</button>
+    {#if status === 'running'}
+      <button class="btn btn-danger" onclick={stopScan} title={$_('clean.stopTitle')}>{$_('buttons.stop')}</button>
+    {/if}
+    <div class="action-bar-rest">
+      <button class="btn btn-secondary btn-sm" onclick={startScan} disabled={status === 'running' || !hasResults} title={$_('buttons.rescanTitle')}>{$_('buttons.rescan')}</button>
+      <button class="btn btn-ghost btn-sm" onclick={resetAll} title={$_('buttons.resetTitle')}>{$_('buttons.reset')}</button>
+    </div>
   </div>
 
   <div class="card" id="cleanResultsCard">
     <div class="section-header">
       <h2>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        <span class="step-num">3</span>
         <span>{$_('results.header')}</span>
+        {#if hasResults}<span class="count-chip">{activePool.length}</span>{/if}
       </h2>
       <div style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap">
         <div class="compact-control">
@@ -585,12 +600,7 @@
       </div>
     </div>
 
-    {#if status !== 'idle'}
-      <div class="progress-wrap active">
-        <div class="progress-bar"><div class="progress-fill" class:cancelled={status === 'cancelled'} style="width:{progressPct}%"></div></div>
-        <div class="progress-text">{progressText}</div>
-      </div>
-    {/if}
+    <ScanProgress {status} {progressPct} {progressText} {summary} runningLabel={$_('clean.scanning')} />
 
     {#if nearbyAll.length > 0}
       <div class="btn-bar" style="margin-top:10px;margin-bottom:4px">
@@ -644,8 +654,9 @@
           {/if}
         </div>
       {/if}
-    {:else if status === 'done' && isPhase2}
+    {:else if status === 'done' || status === 'cancelled'}
       <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
         <p>{$_('clean.noResults')}{#if data?.scanned > 0 && data?.phase2_failures > 0} ({data.scanned} {$_('clean.testedAllFailed')}){/if}</p>
       </div>
       {#if failReasons.length > 0}
@@ -656,6 +667,11 @@
           </ul>
         </div>
       {/if}
+    {:else if status === 'idle'}
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <p>{$_('clean.empty')}</p>
+      </div>
     {/if}
   </div>
 

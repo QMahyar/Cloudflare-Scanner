@@ -13,6 +13,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   native WireGuard handshake or 12 for noise mode). Useful for optimizing scan
   speed on fast connections or preventing network overwhelm on slow/mobile
   connections. (`frontend/src/components/EndpointScanner.svelte`)
+- **Live scan progress & summary.** Both scanners now show a status pill with a
+  live percentage during the run and a post-scan summary strip (found / scanned
+  / best latency / elapsed / rate). In-cell latency meter bars, numbered step
+  headings, and result-count chips make large result tables easier to read.
+  (`components/ScanProgress.svelte`, `lib/scanMetrics.js`)
+- **Build version & local-host indicator** in the header, served from a new
+  `/api/version` endpoint (`about.go`).
+
+### Performance
+- **xray is now pooled per batch instead of spawned per endpoint.** Clean-IP
+  Phase 2 and the WARP noise fallback build one xray config (a SOCKS inbound +
+  outbound + routing rule per endpoint) and run a batch of 16 through a single
+  process, collapsing the dominant process-spawn + port-wait cost while each
+  endpoint keeps its own port and independent 204 check. Failures retry once in
+  a fresh batch. (`cleanip.go`, `scanner.go`, `proxy.go`, `xray.go`, `server.go`)
 
 ### Changed
 - **Frontend build artifacts (`ui/dist/`) no longer committed to Git.** CI/CD
@@ -24,10 +39,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `WarpEndpointScanner` to `github.com/QMahyar/Cloudflare-Scanner`, enabling
   proper Go tooling support and `go install` compatibility. (`go.mod`)
 
+### Fixed
+- **Release build break:** `sort.js` now exports `latBar`, which
+  `EndpointScanner.svelte` imports — the missing export had failed the
+  production Vite build (and every release-workflow platform job).
+- **Long scans no longer drop their status stream.** The SSE event stream clears
+  its write deadline, so the server-wide 30s `WriteTimeout` no longer severs a
+  running scan (`ERR_INCOMPLETE_CHUNKED_ENCODING`). Also: categorized WARP
+  failure-reason breakdown in the results API, and the colo probe now reuses the
+  working config's SNI so DPI doesn't reset the `/cdn-cgi/trace` lookup.
+
 ### Documentation
 - Added `IMPROVEMENTS.md` documenting the three architectural improvements,
   including rationale, implementation details, testing recommendations, and
   rollout plan.
+- Documented the `scripts/dev.ps1` fast inner-loop build script in `AGENTS.md`.
 
 ---
 

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -172,6 +174,14 @@ func (s *Scanner) testEndpointOnce(ctx context.Context, endpoint string) ScanRes
 		return ScanResult{Endpoint: endpoint, Error: "xray startup timeout"}
 	}
 
+	return s.probe204(ctx, endpoint, socksPort)
+}
+
+// probe204 runs the SOCKS5 + GET /generate_204 check against an already-up local
+// SOCKS port and returns the result. Shared by the single-endpoint xray path
+// (testEndpointOnce) and the batched noise path (scanBatchNoise) so the success
+// criterion (exact 204) lives in one place. The caller owns the xray process.
+func (s *Scanner) probe204(ctx context.Context, endpoint string, socksPort int) ScanResult {
 	start := time.Now()
 
 	dialCtx, dialCancel := context.WithTimeout(ctx, 3*time.Second)
@@ -183,8 +193,12 @@ func (s *Scanner) testEndpointOnce(ctx context.Context, endpoint string) ScanRes
 	}
 	defer conn.Close()
 
+	timeout := s.Timeout
+	if timeout <= 0 {
+		timeout = 6 * time.Second
+	}
 	// Set a single deadline covering both the SOCKS5 handshake and HTTP round-trip.
-	conn.SetDeadline(time.Now().Add(6 * time.Second))
+	conn.SetDeadline(time.Now().Add(timeout))
 
 	if err := socks5Handshake(conn, "www.gstatic.com", 80); err != nil {
 		return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("socks5: %v", err)}
@@ -207,6 +221,107 @@ func (s *Scanner) testEndpointOnce(ctx context.Context, endpoint string) ScanRes
 	}
 
 	return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("HTTP %d", resp.StatusCode)}
+}
+
+// scanBatchNoise validates a batch of WARP endpoints through a SINGLE xray process
+// (the noise/AmneziaWG fallback): one SOCKS inbound + WireGuard outbound + routing
+// rule per endpoint (see GenerateConfigBatch). It trades one process spawn + port
+// wait per endpoint for one per batch, while keeping each endpoint's 204 check
+// independent and concurrent. Results are aligned to the endpoints slice.
+func (s *Scanner) scanBatchNoise(ctx context.Context, endpoints []string, basePort int) []ScanResult {
+	results := make([]ScanResult, len(endpoints))
+	for i, ep := range endpoints {
+		results[i] = ScanResult{Endpoint: ep, Error: "not run"}
+	}
+
+	select {
+	case <-ctx.Done():
+		for i := range results {
+			results[i] = ScanResult{Endpoint: endpoints[i], Error: "cancelled"}
+		}
+		return results
+	default:
+	}
+
+	xm := &XrayManager{XrayPath: s.XrayPath, Config: s.Config, Noise: s.Noise}
+	configPath, ports, err := xm.GenerateConfigBatch(endpoints, basePort)
+	if err != nil {
+		for i := range results {
+			results[i] = ScanResult{Endpoint: endpoints[i], Error: fmt.Sprintf("config: %v", err)}
+		}
+		return results
+	}
+	defer os.RemoveAll(filepath.Dir(configPath))
+
+	cmd, err := xm.StartXray(configPath)
+	if err != nil {
+		for i := range results {
+			results[i] = ScanResult{Endpoint: endpoints[i], Error: fmt.Sprintf("start: %v", err)}
+		}
+		return results
+	}
+	defer xm.StopXray(cmd)
+
+	// xray binds inbounds in order, so the highest port being up means the whole
+	// batch is listening.
+	if !xm.WaitForPortCtx(ctx, ports[len(ports)-1], 6*time.Second) {
+		for i := range results {
+			results[i] = ScanResult{Endpoint: endpoints[i], Error: "xray startup timeout"}
+		}
+		return results
+	}
+
+	var wg sync.WaitGroup
+	for i := range endpoints {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				results[idx] = ScanResult{Endpoint: endpoints[idx], Error: "cancelled"}
+				return
+			default:
+			}
+			results[idx] = s.probe204(ctx, endpoints[idx], ports[idx])
+		}(i)
+	}
+	wg.Wait()
+	return results
+}
+
+// summarizeWarpFailure collapses a raw WARP-probe error into a short, actionable
+// category for the UI's failure-reason breakdown. An all-failed scan is otherwise
+// a silent dead end where "ISP blocks WARP UDP" looks identical to "wrong config"
+// or "endpoints simply unreachable". The native handshake path's dominant failure
+// — no handshake response — almost always means the UDP datagrams aren't getting
+// through (ISP/DPI dropping WireGuard), which the noise/xray fallback can sometimes
+// bypass; we say so explicitly.
+func summarizeWarpFailure(err string) string {
+	e := strings.ToLower(err)
+	switch {
+	case strings.Contains(e, "no handshake response"):
+		return "No WireGuard handshake — UDP likely blocked/throttled by your ISP (try enabling UDP Noise)"
+	case strings.Contains(e, "startup timeout"):
+		return "xray didn't come up in time (slow start or crash)"
+	case strings.Contains(e, "start xray"), strings.Contains(e, "config:"):
+		return "xray failed to launch (check the xray binary / config)"
+	case strings.Contains(e, "socks connect"), strings.Contains(e, "socks5"):
+		return "couldn't reach xray's local SOCKS port"
+	case strings.Contains(e, "i/o timeout"), strings.Contains(e, "deadline exceeded"):
+		return "probe timed out — endpoint unreachable or UDP filtered"
+	case strings.Contains(e, "forcibly closed"), strings.Contains(e, "connection reset"), strings.Contains(e, "refused"):
+		return "connection reset/refused (DPI filtering or dead endpoint)"
+	case strings.Contains(e, "invalid private key"), strings.Contains(e, "peer public key"):
+		return "config credentials rejected (bad/expired .conf keys)"
+	case strings.Contains(e, "cancelled"):
+		return "cancelled"
+	case strings.HasPrefix(e, "tcp dial"):
+		return "TCP port closed (reachability-only check, not a working WARP endpoint)"
+	case e == "":
+		return "unknown"
+	default:
+		return err
+	}
 }
 
 func socks5Handshake(conn net.Conn, host string, port int) error {
