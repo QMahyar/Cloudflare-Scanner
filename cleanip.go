@@ -59,6 +59,11 @@ var CFCDNPorts = []int{80, 443, 2052, 2053, 2082, 2083, 2086, 2087, 2095, 2096, 
 // seeding from every Phase-1 responder (× countPerIP × ports) can't explode.
 const maxNearbyEndpoints = 4096
 
+// cleanSocksPortBase hands out non-overlapping SOCKS port windows for clean-IP
+// Phase-2 batches. It is process-global (not per-job) so two clean scans running
+// at once can't allocate the same window and fight over the same xray ports.
+var cleanSocksPortBase atomic.Int32
+
 var cfIPv6CIDRs = []string{
 	"2400:cb00:2049::/48",
 	"2400:cb00:f00e::/48",
@@ -544,7 +549,17 @@ wait:
 	select {
 	case <-done:
 	case <-cancel:
-		// exit fast with partial results; in-flight goroutines drain in background
+		// Exit fast with partial results. In-flight goroutines keep appending to
+		// `results` under mu in the background, so snapshot under the same lock
+		// rather than reading/sorting it concurrently (which would race the
+		// appenders on the slice header).
+		mu.Lock()
+		partial := append([]CleanIPResult(nil), results...)
+		mu.Unlock()
+		sort.Slice(partial, func(i, j int) bool {
+			return partial[i].Latency < partial[j].Latency
+		})
+		return partial
 	case <-localStop:
 		// target reached; let in-flight finish so partial results are coherent
 		<-done
@@ -583,8 +598,12 @@ func probeCloudflareTrace(ctx context.Context, endpoint, sni string, timeout tim
 			var d net.Dialer
 			return d.DialContext(ctx, network, endpoint)
 		},
-		TLSClientConfig: &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12},
+		TLSClientConfig:   &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12},
+		DisableKeepAlives: true,
 	}
+	// One-shot transport per probe — release its connection promptly instead of
+	// leaving idle conns to linger until GC (up to ~150 probes per scan).
+	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: timeout}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, scheme+"://"+host+"/cdn-cgi/trace", nil)
 	if err != nil {
@@ -1101,13 +1120,13 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		concurrentBatches = 1
 	}
 
-	var portBase atomic.Int32
 	allocPortBase := func() int {
 		// Each batch gets a non-overlapping window of phase2BatchSize ports.
 		// Stride monotonically and wrap inside a wide band well below the OS
 		// ephemeral range; a process is always killed before its window could be
-		// reused. Offset 20799 keeps clear of the WARP path's +10799 band.
-		n := int(portBase.Add(1))
+		// reused. Offset 20799 keeps clear of the WARP path's +10799 band. The
+		// counter is process-global so concurrent clean scans don't collide.
+		n := int(cleanSocksPortBase.Add(1))
 		return 20799 + (n*phase2BatchSize)%20000
 	}
 

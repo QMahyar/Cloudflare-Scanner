@@ -595,8 +595,12 @@ func (c *ProxyConfig) buildOutboundSettings() json.RawMessage {
 func (c *ProxyConfig) buildStreamSettings() json.RawMessage {
 	hasSecurity := c.Security == "tls" || c.Security == "xtls" || c.Security == "reality"
 	hasNetwork := c.Network != "" && c.Network != "tcp" && c.Network != "raw"
+	// A tcp/raw transport with an "http" header obfuscation still needs stream
+	// settings (RawSettings) even with no TLS — otherwise validation runs plain
+	// TCP and silently disagrees with the exported config.
+	hasRawHeader := c.HeaderType == "http" && (c.Network == "" || c.Network == "tcp" || c.Network == "raw")
 
-	if !hasSecurity && !hasNetwork {
+	if !hasSecurity && !hasNetwork && !hasRawHeader {
 		return nil
 	}
 
@@ -692,7 +696,7 @@ func (c *ProxyConfig) buildStreamSettings() json.RawMessage {
 		hugJSON, _ := json.Marshal(hugCfg)
 		ss.HTTPUpgradeSettings = hugJSON
 
-	case "tcp", "raw":
+	case "tcp", "raw", "":
 		if c.HeaderType == "http" {
 			rawCfg := RawSettings{
 				Header: json.RawMessage(`{"type": "http"}`),

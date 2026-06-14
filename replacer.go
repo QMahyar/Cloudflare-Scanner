@@ -85,11 +85,12 @@ func ParseSubscription(content string) ([]*ProxyConfig, error) {
 }
 
 func ConfigFingerprint(c *ProxyConfig) string {
-	return fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%t|%s|%s|%s|%s",
+	return fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%t|%s|%s|%s|%s|%d|%s",
 		c.Protocol, c.UUID, c.Encryption, c.Security, c.SNI,
 		c.Fingerprint, c.Network, c.Host, c.Path, c.PacketEncoding,
 		c.Flow, c.PublicKey, c.ShortId, c.SpiderX, c.AllowInsecure,
 		c.ALPN, c.HeaderType, c.Mode, c.ServiceName,
+		c.MaxEarlyData, c.EarlyDataHeaderName,
 	)
 }
 

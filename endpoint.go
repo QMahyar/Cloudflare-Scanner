@@ -53,7 +53,10 @@ func (g *EndpointGenerator) Generate(count int, useIPv4, useIPv6 bool) []string 
 		v6Count = count
 	}
 
-	for len(endpoints) < v4Count {
+	// The IPv4 pool is finite (len(ipv4Prefixes)*256 unique IPs). Bounding the
+	// attempts keeps an over-large count from spinning forever once the pool is
+	// exhausted — it simply yields fewer endpoints. Mirrors CleanIPGenerator.
+	for attempts := 0; len(endpoints) < v4Count && attempts < v4Count*20+len(ipv4Prefixes)*256; attempts++ {
 		prefix := ipv4Prefixes[g.rng.Intn(len(ipv4Prefixes))]
 		ip := fmt.Sprintf("%s%d", prefix, g.rng.Intn(256))
 		if _, ok := seen[ip]; ok {
@@ -67,7 +70,12 @@ func (g *EndpointGenerator) Generate(count int, useIPv4, useIPv6 bool) []string 
 		}
 	}
 
-	for len(endpoints) < v4Count+v6Count {
+	// The IPv6 loop targets v6Count endpoints ON TOP OF whatever v4 produced, so
+	// an exhausted/under-filled v4 pool never causes IPv6 to be emitted when none
+	// was requested (v6Count == 0 → target == current len → loop never runs). The
+	// attempt cap guards against a degenerate prefix set livelocking on collisions.
+	v6Target := len(endpoints) + v6Count
+	for attempts := 0; len(endpoints) < v6Target && attempts < v6Count*20+1024; attempts++ {
 		prefix := ipv6Prefixes[g.rng.Intn(len(ipv6Prefixes))]
 		ip := fmt.Sprintf("[%s%x:%x:%x:%x]", prefix,
 			g.rng.Intn(65536), g.rng.Intn(65536),

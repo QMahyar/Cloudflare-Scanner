@@ -5,6 +5,61 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.5.1] — 2026-06-14
+
+Bug-fix release from a full audit of the scan/parse pipelines. No new features;
+behaviour is unchanged except where it was previously broken.
+
+### Fixed
+- **Endpoint Scanner hung forever on the "Insane" (5000) and "Massive" (10000)
+  depth presets.** The WARP IPv4 endpoint generator draws from a finite pool of
+  14 prefixes × 256 = **3584** unique addresses, but its uniqueness loop had no
+  attempt bound: once the pool was exhausted, every further iteration drew an
+  already-seen IP and `continue`d forever — pinning a CPU core while scan
+  progress froze at 0 and never completed. Any requested count above the pool
+  size triggered it, and two shipped preset buttons (5000 / 10000) exceed it
+  directly. The IPv4/IPv6 loops are now attempt-bounded and simply return fewer
+  endpoints when the pool can't supply the full count. Requested count is also
+  clamped server-side to 100000. (`endpoint.go`, `server.go`)
+- **IPv4-only scans could leak IPv6 endpoints when the IPv4 pool was exhausted.**
+  The two generator passes shared one combined target, so an under-filled IPv4
+  pass let the IPv6 pass backfill the shortfall — emitting IPv6 endpoints even
+  when IPv6 was not selected. Each address family now targets its own count
+  independently. (`endpoint.go`)
+- **Data race on IP Scanner Phase-1 cancellation.** When a scan was stopped,
+  `runCleanPhase1TCP` sorted and returned the results slice while in-flight dial
+  goroutines were still appending to it under a mutex — an unsynchronised access
+  to the slice header that `go test -race` flags and that could return a torn or
+  partial result set (or panic). The cancel path now snapshots results under the
+  same lock before sorting. (`cleanip.go`)
+- **Concurrent scans of the same type collided on local SOCKS ports.** The
+  clean-IP Phase-2 and WARP noise-fallback batch runners allocated their xray
+  SOCKS port windows from a *per-job* counter, so two scans of the same type
+  running at once handed out identical windows and the second job's xray failed
+  to bind — surfacing as spurious "xray startup timeout" failures. Both counters
+  are now process-global atomics. (`cleanip.go`, `server.go`)
+- **TCP + `http`-header obfuscation was dropped during IP Scanner Phase-2
+  validation.** A config using a raw TCP transport with an HTTP header and no TLS
+  produced empty stream settings, so validation tested plain TCP instead of the
+  HTTP-obfuscated transport that the exported share URL describes — a silent
+  mismatch between what was validated and what was emitted. Such configs now
+  build the correct `RawSettings`. (`proxy.go`)
+- **IP Replacer de-duplication ignored WebSocket early-data parameters.** Two
+  configs differing only in `max_early_data` / `early_data_header_name` were
+  collapsed into one, silently discarding a distinct variant. These fields are
+  now part of the de-dupe fingerprint. (`replacer.go`)
+- **Idle-connection leak in the colo (`/cdn-cgi/trace`) probe.** Each probe built
+  a one-shot HTTP transport whose connection lingered idle until garbage
+  collection (up to ~150 probes per scan); it now disables keep-alives and closes
+  idle connections on return. (`cleanip.go`)
+
+### Tests
+- Added `endpoint_test.go` covering exact-count generation, the exhausted-pool
+  attempt bound (a regression guard that hangs the suite if the cap is removed),
+  and the IPv4-only / no-IPv6-leak invariant.
+
+---
+
 ## [v3.5.0] — 2026-06-13
 
 ### Added

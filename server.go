@@ -159,6 +159,11 @@ func (j *ScanJob) stop() {
 
 const jobTTL = 10 * time.Minute
 
+// maxScanCount caps the requested endpoint/IP count so a huge value can't drive
+// the generators into multi-GB allocations (clean scan) or excessive work. The
+// WARP generator is additionally bounded by its finite address pool.
+const maxScanCount = 100000
+
 var (
 	scanJobs   = map[string]*ScanJob{}
 	scanJobsMu sync.Mutex
@@ -167,6 +172,11 @@ var (
 	cleanJobs       = map[string]*CleanIPJob{}
 	cleanJobsMu     sync.Mutex
 	cleanJobCounter int
+
+	// warpSocksPortBase hands out non-overlapping SOCKS port windows for the WARP
+	// noise-fallback batches. Process-global (not per-job) so two WARP noise scans
+	// running at once can't allocate the same window.
+	warpSocksPortBase atomic.Int32
 )
 
 func scheduleScanJobCleanup(id string) {
@@ -308,6 +318,9 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 
 		if req.Count <= 0 {
 			req.Count = 100
+		}
+		if req.Count > maxScanCount {
+			req.Count = maxScanCount
 		}
 		if req.OutCount <= 0 {
 			req.OutCount = 10
@@ -502,11 +515,11 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 		concurrentBatches = 1
 	}
 
-	var portBase atomic.Int32
 	allocPortBase := func() int {
 		// Non-overlapping port windows in the WARP band (+10800), clear of the
-		// clean-IP Phase-2 band (+20799).
-		n := int(portBase.Add(1))
+		// clean-IP Phase-2 band (+20799). The counter is process-global so
+		// concurrent WARP noise scans don't collide on the same ports.
+		n := int(warpSocksPortBase.Add(1))
 		return 10800 + (n*batchSize)%9000
 	}
 
@@ -1018,6 +1031,9 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 
 		if req.Count <= 0 {
 			req.Count = 1000
+		}
+		if req.Count > maxScanCount {
+			req.Count = maxScanCount
 		}
 		if req.Phase2Count <= 0 {
 			req.Phase2Count = 30
