@@ -21,8 +21,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"golang.org/x/sync/semaphore"
 )
 
 //go:embed all:ui/dist
@@ -497,7 +495,7 @@ func runScan(job *ScanJob, xrayPath string) {
 	}
 
 	var wg sync.WaitGroup
-	sem := semaphore.NewWeighted(int64(scanner.Concurrency))
+	sem := make(chan struct{}, scanner.Concurrency)
 
 	for i, ep := range job.Endpoints {
 		select {
@@ -517,10 +515,12 @@ func runScan(job *ScanJob, xrayPath string) {
 		wg.Add(1)
 		go func(endpoint string, idx int) {
 			defer wg.Done()
-			if err := sem.Acquire(ctx, 1); err != nil {
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
 				return
 			}
-			defer sem.Release(1)
 
 			result := scanner.testEndpointAttempts(ctx, endpoint, job.Attempts)
 
@@ -612,7 +612,7 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 		batches = append(batches, job.Endpoints[i:end])
 	}
 
-	sem := semaphore.NewWeighted(int64(concurrentBatches))
+	sem := make(chan struct{}, concurrentBatches)
 	var wg sync.WaitGroup
 
 	for _, b := range batches {
@@ -625,10 +625,12 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 		wg.Add(1)
 		go func(batch []string) {
 			defer wg.Done()
-			if err := sem.Acquire(ctx, 1); err != nil {
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
 				return
 			}
-			defer sem.Release(1)
 
 			res := scanner.scanBatchNoise(ctx, batch, allocPortBase())
 

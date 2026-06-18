@@ -18,8 +18,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"golang.org/x/sync/semaphore"
 )
 
 var cfIPv4CIDRs = []string{
@@ -478,7 +476,7 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 	if concurrency <= 0 {
 		concurrency = 500
 	}
-	sem := semaphore.NewWeighted(int64(concurrency))
+	sem := make(chan struct{}, concurrency)
 	results := make([]CleanIPResult, 0, len(endpoints))
 
 	// localStop lets phase 1 finish early once stopAfter responders are found,
@@ -487,9 +485,8 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 	var stopOnce sync.Once
 	stopNow := func() { stopOnce.Do(func() { close(localStop) }) }
 
-	// phaseCtx is cancelled on either job cancel or local early-stop, so a
-	// single context drives all semaphore Acquire calls without per-goroutine
-	// cancel watchers.
+	// phaseCtx is cancelled on either job cancel or local early-stop, so one
+	// context drives all worker slots without per-goroutine cancel watchers.
 	phaseCtx, phaseCancel := context.WithCancel(ctx)
 	defer phaseCancel()
 	go func() {
@@ -513,10 +510,12 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 		wg.Add(1)
 		go func(endpoint string, idx int) {
 			defer wg.Done()
-			if err := sem.Acquire(phaseCtx, 1); err != nil {
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-phaseCtx.Done():
 				return
 			}
-			defer sem.Release(1)
 
 			latency, ok := dialReachable(phaseCtx, endpoint, timeout, 2)
 			if !ok {
@@ -705,15 +704,17 @@ func buildColoMap(ctx context.Context, results []CleanIPResult, sni string, maxI
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	sem := semaphore.NewWeighted(int64(concurrency))
+	sem := make(chan struct{}, concurrency)
 	for _, tgt := range targets {
 		wg.Add(1)
 		go func(t target) {
 			defer wg.Done()
-			if err := sem.Acquire(ctx, 1); err != nil {
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
 				return
 			}
-			defer sem.Release(1)
 			colo, loc := probeCloudflareTrace(ctx, t.endpoint, sni, 2*time.Second)
 			if colo == "" && loc == "" {
 				return
@@ -1170,7 +1171,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			batches = append(batches, endpoints[i:end])
 		}
 
-		sem := semaphore.NewWeighted(int64(concurrentBatches))
+		sem := make(chan struct{}, concurrentBatches)
 		var wg sync.WaitGroup
 		var cancelled atomic.Bool
 
@@ -1187,10 +1188,12 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			wg.Add(1)
 			go func(batch []string) {
 				defer wg.Done()
-				if err := sem.Acquire(ctx, 1); err != nil {
+				select {
+				case sem <- struct{}{}:
+					defer func() { <-sem }()
+				case <-ctx.Done():
 					return
 				}
-				defer sem.Release(1)
 
 				res := validateBatchWithXray(ctx, &validationCfg, batch, xrayPath, allocPortBase(), phase2Timeout)
 
