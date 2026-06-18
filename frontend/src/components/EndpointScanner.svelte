@@ -1,6 +1,6 @@
 <script>
   import { _ } from 'svelte-i18n'
-  import { apiJSON } from '../lib/api.js'
+  import { apiJSON, withCSRF } from '../lib/api.js'
   import { copyToClipboard, sleep, downloadText } from '../lib/clipboard.js'
   import { formatEps } from '../lib/copymode.js'
   import { sortEntries, parseLatency, latClass, latBar, toggleSort } from '../lib/sort.js'
@@ -166,7 +166,7 @@
     scanMs = startTime ? Date.now() - startTime : 0
     clearTimers()
     status = st
-    await fetchResults(id, st)
+    await fetchResults(id)
     if (notify) notifyDone($_('notify.title'), $_('notify.endpointBody', { values: { n: ($endpointRaw || []).length } }))
   }
 
@@ -201,7 +201,7 @@
 
   async function stopScan() {
     if (!jobId) return
-    try { await fetch('/api/stop/' + jobId, { method: 'POST' }) } catch {}
+    try { await fetch('/api/stop/' + jobId, withCSRF({ method: 'POST' })) } catch {}
   }
 
   function resetAll() {

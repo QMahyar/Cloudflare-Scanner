@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -163,6 +165,12 @@ const jobTTL = 10 * time.Minute
 // the generators into multi-GB allocations (clean scan) or excessive work. The
 // WARP generator is additionally bounded by its finite address pool.
 const maxScanCount = 100000
+const maxEndpointConcurrency = 2048
+const maxCleanPhase1Probes = 4096
+const maxCleanPhase2Probes = 256
+const maxOutCount = 10000
+const csrfCookieName = "cfscanner_token"
+const csrfHeaderName = "X-CSRF-Token"
 
 var (
 	scanJobs   = map[string]*ScanJob{}
@@ -214,12 +222,64 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
+func clampInt(v, min, max int) int {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
+func newCSRFToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+func csrfMiddleware(next http.Handler, token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+			http.SetCookie(w, &http.Cookie{
+				Name:     csrfCookieName,
+				Value:    token,
+				Path:     "/",
+				SameSite: http.SameSiteStrictMode,
+			})
+		}
+
+		needsToken := strings.HasPrefix(r.URL.Path, "/api/") && r.Method != http.MethodGet
+		if r.URL.Path == "/api/select-output-dir" || r.URL.Path == "/api/update-check" {
+			needsToken = true
+		}
+		if !needsToken {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		cookie, err := r.Cookie(csrfCookieName)
+		if err != nil || cookie.Value == "" || cookie.Value != token || r.Header.Get(csrfHeaderName) != token {
+			jsonError(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func startServer(xrayPath string) (int, error) {
 	sub, err := fs.Sub(uiFS, "ui/dist")
 	if err != nil {
 		return 0, fmt.Errorf("embed ui/dist: %w", err)
 	}
 	distFS = sub
+
+	token, err := newCSRFToken()
+	if err != nil {
+		return 0, fmt.Errorf("csrf token: %w", err)
+	}
 
 	mux := http.NewServeMux()
 
@@ -249,7 +309,7 @@ func startServer(xrayPath string) (int, error) {
 		return 0, fmt.Errorf("listen: %w", err)
 	}
 	srv := &http.Server{
-		Handler:           mux,
+		Handler:           csrfMiddleware(mux, token),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -325,11 +385,21 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		if req.OutCount <= 0 {
 			req.OutCount = 10
 		}
+		req.OutCount = clampInt(req.OutCount, 1, maxOutCount)
+		if req.Concurrency > maxEndpointConcurrency {
+			req.Concurrency = maxEndpointConcurrency
+		}
 		if req.Attempts <= 0 {
 			req.Attempts = 2
 		}
 		if req.Attempts > 5 {
 			req.Attempts = 5
+		}
+		if req.StopAfter < 0 {
+			req.StopAfter = 0
+		}
+		if req.StopAfter > req.Count {
+			req.StopAfter = req.Count
 		}
 		// 0 means "use the scanner default"; otherwise clamp to a sane window.
 		if req.TimeoutMs > 0 {
@@ -453,6 +523,16 @@ func runScan(job *ScanJob, xrayPath string) {
 			defer sem.Release(1)
 
 			result := scanner.testEndpointAttempts(ctx, endpoint, job.Attempts)
+
+			// Drop a result that landed after the scan was cancelled or the
+			// stop-after target was reached: the caller is about to publish a
+			// final snapshot and late appenders must not keep ticking
+			// Progress/Results on a "done"/"cancelled" job. The worker that
+			// actually triggers the stop-after target commits first (below) and
+			// then cancels ctx; subsequent in-flight workers exit here.
+			if ctx.Err() != nil {
+				return
+			}
 
 			job.mu.Lock()
 			job.Results = append(job.Results, result)
@@ -1037,6 +1117,15 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 		}
 		if req.Phase2Count <= 0 {
 			req.Phase2Count = 30
+		}
+		req.Phase2Count = clampInt(req.Phase2Count, 1, maxOutCount)
+		req.Phase1Probes = clampInt(req.Phase1Probes, 0, maxCleanPhase1Probes)
+		req.Phase2Probes = clampInt(req.Phase2Probes, 0, maxCleanPhase2Probes)
+		if req.StopAfter < 0 {
+			req.StopAfter = 0
+		}
+		if req.StopAfter > req.Count {
+			req.StopAfter = req.Count
 		}
 		// 0 means "use the default"; otherwise clamp each to a sane window.
 		if req.TimeoutMs > 0 {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -33,12 +34,59 @@ func ParseRawConfigs(rawText string) []*ProxyConfig {
 	return configs
 }
 
-func FetchSubscription(rawURL string) (string, error) {
+func blockedSubscriptionIP(ip net.IP) bool {
+	return ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
+}
+
+func validateSubscriptionURL(rawURL string) (*url.URL, error) {
 	u, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return "", fmt.Errorf("only http/https subscription URLs are allowed")
+		return nil, fmt.Errorf("only http/https subscription URLs are allowed")
 	}
-	client := &http.Client{Timeout: 30 * time.Second}
+	return u, nil
+}
+
+func subscriptionHTTPClient() *http.Client {
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(address)
+			if err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+			for _, ip := range ips {
+				if blockedSubscriptionIP(ip.IP) {
+					return nil, fmt.Errorf("subscription host resolves to a private or local address")
+				}
+			}
+			return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
+		},
+	}
+	return &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return fmt.Errorf("too many redirects")
+			}
+			if _, err := validateSubscriptionURL(req.URL.String()); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+}
+
+func FetchSubscription(rawURL string) (string, error) {
+	u, err := validateSubscriptionURL(rawURL)
+	if err != nil {
+		return "", err
+	}
+	client := subscriptionHTTPClient()
 	resp, err := client.Get(u.String())
 	if err != nil {
 		return "", fmt.Errorf("fetch: %w", err)
@@ -111,8 +159,10 @@ func DeduplicateConfigs(configs []*ProxyConfig) []*ProxyConfig {
 }
 
 // applyNameTemplate fills a remark template. Supported placeholders:
-//   {remark} original remark   {ip}/{host} endpoint host   {port} endpoint port
-//   {ep} host:port   {proto} protocol   {n} 1-based running index
+//
+//	{remark} original remark   {ip}/{host} endpoint host   {port} endpoint port
+//	{ep} host:port   {proto} protocol   {n} 1-based running index
+//
 // An empty template falls back to the legacy "<remark> @ <host:port>" behavior.
 func applyNameTemplate(tmpl string, cfg *ProxyConfig, host string, port, n int) string {
 	ep := net.JoinHostPort(host, strconv.Itoa(port))

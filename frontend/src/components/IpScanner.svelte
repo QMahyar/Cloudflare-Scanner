@@ -1,6 +1,6 @@
 <script>
   import { _ } from 'svelte-i18n'
-  import { apiJSON } from '../lib/api.js'
+  import { apiJSON, withCSRF } from '../lib/api.js'
   import { copyToClipboard, downloadText } from '../lib/clipboard.js'
   import { formatEps } from '../lib/copymode.js'
   import { sortEntries, parseLatency, latClass, latBar, toggleSort } from '../lib/sort.js'
@@ -274,7 +274,7 @@
 
   async function stopScan() {
     if (!jobId) return
-    try { await fetch('/api/clean-stop/' + jobId, { method: 'POST' }) } catch {}
+    try { await fetch('/api/clean-stop/' + jobId, withCSRF({ method: 'POST' })) } catch {}
   }
 
   function resetAll() {
@@ -339,10 +339,10 @@
     const endpoints = list === 'nearby' ? curEntries().map((e) => e.endpoint) : [...selected]
     if (!endpoints.length) { showToast($_('clean.errNoSelection'), true); return }
     try {
-      const resp = await fetch('/api/clean-export', {
+      const resp = await fetch('/api/clean-export', withCSRF({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ vless_url: vlessURL.trim(), endpoints }),
-      })
+      }))
       if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || resp.statusText) }
       const blob = await resp.blob()
       downloadBlob(blob, list === 'nearby' ? 'nearby_ips_vless.txt' : 'clean_ips_vless.txt')

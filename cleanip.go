@@ -437,16 +437,32 @@ func (j *CleanIPJob) stop() {
 // an IP whose real RTT is well under the deadline — the cause of "tight timeout
 // finds nothing, loose timeout finds the same IPs fast". A refused/unreachable
 // port won't change on retry, so those return immediately and don't pay the cost.
-func dialReachable(endpoint string, timeout time.Duration, maxAttempts int) (time.Duration, bool) {
+//
+// The dial is context-aware: cancelling ctx aborts an in-flight dial promptly so
+// a stopped scan doesn't keep workers blocked in DialTimeout for up to maxAttempts
+// × timeout after the caller has already snapshotted and returned.
+func dialReachable(ctx context.Context, endpoint string, timeout time.Duration, maxAttempts int) (time.Duration, bool) {
 	if maxAttempts < 1 {
 		maxAttempts = 1
 	}
+	var d net.Dialer
 	for attempt := 0; attempt < maxAttempts; attempt++ {
+		// Honor cancellation between attempts (and before the first), not only
+		// mid-dial, so a stop between retries exits immediately.
+		if err := ctx.Err(); err != nil {
+			return 0, false
+		}
 		start := time.Now()
-		conn, err := net.DialTimeout("tcp", endpoint, timeout)
+		dialCtx, dialCancel := context.WithTimeout(ctx, timeout)
+		conn, err := d.DialContext(dialCtx, "tcp", endpoint)
+		dialCancel()
 		if err == nil {
 			conn.Close()
 			return time.Since(start), true
+		}
+		// Cancellation surfaces as a ctx error, not a timeout — bail without retry.
+		if ctx.Err() != nil {
+			return 0, false
 		}
 		var ne net.Error
 		if !errors.As(err, &ne) || !ne.Timeout() {
@@ -502,13 +518,26 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 			}
 			defer sem.Release(1)
 
-			latency, ok := dialReachable(endpoint, timeout, 2)
+			latency, ok := dialReachable(phaseCtx, endpoint, timeout, 2)
 			if !ok {
+				// Count a cancelled probe as not-attempted: it was never actually
+				// tested, so reporting it as "scanned" would understate the hit
+				// rate after a stop. Failed-but-tested dials still count.
+				if phaseCtx.Err() != nil {
+					return
+				}
 				if job != nil {
 					job.mu.Lock()
 					job.Phase1Progress++
 					job.mu.Unlock()
 				}
+				return
+			}
+
+			// Drop a result that landed after the job was cancelled or the local
+			// stop-after target was reached — the scan is already winding down and
+			// the caller's published snapshot must not drift under late appenders.
+			if phaseCtx.Err() != nil {
 				return
 			}
 
@@ -549,17 +578,13 @@ wait:
 	select {
 	case <-done:
 	case <-cancel:
-		// Exit fast with partial results. In-flight goroutines keep appending to
-		// `results` under mu in the background, so snapshot under the same lock
-		// rather than reading/sorting it concurrently (which would race the
-		// appenders on the slice header).
-		mu.Lock()
-		partial := append([]CleanIPResult(nil), results...)
-		mu.Unlock()
-		sort.Slice(partial, func(i, j int) bool {
-			return partial[i].Latency < partial[j].Latency
-		})
-		return partial
+		// phaseCtx is derived from ctx, which the caller cancels together with
+		// closing `cancel` (see runCleanScan). Workers observe phaseCtx.Err() and
+		// stop appending, but to guarantee no appender touches `results` after we
+		// snapshot it, wait for the in-flight set to drain first — same contract
+		// as the localStop path. This turns "scan stopped" into a clean cutoff
+		// rather than a snapshot that keeps ticking.
+		<-done
 	case <-localStop:
 		// target reached; let in-flight finish so partial results are coherent
 		<-done
@@ -1170,7 +1195,11 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 				res := validateBatchWithXray(ctx, &validationCfg, batch, xrayPath, allocPortBase(), phase2Timeout)
 
 				// Retry the ones that failed, once, in a fresh batch — a single
-				// dropped TLS/handshake under load shouldn't condemn an IP.
+				// dropped TLS/handshake under load shouldn't condemn an IP. Skip
+				// the retry entirely when the whole batch failed: that's systemic
+				// (broken xray, wrong config, every endpoint dead) and a second
+				// spawn only doubles the cost for zero benefit. Also skip once the
+				// job is cancelled.
 				var retryIdx []int
 				var retryEps []string
 				for i, r := range res {
@@ -1179,7 +1208,8 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 						retryEps = append(retryEps, batch[i])
 					}
 				}
-				if len(retryEps) > 0 {
+				partialFailure := len(retryEps) > 0 && len(retryEps) < len(batch)
+				if partialFailure {
 					select {
 					case <-ctx.Done():
 					default:
@@ -1221,6 +1251,12 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	}
 
 	cancelledMain := runPhase2Batches(mainEps, func(res []CleanIPResult) {
+		// Stop publishing the moment the job is cancelled: the caller is about to
+		// snapshot the partial results and flip status to "cancelled", and late
+		// batches arriving after that must not keep ticking progress/results.
+		if ctx.Err() != nil {
+			return
+		}
 		mu.Lock()
 		phase2Results = append(phase2Results, res...)
 		progress := len(phase2Results)
@@ -1253,6 +1289,9 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		}
 		var nmu sync.Mutex
 		cancelledNearby := runPhase2Batches(nearbyEps, func(res []CleanIPResult) {
+			if ctx.Err() != nil {
+				return
+			}
 			nmu.Lock()
 			nearbyPhase2Results = append(nearbyPhase2Results, res...)
 			nmu.Unlock()
