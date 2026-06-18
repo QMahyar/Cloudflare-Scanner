@@ -8,8 +8,7 @@ import (
 // TestGenerateExactCount verifies the generator returns exactly the requested
 // number of endpoints when the count is within the available address pool.
 func TestGenerateExactCount(t *testing.T) {
-	g := NewEndpointGenerator()
-	eps := g.Generate(100, true, false)
+	eps := GenerateEndpoints(100, true, false)
 	if len(eps) != 100 {
 		t.Fatalf("expected 100 endpoints, got %d", len(eps))
 	}
@@ -27,8 +26,7 @@ func TestGenerateExactCount(t *testing.T) {
 // regresses, this test hangs and the suite's timeout fails it.
 func TestGenerateBoundedOnExhaustedPool(t *testing.T) {
 	poolSize := len(ipv4Prefixes) * 256
-	g := NewEndpointGenerator()
-	eps := g.Generate(poolSize*2, true, false) // far more than the pool can supply
+	eps := GenerateEndpoints(poolSize*2, true, false) // far more than the pool can supply
 	if len(eps) == 0 {
 		t.Fatal("expected some endpoints, got none")
 	}
@@ -48,8 +46,7 @@ func TestGenerateBoundedOnExhaustedPool(t *testing.T) {
 		}
 	}
 	// Sanity: a request within the pool still hits its target exactly.
-	g2 := NewEndpointGenerator()
-	if got := len(g2.Generate(1000, true, false)); got != 1000 {
+	if got := len(GenerateEndpoints(1000, true, false)); got != 1000 {
 		t.Fatalf("expected 1000 endpoints for in-pool count, got %d", got)
 	}
 }

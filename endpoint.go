@@ -28,17 +28,8 @@ var (
 	}
 )
 
-type EndpointGenerator struct {
-	rng *rand.Rand
-}
-
-func NewEndpointGenerator() *EndpointGenerator {
-	return &EndpointGenerator{
-		rng: rand.New(rand.NewSource(rand.Int63())),
-	}
-}
-
-func (g *EndpointGenerator) Generate(count int, useIPv4, useIPv6 bool) []string {
+func GenerateEndpoints(count int, useIPv4, useIPv6 bool) []string {
+	rng := rand.New(rand.NewSource(rand.Int63()))
 	endpoints := make([]string, 0, count)
 	seen := make(map[string]bool)
 
@@ -57,13 +48,13 @@ func (g *EndpointGenerator) Generate(count int, useIPv4, useIPv6 bool) []string 
 	// attempts keeps an over-large count from spinning forever once the pool is
 	// exhausted — it simply yields fewer endpoints. Mirrors CleanIPGenerator.
 	for attempts := 0; len(endpoints) < v4Count && attempts < v4Count*20+len(ipv4Prefixes)*256; attempts++ {
-		prefix := ipv4Prefixes[g.rng.Intn(len(ipv4Prefixes))]
-		ip := fmt.Sprintf("%s%d", prefix, g.rng.Intn(256))
+		prefix := ipv4Prefixes[rng.Intn(len(ipv4Prefixes))]
+		ip := fmt.Sprintf("%s%d", prefix, rng.Intn(256))
 		if _, ok := seen[ip]; ok {
 			continue
 		}
 		seen[ip] = true
-		ep := fmt.Sprintf("%s:%d", ip, ports[g.rng.Intn(len(ports))])
+		ep := fmt.Sprintf("%s:%d", ip, ports[rng.Intn(len(ports))])
 		if !seen[ep] {
 			seen[ep] = true
 			endpoints = append(endpoints, ep)
@@ -76,15 +67,15 @@ func (g *EndpointGenerator) Generate(count int, useIPv4, useIPv6 bool) []string 
 	// attempt cap guards against a degenerate prefix set livelocking on collisions.
 	v6Target := len(endpoints) + v6Count
 	for attempts := 0; len(endpoints) < v6Target && attempts < v6Count*20+1024; attempts++ {
-		prefix := ipv6Prefixes[g.rng.Intn(len(ipv6Prefixes))]
+		prefix := ipv6Prefixes[rng.Intn(len(ipv6Prefixes))]
 		ip := fmt.Sprintf("[%s%x:%x:%x:%x]", prefix,
-			g.rng.Intn(65536), g.rng.Intn(65536),
-			g.rng.Intn(65536), g.rng.Intn(65536))
+			rng.Intn(65536), rng.Intn(65536),
+			rng.Intn(65536), rng.Intn(65536))
 		if _, ok := seen[ip]; ok {
 			continue
 		}
 		seen[ip] = true
-		ep := fmt.Sprintf("%s:%d", ip, ports[g.rng.Intn(len(ports))])
+		ep := fmt.Sprintf("%s:%d", ip, ports[rng.Intn(len(ports))])
 		if !seen[ep] {
 			seen[ep] = true
 			endpoints = append(endpoints, ep)

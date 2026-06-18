@@ -427,8 +427,7 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 			}
 		}
 
-		gen := NewEndpointGenerator()
-		endpoints := gen.Generate(req.Count, req.IPv4, req.IPv6)
+		endpoints := GenerateEndpoints(req.Count, req.IPv4, req.IPv6)
 
 		scanJobsMu.Lock()
 		jobCounter++
