@@ -679,9 +679,6 @@ body[dir="rtl"] .results-table th .sort-icon { margin-left: 0; margin-right: 2px
   font-size: 0.6875rem;
   font-weight: 500;
 }
-.badge-ok { background: var(--success-bg); color: var(--success); }
-.badge-fail { background: var(--danger-bg); color: var(--danger); }
-
 .latency-fast { color: var(--success); font-weight: 600; }
 .latency-medium { color: var(--warning); font-weight: 600; }
 .latency-slow { color: var(--danger); font-weight: 600; }
@@ -763,7 +760,6 @@ body[dir="rtl"] .results-table th .sort-icon { margin-left: 0; margin-right: 2px
 .stat-label { font-size: 0.625rem; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
 .stat-chip.stat-found { background: var(--accent-soft); border-color: rgba(246, 130, 31, 0.22); }
 .stat-chip.stat-found .stat-num { color: var(--accent-2); }
-.stat-chip.stat-cancelled { flex-direction: row; align-items: center; color: var(--danger); font-size: 0.75rem; font-weight: 600; }
 @media (max-width: 480px) {
   .scan-summary { gap: var(--space-xs); }
   .stat-chip { flex: 1 1 calc(33.333% - var(--space-xs)); min-width: 0; padding: 6px 8px; align-items: center; }
