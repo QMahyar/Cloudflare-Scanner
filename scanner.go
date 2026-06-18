@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -33,7 +32,6 @@ type Scanner struct {
 	Concurrency int
 	Timeout     time.Duration
 	TCPOnly     bool
-	portCounter atomic.Int32
 	prober      *warpProber
 }
 
@@ -58,18 +56,13 @@ func NewScanner(cfg *WarpConfig, noise NoiseConfig, xrayPath string) *Scanner {
 }
 
 // DefaultConcurrency picks a starting worker count for the scan path that will
-// actually run. The native WireGuard handshake is just a UDP socket plus some
-// cheap crypto, so it scales to hundreds of concurrent probes; the xray
-// noise-fallback path spawns a process per probe and must stay modest.
+// actually run. Native handshake / TCP probes are lightweight; noise scans use
+// xray batches, so keep their process count modest.
 func DefaultConcurrency(cfg *WarpConfig, noise NoiseConfig) int {
 	if noise.Type != "" {
-		return 12 // xray process per probe — keep it small
+		return 12
 	}
-	return 256 // native handshake or plain TCP dial — lightweight
-}
-
-func (s *Scanner) nextPort() int {
-	return int(s.portCounter.Add(1))
+	return 256
 }
 
 func (s *Scanner) testEndpointAttempts(ctx context.Context, endpoint string, attempts int) ScanResult {
@@ -127,60 +120,27 @@ func (s *Scanner) testEndpointOnce(ctx context.Context, endpoint string) ScanRes
 		return ScanResult{Endpoint: endpoint, Success: true, Latency: time.Since(start)}
 	}
 
-	// Fast path: a native WireGuard handshake validates the endpoint over UDP —
-	// the protocol WARP actually speaks — using the uploaded config's registered
-	// credentials, with no xray process and no SOCKS hop. Only when noise /
-	// AmneziaWG obfuscation is requested do we fall back to xray, which is what
-	// applies that obfuscation on the wire.
-	if s.Noise.Type == "" {
-		prober := s.prober
-		if prober == nil {
-			// Defensive fallback: build a one-shot prober if NewScanner could
-			// not (should not happen for a valid config).
-			p, err := newWarpProber(s.Config)
-			if err != nil {
-				return ScanResult{Endpoint: endpoint, Error: err.Error()}
-			}
-			prober = p
-		}
-		rtt, err := prober.Probe(endpoint, s.Timeout)
+	// Native WireGuard handshake validates the endpoint over UDP with no xray
+	// process. Noise / AmneziaWG scans are routed to scanBatchNoise by runScan.
+	prober := s.prober
+	if prober == nil {
+		// Defensive fallback: build a one-shot prober if NewScanner could
+		// not (should not happen for a valid config).
+		p, err := newWarpProber(s.Config)
 		if err != nil {
 			return ScanResult{Endpoint: endpoint, Error: err.Error()}
 		}
-		return ScanResult{Endpoint: endpoint, Success: true, Latency: rtt}
+		prober = p
 	}
-
-	socksPort := s.nextPort() + 10799
-
-	xm := &XrayManager{
-		XrayPath: s.XrayPath,
-		Config:   s.Config,
-		Noise:    s.Noise,
-	}
-
-	configPath, err := xm.GenerateConfig(endpoint, socksPort)
+	rtt, err := prober.Probe(endpoint, s.Timeout)
 	if err != nil {
-		return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("config: %v", err)}
+		return ScanResult{Endpoint: endpoint, Error: err.Error()}
 	}
-	defer os.RemoveAll(filepath.Dir(configPath))
-
-	cmd, err := xm.StartXray(configPath)
-	if err != nil {
-		return ScanResult{Endpoint: endpoint, Error: fmt.Sprintf("start: %v", err)}
-	}
-	defer xm.StopXray(cmd)
-
-	if !xm.WaitForPortCtx(ctx, socksPort, 4*time.Second) {
-		return ScanResult{Endpoint: endpoint, Error: "xray startup timeout"}
-	}
-
-	return s.probe204(ctx, endpoint, socksPort)
+	return ScanResult{Endpoint: endpoint, Success: true, Latency: rtt}
 }
 
 // probe204 runs the SOCKS5 + GET /generate_204 check against an already-up local
-// SOCKS port and returns the result. Shared by the single-endpoint xray path
-// (testEndpointOnce) and the batched noise path (scanBatchNoise) so the success
-// criterion (exact 204) lives in one place. The caller owns the xray process.
+// SOCKS port and returns the result. The caller owns the xray process.
 func (s *Scanner) probe204(ctx context.Context, endpoint string, socksPort int) ScanResult {
 	start := time.Now()
 
