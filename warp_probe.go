@@ -268,15 +268,3 @@ func (p *warpProber) Probe(endpoint string, timeout time.Duration) (time.Duratio
 		// Anything else: keep reading until the deadline fires.
 	}
 }
-
-// WarpHandshakeProbe performs a single WireGuard handshake against endpoint
-// using cfg's credentials and returns the round-trip time to the handshake
-// response. It builds a one-shot prober; callers probing many endpoints should
-// build a warpProber once and reuse it via Probe.
-func WarpHandshakeProbe(cfg *WarpConfig, endpoint string, timeout time.Duration) (time.Duration, error) {
-	p, err := newWarpProber(cfg)
-	if err != nil {
-		return 0, err
-	}
-	return p.Probe(endpoint, timeout)
-}

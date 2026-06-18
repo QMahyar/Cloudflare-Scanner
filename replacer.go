@@ -161,10 +161,6 @@ func applyNameTemplate(tmpl string, cfg *ProxyConfig, host string, port, n int) 
 	return r.Replace(tmpl)
 }
 
-func GenerateReplacedConfigs(configs []*ProxyConfig, endpoints []string) []string {
-	return GenerateReplacedConfigsNamed(configs, endpoints, "")
-}
-
 func GenerateReplacedConfigsNamed(configs []*ProxyConfig, endpoints []string, nameTemplate string) []string {
 	seen := make(map[string]bool)
 	result := make([]string, 0, len(configs)*len(endpoints))

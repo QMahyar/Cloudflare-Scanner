@@ -521,7 +521,7 @@ func TestGenerateReplacedConfigs_Basic(t *testing.T) {
 		Remark:   "base",
 	}
 	endpoints := []string{"5.6.7.8:8443", "9.10.11.12:2053"}
-	urls := GenerateReplacedConfigs([]*ProxyConfig{cfg}, endpoints)
+	urls := GenerateReplacedConfigsNamed([]*ProxyConfig{cfg}, endpoints, "")
 	if len(urls) != 2 {
 		t.Fatalf("expected 2 URLs, got %d", len(urls))
 	}
@@ -535,7 +535,7 @@ func TestGenerateReplacedConfigs_Basic(t *testing.T) {
 func TestGenerateReplacedConfigs_SkipMalformedEndpoint(t *testing.T) {
 	cfg := &ProxyConfig{Protocol: "vless", UUID: "u", Address: "1.2.3.4", Port: 443}
 	endpoints := []string{"notanendpoint", "5.6.7.8:443", "  ", "[bad"}
-	urls := GenerateReplacedConfigs([]*ProxyConfig{cfg}, endpoints)
+	urls := GenerateReplacedConfigsNamed([]*ProxyConfig{cfg}, endpoints, "")
 	if len(urls) != 1 {
 		t.Errorf("expected 1 valid URL (only 5.6.7.8:443), got %d: %v", len(urls), urls)
 	}
@@ -544,7 +544,7 @@ func TestGenerateReplacedConfigs_SkipMalformedEndpoint(t *testing.T) {
 func TestGenerateReplacedConfigs_Deduplication(t *testing.T) {
 	cfg := &ProxyConfig{Protocol: "vless", UUID: "u", Address: "1.2.3.4", Port: 443}
 	endpoints := []string{"5.6.7.8:443", "5.6.7.8:443"}
-	urls := GenerateReplacedConfigs([]*ProxyConfig{cfg}, endpoints)
+	urls := GenerateReplacedConfigsNamed([]*ProxyConfig{cfg}, endpoints, "")
 	if len(urls) != 1 {
 		t.Errorf("expected deduplication to 1 URL, got %d", len(urls))
 	}

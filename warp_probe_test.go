@@ -49,7 +49,11 @@ func TestWarpHandshakeProbe_Live(t *testing.T) {
 	}
 	t.Logf("probing %s (reserved=%v)", endpoint, cfg.Reserved)
 
-	rtt, err := WarpHandshakeProbe(cfg, endpoint, 5*time.Second)
+	prober, err := newWarpProber(cfg)
+	if err != nil {
+		t.Fatalf("build prober: %v", err)
+	}
+	rtt, err := prober.Probe(endpoint, 5*time.Second)
 	if err != nil {
 		t.Fatalf("handshake failed: %v", err)
 	}
