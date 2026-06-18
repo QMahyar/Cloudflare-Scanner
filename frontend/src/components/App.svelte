@@ -10,7 +10,6 @@
   import About from './About.svelte'
   import Toast from './Toast.svelte'
   import QrModal from './QrModal.svelte'
-  import CopyMenu from './CopyMenu.svelte'
 
   // Restore persisted results once, then begin auto-persisting changes.
   const saved = loadResults()
@@ -89,5 +88,4 @@
 </div>
 
 <QrModal />
-<CopyMenu />
 <Toast />

@@ -14,22 +14,18 @@ import (
 
 func ParseRawConfigs(rawText string) []*ProxyConfig {
 	replacer := strings.NewReplacer(",", " ", ";", " ", "|", " ")
-	rawText = replacer.Replace(rawText)
-	tokens := strings.Fields(rawText)
+	return parseConfigTokens(strings.Fields(replacer.Replace(rawText)))
+}
+
+func parseConfigTokens(tokens []string) []*ProxyConfig {
 	configs := make([]*ProxyConfig, 0, len(tokens))
 	for _, token := range tokens {
-		token = strings.TrimSpace(token)
-		if token == "" {
-			continue
-		}
 		if !strings.HasPrefix(token, "vless://") && !strings.HasPrefix(token, "trojan://") && !strings.HasPrefix(token, "vmess://") {
 			continue
 		}
-		cfg, err := ParseProxyURL(token)
-		if err != nil {
-			continue
+		if cfg, err := ParseProxyURL(token); err == nil {
+			configs = append(configs, cfg)
 		}
-		configs = append(configs, cfg)
 	}
 	return configs
 }
@@ -110,26 +106,7 @@ func ParseSubscription(content string) ([]*ProxyConfig, error) {
 	if err == nil {
 		text = string(decoded)
 	}
-
-	lines := strings.Split(strings.TrimSpace(text), "\n")
-	configs := make([]*ProxyConfig, 0, len(lines))
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if !strings.HasPrefix(line, "vless://") && !strings.HasPrefix(line, "trojan://") && !strings.HasPrefix(line, "vmess://") {
-			continue
-		}
-		cfg, err := ParseProxyURL(line)
-		if err != nil {
-			continue
-		}
-		configs = append(configs, cfg)
-	}
-
-	return configs, nil
+	return parseConfigTokens(strings.Fields(strings.TrimSpace(text))), nil
 }
 
 func ConfigFingerprint(c *ProxyConfig) string {

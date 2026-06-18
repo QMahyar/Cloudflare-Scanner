@@ -305,8 +305,6 @@
   "copy.withPort": "With ports (ip:port)",
   "copy.ipOnly": "IP only",
   "copy.menuTitle": "Copy format: with or without :port",
-  "copy.nowWithPort": "Copying with ports (ip:port)",
-  "copy.nowIpOnly": "Copying IP only",
   "tab.about": "About",
   "about.header": "About",
   "about.desc": "Open-source scanner for Cloudflare WARP endpoints and clean IPs.",

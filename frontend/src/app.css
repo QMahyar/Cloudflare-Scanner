@@ -850,48 +850,14 @@ body[dir="rtl"] .results-table th .sort-icon { margin-left: 0; margin-right: 2px
 .fail-ex { font-size: 0.75rem; }
 .fail-ex-err { color: var(--text-secondary); }
 
-/* ─── Split Copy button (Copy All + ▾ port-mode menu) ─── */
-.split-btn { display: inline-flex; }
-.split-btn .split-main { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.split-btn .split-caret {
-  border-top-left-radius: 0; border-bottom-left-radius: 0;
-  min-width: 0; padding-left: 9px; padding-right: 9px; margin-left: 1px;
-  font-size: 0.625rem;
-}
-body[dir="rtl"] .split-btn .split-main { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
-body[dir="rtl"] .split-btn .split-caret { border-radius: var(--radius-sm) 0 0 var(--radius-sm); margin-left: 0; margin-right: 1px; }
-
-.copy-menu {
-  position: fixed;
-  z-index: 10000;
-  display: none;
-  min-width: 190px;
-  padding: 4px;
-  background: linear-gradient(180deg, #23272f, #191c22);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow);
-}
-.copy-menu.open { display: block; }
-.copy-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 9px 10px;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
+/* ─── Copy mode selector ─── */
+.copy-mode-select {
+  width: auto;
+  min-height: 32px;
+  padding-top: 6px;
+  padding-bottom: 6px;
   font-size: 0.75rem;
-  cursor: pointer;
-  border-radius: 7px;
-  text-align: left;
-  touch-action: manipulation;
 }
-.copy-menu-item:hover { background: var(--bg-hover); }
-.copy-menu-check { width: 14px; flex-shrink: 0; color: var(--accent); opacity: 0; font-weight: 700; }
-.copy-menu-item.checked .copy-menu-check { opacity: 1; }
-body[dir="rtl"] .copy-menu-item { text-align: right; }
 
 /* ─── About tab ─── */
 .about-meta { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }

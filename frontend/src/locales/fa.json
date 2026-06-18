@@ -305,8 +305,6 @@
   "copy.withPort": "با پورت (ip:port)",
   "copy.ipOnly": "فقط آی‌پی",
   "copy.menuTitle": "فرمت کپی: با یا بدون پورت",
-  "copy.nowWithPort": "کپی با پورت (ip:port)",
-  "copy.nowIpOnly": "کپی فقط آی‌پی",
   "tab.about": "درباره",
   "about.header": "درباره",
   "about.desc": "اسکنر متن‌باز برای اندپوینت‌های واپ کلاودفلر و آی‌پی‌های تمیز.",

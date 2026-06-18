@@ -2,7 +2,7 @@
   import { _ } from 'svelte-i18n'
   import { apiJSON, withCSRF } from '../lib/api.js'
   import { copyToClipboard, downloadText } from '../lib/clipboard.js'
-  import { formatEps } from '../lib/copymode.js'
+  import { formatEps, copyWithPorts, setCopyMode } from '../lib/copymode.js'
   import { sortEntries, parseLatency, latClass, latBar, toggleSort } from '../lib/sort.js'
   import { computeSummary } from '../lib/scanMetrics.js'
   import { activateKey } from '../lib/a11y.js'
@@ -12,7 +12,6 @@
   import { subscribeStatus } from '../lib/sse.js'
   import { cleanData, activeTab, getSetting, setSetting } from '../lib/stores.js'
   import { pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
-  import SplitCopyButton from './SplitCopyButton.svelte'
   import VirtualTable from './VirtualTable.svelte'
   import ScanProgress from './ScanProgress.svelte'
 
@@ -613,7 +612,11 @@
 
     {#if hasResults}
       <div class="results-actions results-actions-top" style="margin-top:4px">
-        <SplitCopyButton oncopy={copyAll} title={$_('clean.copyAllTitle')} />
+        <button class="btn btn-secondary btn-sm" onclick={copyAll} title={$_('clean.copyAllTitle')}>{$_('results.copyAll')}</button>
+        <select class="copy-mode-select" value={$copyWithPorts ? 'port' : 'ip'} onchange={(e) => setCopyMode(e.currentTarget.value === 'port')} title={$_('copy.menuTitle')} aria-label={$_('copy.menuTitle')}>
+          <option value="port">{$_('copy.withPort')}</option>
+          <option value="ip">{$_('copy.ipOnly')}</option>
+        </select>
         <button class="btn btn-secondary btn-sm" onclick={download} title={$_('results.downloadTitle')}>{$_('results.downloadRaw')}</button>
         <button class="btn btn-secondary btn-sm" onclick={qrAll} title="QR">QR</button>
         {#if isPhase2}

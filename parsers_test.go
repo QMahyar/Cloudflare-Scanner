@@ -188,9 +188,9 @@ func TestParseProxyURL_WSEarlyDataAndHostFallback(t *testing.T) {
 	}
 
 	// The generated xray config must contain the WS Host header + early data.
-	path, err := cfg.BuildXrayJSON("162.159.82.8:2087", 35999)
+	path, _, err := cfg.BuildXrayJSONBatch([]string{"162.159.82.8:2087"}, 35999)
 	if err != nil {
-		t.Fatalf("BuildXrayJSON error: %v", err)
+		t.Fatalf("BuildXrayJSONBatch error: %v", err)
 	}
 	defer os.RemoveAll(filepath.Dir(path))
 	data, err := os.ReadFile(path)
@@ -212,9 +212,9 @@ func TestBuildXrayJSON_WSHostFallsBackToSNI(t *testing.T) {
 		Protocol: "vless", UUID: "u", Address: "1.2.3.4", Port: 443,
 		Security: "tls", SNI: "edge.example.com", Network: "ws", Path: "/",
 	}
-	path, err := cfg.BuildXrayJSON("", 35998)
+	path, _, err := cfg.BuildXrayJSONBatch([]string{"1.2.3.4:443"}, 35998)
 	if err != nil {
-		t.Fatalf("BuildXrayJSON error: %v", err)
+		t.Fatalf("BuildXrayJSONBatch error: %v", err)
 	}
 	defer os.RemoveAll(filepath.Dir(path))
 	data, _ := os.ReadFile(path)
@@ -232,9 +232,9 @@ func TestBuildXrayJSON_SNIFallsBackToOriginalHost(t *testing.T) {
 		Protocol: "vless", UUID: "u", Address: "panel.example.ir", Port: 443,
 		Security: "tls", Network: "tcp",
 	}
-	path, err := cfg.BuildXrayJSON("104.16.5.3:443", 35997)
+	path, _, err := cfg.BuildXrayJSONBatch([]string{"104.16.5.3:443"}, 35997)
 	if err != nil {
-		t.Fatalf("BuildXrayJSON error: %v", err)
+		t.Fatalf("BuildXrayJSONBatch error: %v", err)
 	}
 	defer os.RemoveAll(filepath.Dir(path))
 	data, _ := os.ReadFile(path)
