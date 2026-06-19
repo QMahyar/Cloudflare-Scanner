@@ -6,6 +6,21 @@ import (
 	"testing"
 )
 
+func TestCloudflareIPv4PoolIncludesOfficial172Range(t *testing.T) {
+	ip := net.ParseIP("172.71.255.255")
+	matched := false
+	for _, cidr := range cfIPv4CIDRs {
+		_, ipnet, err := net.ParseCIDR(cidr)
+		if err == nil && ipnet.Contains(ip) {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		t.Fatal("Cloudflare IPv4 pool misses 172.71.255.255 from official 172.64.0.0/13")
+	}
+}
+
 func TestGenerateCleanIPs(t *testing.T) {
 	gen := NewCleanIPGenerator()
 	ips := gen.GenerateIPs(100, true, false, []int{443})

@@ -2,19 +2,23 @@
   import { _ } from 'svelte-i18n'
   import { apiJSON, withCSRF } from '../lib/api.js'
   import { copyToClipboard, sleep, downloadText } from '../lib/clipboard.js'
-  import { formatEps, copyWithPorts, setCopyMode } from '../lib/copymode.js'
-  import { sortEntries, parseLatency, latClass, latBar, toggleSort } from '../lib/sort.js'
+  import { formatEps } from '../lib/copymode.js'
+  import { sortEntries, parseLatency, latClass, latBar, toggleSort, scoreClass, scoreBar, fmtLoss, lossClass } from '../lib/sort.js'
   import { computeSummary } from '../lib/scanMetrics.js'
+  import { exportCSV, exportJSON } from '../lib/exporters.js'
   import { activateKey } from '../lib/a11y.js'
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
   import { subscribeStatus } from '../lib/sse.js'
-  import { endpointRaw, activeTab, getSetting, setSetting } from '../lib/stores.js'
+  import { endpointRaw, activeTab, getSetting, setSetting, recordScan } from '../lib/stores.js'
   import { pendingWarpEndpoint, replacerCtype } from '../lib/handoff.js'
   import HelpPanel from './HelpPanel.svelte'
   import VirtualTable from './VirtualTable.svelte'
   import ScanProgress from './ScanProgress.svelte'
+  import ResultCharts from './ResultCharts.svelte'
+  import ResultsActions from './ResultsActions.svelte'
+  import ScanHistory from './ScanHistory.svelte'
 
   const DEPTHS = [
     { v: '100', k: 'settings.depth.quick' },
@@ -58,7 +62,7 @@
   // ─── Results filters ───
   let outCount = $state('0')
   let maxLatency = $state('0')
-  let sort = $state({ field: 'num', dir: 'asc' })
+  let sort = $state({ field: 'score', dir: 'desc' }) // rank by overall quality by default
 
   // ─── Scan state ───
   let jobId = $state(null)
@@ -70,7 +74,9 @@
   let startTime = 0
   let scanMs = $state(0)
   let statusStop = null
-  let resultsTimer = null
+  let lastFetch = 0
+  let fetchTimer = null
+  let recorded = false
   let selected = $state(new Set())
   let failInfo = $state(null) // { reasons: [{k,n}], examples: [{endpoint,error}], scanned }
 
@@ -101,7 +107,7 @@
 
   function clearTimers() {
     if (statusStop) { statusStop(); statusStop = null }
-    clearInterval(resultsTimer); resultsTimer = null
+    if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null }
   }
 
   async function startScan() {
@@ -113,6 +119,7 @@
     liveCountN = 0
     selected = new Set()
     failInfo = null
+    recorded = false
 
     let count = parseInt(scanDepth)
     if (scanDepth === '0') { count = parseInt(customCount) || 100; if (count < 1) count = 100 }
@@ -134,9 +141,9 @@
       const data = await apiJSON('/api/scan', { method: 'POST', body: fd })
       jobId = data.id
       startTime = Date.now()
+      lastFetch = 0
       total = parseInt(data.total)
       pollStatus(data.id)
-      pollResults(data.id)
     } catch (e) {
       showToast($_('scan.failed', { values: { msg: e.message } }), true)
       status = 'idle'
@@ -155,10 +162,30 @@
         progressText = $_('scan.progressTemplate', { values: { p: data.progress, t: total } }) + rate
         if (data.status === 'done' || data.status === 'cancelled') {
           finishScan(id, data.status)
+        } else {
+          // Live results stream off the status channel (throttled) instead of a
+          // fixed-interval blind poll — a frame only arrives when something changed.
+          scheduleFetch(id)
         }
       },
       isDone: (d) => d.status === 'done' || d.status === 'cancelled',
     })
+  }
+
+  function scheduleFetch(id) {
+    const wait = 600 - (Date.now() - lastFetch)
+    if (wait <= 0) { lastFetch = Date.now(); liveFetch(id) }
+    else if (!fetchTimer) {
+      fetchTimer = setTimeout(() => { fetchTimer = null; lastFetch = Date.now(); liveFetch(id) }, wait)
+    }
+  }
+
+  async function liveFetch(id) {
+    try {
+      const data = await apiJSON('/api/results/' + id)
+      const raw = data.raw || []
+      if (raw.length > 0) { endpointRaw.set(raw); liveCountN = raw.length }
+    } catch {}
   }
 
   async function finishScan(id, st) {
@@ -169,20 +196,6 @@
     if (notify) notifyDone($_('notify.title'), $_('notify.endpointBody', { values: { n: ($endpointRaw || []).length } }))
   }
 
-  function pollResults(id) {
-    clearInterval(resultsTimer)
-    resultsTimer = setInterval(async () => {
-      try {
-        const data = await apiJSON('/api/results/' + id)
-        const raw = data.raw || []
-        if (raw.length > 0) {
-          endpointRaw.set(raw)
-          liveCountN = raw.length
-        }
-      } catch {}
-    }, 1500)
-  }
-
   async function fetchResults(id) {
     for (let i = 0; i < 4; i++) {
       try {
@@ -190,12 +203,32 @@
         endpointRaw.set(data.raw || [])
         liveCountN = 0
         failInfo = { reasons: data.fail_reasons || {}, examples: data.failures || [], scanned: data.scanned || 0 }
+        recordRun(data)
         return
       } catch {
         await sleep(250)
       }
     }
     liveCountN = 0
+  }
+
+  function recordRun(data) {
+    if (recorded) return
+    recorded = true
+    const entries = data.raw || []
+    let best = Infinity, topScore = 0
+    for (const e of entries) {
+      best = Math.min(best, parseLatency(e.latency))
+      topScore = Math.max(topScore, Number(e.score) || 0)
+    }
+    recordScan({
+      tab: 'endpoint',
+      label: useConfig ? (noise ? 'WARP scan · noise' : 'WARP scan') : 'WARP scan · TCP',
+      found: entries.length,
+      scanned: data.scanned || total || 0,
+      best: isFinite(best) ? Math.round(best) : null,
+      topScore,
+    })
   }
 
   async function stopScan() {
@@ -212,6 +245,7 @@
     liveCountN = 0
     selected = new Set()
     failInfo = null
+    recorded = false
     endpointRaw.set([])
   }
 
@@ -240,6 +274,14 @@
       formatEps((raw || []).map((r) => r.endpoint)) + '\n'
     downloadText('warp_endpoints.txt', text)
   }
+  function downloadCsv() {
+    if (!pool.length) { showToast($_('clean.errNoSelection')); return }
+    exportCSV('warp_endpoints.csv', pool)
+  }
+  function downloadJson() {
+    if (!pool.length) { showToast($_('clean.errNoSelection')); return }
+    exportJSON('warp_endpoints.json', pool)
+  }
   function copySelected() {
     if (!selected.size) { showToast($_('clean.errNoSelection')); return }
     copyToClipboard(formatEps([...selected]))
@@ -266,7 +308,9 @@
   <tr>
     <th class="sortable" onclick={() => onSort('num')}>{$_('results.tableNum')}{#if sort.field === 'num'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
     <th class="sortable" onclick={() => onSort('endpoint')}>{$_('results.tableEndpoint')}{#if sort.field === 'endpoint'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onSort('score')} title={$_('results.tableScoreTitle')}>{$_('results.tableScore')}{#if sort.field === 'score'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
     <th class="sortable" onclick={() => onSort('latency')}>{$_('results.tableLatency')}{#if sort.field === 'latency'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onSort('loss')} title={$_('results.tableLossTitle')}>{$_('results.tableLoss')}{#if sort.field === 'loss'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
     <th></th>
     <th class="checkbox-cell"></th>
   </tr>
@@ -277,7 +321,9 @@
     <td class="num">{i + 1}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
+    <td class="lat-cell {scoreClass(e.score)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{scoreBar(e.score)}%"></span></span><span class="lat-val">{e.score || '—'}</span></td>
     <td class="lat-cell {latClass(e.latency)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{latBar(e.latency)}%"></span></span><span class="lat-val">{e.latency}</span></td>
+    <td class="lat-cell {e.score ? lossClass(e.loss) : ''}"><span class="lat-val">{e.score ? fmtLoss(e.loss) : '—'}</span></td>
     <td><button class="btn btn-secondary btn-sm" onclick={() => useEndpoint(e.endpoint)} title={$_('results.tableUse')}>{$_('results.tableUse')}</button></td>
     <td class="checkbox-cell"><input type="checkbox" checked={selected.has(e.endpoint)} onchange={(ev) => toggleSelect(e.endpoint, ev.currentTarget.checked)} /></td>
   </tr>
@@ -446,19 +492,18 @@
         </div>
       {/if}
     {:else}
-      <div class="results-actions results-actions-top">
-        <button class="btn btn-secondary btn-sm" onclick={copyAll} title={$_('results.copyAllTitle')}>{$_('results.copyAll')}</button>
-        <select class="copy-mode-select" value={$copyWithPorts ? 'port' : 'ip'} onchange={(e) => setCopyMode(e.currentTarget.value === 'port')} title={$_('copy.menuTitle')} aria-label={$_('copy.menuTitle')}>
-          <option value="port">{$_('copy.withPort')}</option>
-          <option value="ip">{$_('copy.ipOnly')}</option>
-        </select>
-        <button class="btn btn-secondary btn-sm" onclick={download} title={$_('results.downloadTitle')}>{$_('results.downloadRaw')}</button>
-        <button class="btn btn-secondary btn-sm" onclick={qrAll} title="QR">QR</button>
-        <button class="btn btn-secondary btn-sm" onclick={copySelected} title={$_('results.copySelectedTitle')}>{$_('results.copySelected')}</button>
-        <button class="btn btn-secondary btn-sm" onclick={() => selectAll(true)}>{$_('results.selectAll')}</button>
-        <button class="btn btn-secondary btn-sm" onclick={() => selectAll(false)}>{$_('results.deselectAll')}</button>
-      </div>
-      <VirtualTable items={pool} getKey={(e) => e.endpoint} colspan={5} {header} {row} />
+      <ResultsActions
+        onCopyAll={copyAll}
+        onDownload={download}
+        onCSV={downloadCsv}
+        onJSON={downloadJson}
+        onQR={qrAll}
+        onSelectAll={() => selectAll(true)}
+        onDeselectAll={() => selectAll(false)}
+        onCopySelected={copySelected}
+      />
+      <ResultCharts entries={pool} showColo={false} />
+      <VirtualTable items={pool} getKey={(e) => e.endpoint} colspan={7} {header} {row} />
     {/if}
 
     {#if liveCountN > 0}
@@ -469,4 +514,6 @@
   <div class="card">
     <HelpPanel />
   </div>
+
+  <ScanHistory tab="endpoint" />
 </div>

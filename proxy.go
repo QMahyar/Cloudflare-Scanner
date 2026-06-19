@@ -198,8 +198,15 @@ func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
 	}
 
 	cfg.Address = parsed.Hostname()
+	if cfg.Address == "" {
+		return nil, fmt.Errorf("empty address")
+	}
 	if portStr := parsed.Port(); portStr != "" {
-		cfg.Port, _ = strconv.Atoi(portStr)
+		port, err := strconv.Atoi(portStr)
+		if err != nil || port < 1 || port > 65535 {
+			return nil, fmt.Errorf("invalid port: %s", portStr)
+		}
+		cfg.Port = port
 	}
 
 	if cfg.Port == 0 {

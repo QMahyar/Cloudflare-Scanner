@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -167,6 +168,7 @@ const maxEndpointConcurrency = 2048
 const maxCleanPhase1Probes = 4096
 const maxCleanPhase2Probes = 256
 const maxOutCount = 10000
+const maxReplacerOutputs = 50000
 const csrfCookieName = "cfscanner_token"
 const csrfHeaderName = "X-CSRF-Token"
 
@@ -634,7 +636,10 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 			res := scanner.scanBatchNoise(ctx, batch, allocPortBase())
 
 			// Retry the failures once in a fresh batch — mirrors the old 2-attempt
-			// behavior without paying 2× on endpoints that pass first try.
+			// behavior without paying 2× on endpoints that pass first try. Skip
+			// when the whole batch failed (systemic: broken xray / wrong config /
+			// every endpoint dead) since a second spawn only doubles the cost for
+			// no benefit, and skip once the job is cancelled.
 			var retryIdx []int
 			var retryEps []string
 			for i, r := range res {
@@ -643,7 +648,8 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 					retryEps = append(retryEps, batch[i])
 				}
 			}
-			if len(retryEps) > 0 {
+			partialFailure := len(retryEps) > 0 && len(retryEps) < len(batch)
+			if partialFailure {
 				select {
 				case <-ctx.Done():
 				default:
@@ -660,6 +666,15 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 			}
 
 			job.mu.Lock()
+			// If the job was cancelled by the user, drop this late batch's
+			// results — the caller's terminal snapshot is authoritative and late
+			// appends would only keep ticking Progress after Stop. A stop-after
+			// completion (TargetReached) is a success path: keep the results so
+			// we don't discard valid endpoints found by concurrent batches.
+			if ctx.Err() != nil && !job.TargetReached {
+				job.mu.Unlock()
+				return
+			}
 			for i := range res {
 				if res[i].Attempts == 0 {
 					res[i].Attempts = 1
@@ -667,6 +682,10 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 				if res[i].Success && res[i].Passes == 0 {
 					res[i].Passes = 1
 					res[i].Best = res[i].Latency
+				}
+				if res[i].Success {
+					res[i].Loss = lossPercent(res[i].Passes, res[i].Attempts)
+					res[i].Score = qualityScore(res[i].Latency, res[i].Jitter, res[i].Loss)
 				}
 				job.Results = append(job.Results, res[i])
 				if res[i].Success {
@@ -865,14 +884,16 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type resultEntry struct {
-		Endpoint string `json:"endpoint"`
-		Latency  string `json:"latency"`
-		Success  bool   `json:"success"`
-		Error    string `json:"error,omitempty"`
-		Attempts int    `json:"attempts,omitempty"`
-		Passes   int    `json:"passes,omitempty"`
-		Best     string `json:"best,omitempty"`
-		Jitter   string `json:"jitter,omitempty"`
+		Endpoint string  `json:"endpoint"`
+		Latency  string  `json:"latency"`
+		Success  bool    `json:"success"`
+		Error    string  `json:"error,omitempty"`
+		Attempts int     `json:"attempts,omitempty"`
+		Passes   int     `json:"passes,omitempty"`
+		Best     string  `json:"best,omitempty"`
+		Jitter   string  `json:"jitter,omitempty"`
+		Loss     float64 `json:"loss"`
+		Score    int     `json:"score"`
 	}
 
 	entries := make([]resultEntry, 0, showN)
@@ -888,6 +909,8 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 			Passes:   r.Passes,
 			Best:     r.Best.Round(time.Millisecond).String(),
 			Jitter:   r.Jitter.Round(time.Millisecond).String(),
+			Loss:     r.Loss,
+			Score:    r.Score,
 		})
 		if len(entries) >= showN {
 			break
@@ -895,12 +918,14 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type rawEntry struct {
-		Endpoint string `json:"endpoint"`
-		Latency  string `json:"latency"`
-		Attempts int    `json:"attempts,omitempty"`
-		Passes   int    `json:"passes,omitempty"`
-		Best     string `json:"best,omitempty"`
-		Jitter   string `json:"jitter,omitempty"`
+		Endpoint string  `json:"endpoint"`
+		Latency  string  `json:"latency"`
+		Attempts int     `json:"attempts,omitempty"`
+		Passes   int     `json:"passes,omitempty"`
+		Best     string  `json:"best,omitempty"`
+		Jitter   string  `json:"jitter,omitempty"`
+		Loss     float64 `json:"loss"`
+		Score    int     `json:"score"`
 	}
 
 	raw := make([]rawEntry, 0)
@@ -913,6 +938,8 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 				Passes:   r.Passes,
 				Best:     r.Best.Round(time.Millisecond).String(),
 				Jitter:   r.Jitter.Round(time.Millisecond).String(),
+				Loss:     r.Loss,
+				Score:    r.Score,
 			})
 		}
 	}
@@ -1163,7 +1190,11 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 		gen := NewCleanIPGenerator()
 		var endpoints []string
 		if strings.TrimSpace(req.CustomRanges) != "" {
-			ranges, _ := ParseIPRanges(req.CustomRanges)
+			ranges, bad := ParseIPRanges(req.CustomRanges)
+			if len(bad) > 0 {
+				jsonError(w, fmt.Sprintf("%d invalid custom range line(s), first: %s", len(bad), bad[0]), 400)
+				return
+			}
 			if len(ranges) == 0 {
 				jsonError(w, "no valid IP ranges found in custom input", 400)
 				return
@@ -1321,16 +1352,19 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 	showPhase2 := (status == "done" || status == "cancelled" || status == "running-phase2") && !skipPhase2
 
 	type resultEntry struct {
-		Endpoint string `json:"endpoint"`
-		Latency  string `json:"latency"`
-		Success  bool   `json:"success"`
-		Error    string `json:"error,omitempty"`
-		Attempts int    `json:"attempts,omitempty"`
-		Passes   int    `json:"passes,omitempty"`
-		Best     string `json:"best,omitempty"`
-		Jitter   string `json:"jitter,omitempty"`
-		Colo     string `json:"colo,omitempty"`
-		Loc      string `json:"loc,omitempty"`
+		Endpoint string  `json:"endpoint"`
+		Latency  string  `json:"latency"`
+		Success  bool    `json:"success"`
+		Error    string  `json:"error,omitempty"`
+		Attempts int     `json:"attempts,omitempty"`
+		Passes   int     `json:"passes,omitempty"`
+		Best     string  `json:"best,omitempty"`
+		Jitter   string  `json:"jitter,omitempty"`
+		Loss     float64 `json:"loss"`
+		Score    int     `json:"score"`
+		H3       bool    `json:"h3"`
+		Colo     string  `json:"colo,omitempty"`
+		Loc      string  `json:"loc,omitempty"`
 	}
 
 	cleanEntry := func(r CleanIPResult) resultEntry {
@@ -1343,6 +1377,9 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 			Passes:   r.Passes,
 			Best:     r.Best.Round(time.Millisecond).String(),
 			Jitter:   r.Jitter.Round(time.Millisecond).String(),
+			Loss:     r.Loss,
+			Score:    r.Score,
+			H3:       r.H3,
 			Colo:     r.Colo,
 			Loc:      r.Loc,
 		}
@@ -1679,12 +1716,45 @@ func handleReplacerApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	configs := make([]*ProxyConfig, 0, len(req.Configs))
-	for _, e := range req.Configs {
-		configs = append(configs, e.toProxyConfig())
+	if len(req.Configs)*len(req.Endpoints) > maxReplacerOutputs {
+		jsonError(w, fmt.Sprintf("too many outputs requested (max %d)", maxReplacerOutputs), 400)
+		return
 	}
 
-	urls := GenerateReplacedConfigsNamed(configs, req.Endpoints, req.NameTemplate)
+	configs := make([]*ProxyConfig, 0, len(req.Configs))
+	for _, e := range req.Configs {
+		cfg := e.toProxyConfig()
+		if cfg.Protocol != "vless" && cfg.Protocol != "trojan" && cfg.Protocol != "vmess" {
+			jsonError(w, "unsupported config protocol", 400)
+			return
+		}
+		if cfg.UUID == "" {
+			jsonError(w, "config UUID/password required", 400)
+			return
+		}
+		configs = append(configs, cfg)
+	}
+
+	endpoints := make([]string, 0, len(req.Endpoints))
+	for _, ep := range req.Endpoints {
+		ep = strings.TrimSpace(ep)
+		if ep == "" {
+			continue
+		}
+		host, portStr, err := net.SplitHostPort(ep)
+		port, perr := strconv.Atoi(portStr)
+		if err != nil || perr != nil || host == "" || port < 1 || port > 65535 {
+			jsonError(w, fmt.Sprintf("invalid endpoint: %s", ep), 400)
+			return
+		}
+		endpoints = append(endpoints, ep)
+	}
+	if len(endpoints) == 0 {
+		jsonError(w, "no valid endpoints provided", 400)
+		return
+	}
+
+	urls := GenerateReplacedConfigsNamed(configs, endpoints, req.NameTemplate)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

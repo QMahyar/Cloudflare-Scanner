@@ -461,6 +461,19 @@ func TestParseProxyURL_UnsupportedScheme(t *testing.T) {
 	}
 }
 
+func TestParseProxyURL_RejectsEmptyAddressAndBadPort(t *testing.T) {
+	cases := []string{
+		"vless://u@:443?security=tls",
+		"trojan://p@example.com:0?security=tls",
+		"vless://u@example.com:70000?security=tls",
+	}
+	for _, raw := range cases {
+		if _, err := ParseProxyURL(raw); err == nil {
+			t.Errorf("expected parse error for %q", raw)
+		}
+	}
+}
+
 // ─── Share URL round-trip ────────────────────────────────────────────────────
 
 // Parsing a share URL, regenerating it, and parsing again must preserve the
@@ -547,6 +560,35 @@ func TestGenerateReplacedConfigs_Deduplication(t *testing.T) {
 	urls := GenerateReplacedConfigsNamed([]*ProxyConfig{cfg}, endpoints, "")
 	if len(urls) != 1 {
 		t.Errorf("expected deduplication to 1 URL, got %d", len(urls))
+	}
+}
+
+func TestHandleReplacerApplyRejectsInvalidEndpoint(t *testing.T) {
+	body, _ := json.Marshal(replacerApplyRequest{
+		Configs:   []replacerConfigEntry{{Protocol: "vless", UUID: "u", Address: "example.com", Port: 443}},
+		Endpoints: []string{"not-an-endpoint"},
+	})
+	req := httptest.NewRequest("POST", "/api/replacer/apply", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handleReplacerApply(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("got status %d, want 400", rr.Code)
+	}
+}
+
+func TestHandleCleanScanStartRejectsBadCustomRangeLine(t *testing.T) {
+	body, _ := json.Marshal(cleanScanRequest{
+		OnePhase:     true,
+		Count:        10,
+		CustomRanges: "104.16.0.0/24\ngarbage",
+	})
+	req := httptest.NewRequest("POST", "/api/clean-scan", strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handleCleanScanStart("xray")(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("got status %d, want 400", rr.Code)
 	}
 }
 

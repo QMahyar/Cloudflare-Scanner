@@ -23,6 +23,8 @@ type ScanResult struct {
 	Passes   int
 	Best     time.Duration
 	Jitter   time.Duration
+	Loss     float64 // packet-loss % across attempts (0–100)
+	Score    int     // 0–100 quality rank (latency+jitter+loss)
 }
 
 type Scanner struct {
@@ -89,14 +91,19 @@ func (s *Scanner) testEndpointAttempts(ctx context.Context, endpoint string, att
 	if passes == 0 {
 		return ScanResult{Endpoint: endpoint, Error: lastErr, Attempts: attempts, Passes: passes}
 	}
+	median := medianDuration(latencies)
+	jitter := jitterDuration(latencies)
+	loss := lossPercent(passes, attempts)
 	return ScanResult{
 		Endpoint: endpoint,
 		Success:  true,
-		Latency:  medianDuration(latencies),
+		Latency:  median,
 		Attempts: attempts,
 		Passes:   passes,
 		Best:     bestDuration(latencies),
-		Jitter:   jitterDuration(latencies),
+		Jitter:   jitter,
+		Loss:     loss,
+		Score:    qualityScore(median, jitter, loss),
 	}
 }
 

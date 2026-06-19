@@ -2,18 +2,22 @@
   import { _ } from 'svelte-i18n'
   import { apiJSON, withCSRF } from '../lib/api.js'
   import { copyToClipboard, downloadText } from '../lib/clipboard.js'
-  import { formatEps, copyWithPorts, setCopyMode } from '../lib/copymode.js'
-  import { sortEntries, parseLatency, latClass, latBar, toggleSort } from '../lib/sort.js'
+  import { formatEps } from '../lib/copymode.js'
+  import { sortEntries, parseLatency, latClass, latBar, toggleSort, scoreClass, scoreBar, fmtLoss, lossClass } from '../lib/sort.js'
   import { computeSummary } from '../lib/scanMetrics.js'
+  import { exportCSV, exportJSON } from '../lib/exporters.js'
   import { activateKey } from '../lib/a11y.js'
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
   import { subscribeStatus } from '../lib/sse.js'
-  import { cleanData, activeTab, getSetting, setSetting } from '../lib/stores.js'
+  import { cleanData, activeTab, getSetting, setSetting, recordScan } from '../lib/stores.js'
   import { pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
   import VirtualTable from './VirtualTable.svelte'
   import ScanProgress from './ScanProgress.svelte'
+  import ResultCharts from './ResultCharts.svelte'
+  import ResultsActions from './ResultsActions.svelte'
+  import ScanHistory from './ScanHistory.svelte'
 
   // Official published Cloudflare ranges (cloudflare.com/ips).
   const CF_V4_RANGES = ['173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22']
@@ -74,7 +78,7 @@
   let coloFilter = $state('')
   let maxLatency = $state('0')
   let outCount = $state('0')
-  let sort = $state({ field: 'latency', dir: 'asc' })
+  let sort = $state({ field: 'score', dir: 'desc' }) // rank by overall quality by default
   let list = $state('direct') // direct | nearby
   let selected = $state(new Set())
 
@@ -86,7 +90,9 @@
   let startTime = 0
   let scanMs = $state(0)
   let statusStop = null
-  let resultsTimer = null
+  let lastFetch = 0
+  let fetchTimer = null
+  let recorded = false
   let rangesFileName = $state('')
 
   const data = $derived($cleanData)
@@ -126,7 +132,7 @@
 
   function clearTimers() {
     if (statusStop) { statusStop(); statusStop = null }
-    clearInterval(resultsTimer); resultsTimer = null
+    if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null }
   }
 
   // ─── Source / ranges ───
@@ -185,6 +191,8 @@
     progressText = $_('clean.progressPhase1', { values: { p: 0, t: 0 } })
     selected = new Set()
     list = 'direct'
+    recorded = false
+    lastFetch = 0
     cleanData.set(null)
 
     let depth = parseInt(scanDepth)
@@ -217,7 +225,6 @@
       jobId = resp.id
       startTime = Date.now()
       pollStatus(resp.id)
-      pollResults(resp.id)
     } catch (e) {
       showToast($_('clean.errStart', { values: { msg: e.message } }), true)
       status = 'idle'
@@ -226,8 +233,6 @@
 
   function pollStatus(id) {
     if (statusStop) statusStop()
-    // Status only — pollResults below keeps fetching cleanData and self-stops
-    // once it sees the terminal status, so this handler must not touch it.
     statusStop = subscribeStatus('/api/clean-events/' + id, '/api/clean-status/' + id, {
       onStatus(d) {
         if (d.status === 'running-phase1') {
@@ -245,7 +250,12 @@
         } else if (d.status === 'cancelled') {
           progressText = $_('clean.progressCancelled')
         }
-        if (d.status === 'done' || d.status === 'cancelled') {
+        const done = d.status === 'done' || d.status === 'cancelled'
+        // Results stream off the status channel: each pushed frame (the server
+        // only sends one when something changed) triggers a throttled results
+        // fetch, replacing the old fixed-interval blind poll.
+        scheduleFetch(id, done)
+        if (done) {
           status = d.status
           scanMs = startTime ? Date.now() - startTime : 0
           if (notify) notifyDone($_('notify.title'), $_('notify.cleanBody', { values: { n: data?.entries?.length || 0 } }))
@@ -255,20 +265,51 @@
     })
   }
 
-  function pollResults(id) {
-    clearInterval(resultsTimer)
-    resultsTimer = setInterval(async () => {
-      try {
-        const d = await apiJSON('/api/clean-results/' + id)
-        cleanData.set(d)
-        if (d.status === 'done' || d.status === 'cancelled') {
-          clearInterval(resultsTimer); resultsTimer = null
-          status = d.status
-        }
-      } catch {
-        clearInterval(resultsTimer); resultsTimer = null
+  async function fetchResultsNow(id) {
+    try {
+      const d = await apiJSON('/api/clean-results/' + id)
+      cleanData.set(d)
+      if (d.status === 'done' || d.status === 'cancelled') {
+        status = d.status
+        recordRun(d)
       }
-    }, 800)
+    } catch {}
+  }
+
+  // scheduleFetch throttles result fetches to ~1 per 500ms during a scan, and
+  // forces an immediate final fetch on completion so the enriched
+  // (score/loss/QUIC/colo) terminal snapshot always lands.
+  function scheduleFetch(id, force) {
+    if (force) {
+      if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null }
+      lastFetch = Date.now()
+      fetchResultsNow(id)
+      return
+    }
+    const wait = 500 - (Date.now() - lastFetch)
+    if (wait <= 0) { lastFetch = Date.now(); fetchResultsNow(id) }
+    else if (!fetchTimer) {
+      fetchTimer = setTimeout(() => { fetchTimer = null; lastFetch = Date.now(); fetchResultsNow(id) }, wait)
+    }
+  }
+
+  function recordRun(d) {
+    if (recorded || !d) return
+    recorded = true
+    const entries = d.entries || []
+    let best = Infinity, topScore = 0
+    for (const e of entries) {
+      best = Math.min(best, parseLatency(e.latency))
+      topScore = Math.max(topScore, Number(e.score) || 0)
+    }
+    recordScan({
+      tab: 'clean',
+      label: useConfig ? 'IP scan · 2-phase' : 'IP scan · 1-phase',
+      found: entries.length,
+      scanned: d.scanned || d.phase1_total || 0,
+      best: isFinite(best) ? Math.round(best) : null,
+      topScore,
+    })
   }
 
   async function stopScan() {
@@ -284,6 +325,7 @@
     progressText = ''
     selected = new Set()
     list = 'direct'
+    recorded = false
     cleanData.set(null)
   }
 
@@ -318,6 +360,16 @@
       : '# Cloudflare Responding IPs\n# Generated by Cloudflare Scanner\n\n'
     downloadText(list === 'nearby' ? 'nearby_responded_ips.txt' : 'responded_ips.txt',
       header + formatEps(entries.map((r) => r.endpoint)) + '\n')
+  }
+  function downloadCsv() {
+    const entries = curEntries()
+    if (!entries.length) { showToast($_('clean.errNoSelection')); return }
+    exportCSV(list === 'nearby' ? 'cloudflare_nearby.csv' : 'cloudflare_ips.csv', entries)
+  }
+  function downloadJson() {
+    const entries = curEntries()
+    if (!entries.length) { showToast($_('clean.errNoSelection')); return }
+    exportJSON(list === 'nearby' ? 'cloudflare_nearby.json' : 'cloudflare_ips.json', entries)
   }
   function qrAll() {
     const text = formatEps(curEntries().map((r) => r.endpoint))
@@ -371,7 +423,10 @@
   <tr>
     <th class="sortable" onclick={() => onSort('num')}>{$_('results.tableNum')}{#if sort.field === 'num'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
     <th class="sortable" onclick={() => onSort('endpoint')}>{$_('results.tableEndpoint')}{#if sort.field === 'endpoint'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onSort('score')} title={$_('results.tableScoreTitle')}>{$_('results.tableScore')}{#if sort.field === 'score'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
     <th class="sortable" onclick={() => onSort('latency')}>{$_('results.tableLatency')}{#if sort.field === 'latency'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onSort('loss')} title={$_('results.tableLossTitle')}>{$_('results.tableLoss')}{#if sort.field === 'loss'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
+    <th title={$_('results.tableQuicTitle')}>{$_('results.tableQuic')}</th>
     <th class="sortable" onclick={() => onSort('colo')}>{$_('results.tableColo')}{#if sort.field === 'colo'}<span class="sort-icon">{sortArrow()}</span>{/if}</th>
     <th class="checkbox-cell"></th>
   </tr>
@@ -382,7 +437,10 @@
     <td class="num">{i + 1}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
+    <td class="lat-cell {scoreClass(e.score)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{scoreBar(e.score)}%"></span></span><span class="lat-val">{e.score || '—'}</span></td>
     <td class="lat-cell {latClass(e.latency)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{latBar(e.latency)}%"></span></span><span class="lat-val">{e.latency}</span></td>
+    <td class="lat-cell {e.score ? lossClass(e.loss) : ''}"><span class="lat-val">{e.score ? fmtLoss(e.loss) : '—'}</span></td>
+    <td class="colo-cell">{#if e.h3}<span class="colo-tag" title="HTTP/3">H3</span>{:else}<span class="colo-empty">—</span>{/if}</td>
     <td class="colo-cell">
       {#if e.colo}<span class="colo-tag" title={e.loc || ''}>{e.colo}{#if e.loc}<span class="colo-loc">{e.loc}</span>{/if}</span>
       {:else}<span class="colo-empty">—</span>{/if}
@@ -611,22 +669,23 @@
     {/if}
 
     {#if hasResults}
-      <div class="results-actions results-actions-top" style="margin-top:4px">
-        <button class="btn btn-secondary btn-sm" onclick={copyAll} title={$_('clean.copyAllTitle')}>{$_('results.copyAll')}</button>
-        <select class="copy-mode-select" value={$copyWithPorts ? 'port' : 'ip'} onchange={(e) => setCopyMode(e.currentTarget.value === 'port')} title={$_('copy.menuTitle')} aria-label={$_('copy.menuTitle')}>
-          <option value="port">{$_('copy.withPort')}</option>
-          <option value="ip">{$_('copy.ipOnly')}</option>
-        </select>
-        <button class="btn btn-secondary btn-sm" onclick={download} title={$_('results.downloadTitle')}>{$_('results.downloadRaw')}</button>
-        <button class="btn btn-secondary btn-sm" onclick={qrAll} title="QR">QR</button>
-        {#if isPhase2}
-          <button class="btn btn-accent btn-sm" onclick={exportConfigs}>{$_('clean.export')}</button>
-        {/if}
-        <button class="btn btn-accent btn-sm" onclick={pushToReplacer}>{$_('clean.pushToReplacer')}</button>
-        <button class="btn btn-secondary btn-sm" onclick={() => selectAll(true)}>{$_('clean.selectAll')}</button>
-        <button class="btn btn-secondary btn-sm" onclick={() => selectAll(false)}>{$_('clean.deselectAll')}</button>
-        <button class="btn btn-secondary btn-sm" onclick={copySelected} title={$_('clean.copySelectedTitle')}>{$_('clean.copySelected')}</button>
-      </div>
+      <ResultsActions
+        onCopyAll={copyAll}
+        onDownload={download}
+        onCSV={downloadCsv}
+        onJSON={downloadJson}
+        onQR={qrAll}
+        onSelectAll={() => selectAll(true)}
+        onDeselectAll={() => selectAll(false)}
+        onCopySelected={copySelected}
+      >
+        {#snippet extra()}
+          {#if isPhase2}
+            <button class="btn btn-accent btn-sm" onclick={exportConfigs}>{$_('clean.export')}</button>
+          {/if}
+          <button class="btn btn-accent btn-sm" onclick={pushToReplacer}>{$_('clean.pushToReplacer')}</button>
+        {/snippet}
+      </ResultsActions>
 
       {#if status === 'done' || status === 'cancelled'}
         <div class={status === 'cancelled' ? 'error-msg' : 'success-msg'} style="margin-bottom:6px">
@@ -637,7 +696,8 @@
         </div>
       {/if}
 
-      <VirtualTable items={activePool} getKey={(e) => e.endpoint} colspan={5} {header} {row} />
+      <ResultCharts entries={activePool} />
+      <VirtualTable items={activePool} getKey={(e) => e.endpoint} colspan={8} {header} {row} />
 
       {#if isPhase2 && failReasons.length > 0}
         <div class="fail-panel">
@@ -692,4 +752,6 @@
       <p class="desc">{$_('cleanHelp.tip')}</p>
     </details>
   </div>
+
+  <ScanHistory tab="clean" />
 </div>

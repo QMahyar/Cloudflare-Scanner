@@ -20,6 +20,9 @@ import (
 	"time"
 )
 
+// cfIPv4CIDRs are Cloudflare's published IPv4 ranges from https://www.cloudflare.com/ips-v4 .
+// Keep this list official and compact; older scanner builds split 172.64.0.0/13
+// into partial ranges and accidentally missed 172.68.0.0–172.71.255.255.
 var cfIPv4CIDRs = []string{
 	"173.245.48.0/20",
 	"103.21.244.0/22",
@@ -32,19 +35,9 @@ var cfIPv4CIDRs = []string{
 	"197.234.240.0/22",
 	"198.41.128.0/17",
 	"162.158.0.0/15",
-	"104.16.0.0/12",
-	"172.64.0.0/17",
-	"172.64.128.0/18",
-	"172.64.192.0/19",
-	"172.64.224.0/22",
-	"172.64.229.0/24",
-	"172.64.230.0/23",
-	"172.64.232.0/21",
-	"172.64.240.0/21",
-	"172.64.248.0/21",
-	"172.65.0.0/16",
-	"172.66.0.0/16",
-	"172.67.0.0/16",
+	"104.16.0.0/13",
+	"104.24.0.0/14",
+	"172.64.0.0/13",
 	"131.0.72.0/22",
 }
 
@@ -62,104 +55,15 @@ const maxNearbyEndpoints = 4096
 // at once can't allocate the same window and fight over the same xray ports.
 var cleanSocksPortBase atomic.Int32
 
+// cfIPv6CIDRs are Cloudflare's published IPv6 ranges from https://www.cloudflare.com/ips-v6 .
 var cfIPv6CIDRs = []string{
-	"2400:cb00:2049::/48",
-	"2400:cb00:f00e::/48",
+	"2400:cb00::/32",
 	"2606:4700::/32",
-	"2606:4700:10::/48",
-	"2606:4700:130::/48",
-	"2606:4700:3000::/48",
-	"2606:4700:3001::/48",
-	"2606:4700:3002::/48",
-	"2606:4700:3003::/48",
-	"2606:4700:3004::/48",
-	"2606:4700:3005::/48",
-	"2606:4700:3006::/48",
-	"2606:4700:3007::/48",
-	"2606:4700:3008::/48",
-	"2606:4700:3009::/48",
-	"2606:4700:3010::/48",
-	"2606:4700:3011::/48",
-	"2606:4700:3012::/48",
-	"2606:4700:3013::/48",
-	"2606:4700:3014::/48",
-	"2606:4700:3015::/48",
-	"2606:4700:3016::/48",
-	"2606:4700:3017::/48",
-	"2606:4700:3018::/48",
-	"2606:4700:3019::/48",
-	"2606:4700:3020::/48",
-	"2606:4700:3021::/48",
-	"2606:4700:3022::/48",
-	"2606:4700:3023::/48",
-	"2606:4700:3024::/48",
-	"2606:4700:3025::/48",
-	"2606:4700:3026::/48",
-	"2606:4700:3027::/48",
-	"2606:4700:3028::/48",
-	"2606:4700:3029::/48",
-	"2606:4700:3030::/48",
-	"2606:4700:3031::/48",
-	"2606:4700:3032::/48",
-	"2606:4700:3033::/48",
-	"2606:4700:3034::/48",
-	"2606:4700:3035::/48",
-	"2606:4700:3036::/48",
-	"2606:4700:3037::/48",
-	"2606:4700:3038::/48",
-	"2606:4700:3039::/48",
-	"2606:4700:a0::/48",
-	"2606:4700:a1::/48",
-	"2606:4700:a8::/48",
-	"2606:4700:a9::/48",
-	"2606:4700:a::/48",
-	"2606:4700:b::/48",
-	"2606:4700:c::/48",
-	"2606:4700:d0::/48",
-	"2606:4700:d1::/48",
-	"2606:4700:d::/48",
-	"2606:4700:e0::/48",
-	"2606:4700:e1::/48",
-	"2606:4700:e2::/48",
-	"2606:4700:e3::/48",
-	"2606:4700:e4::/48",
-	"2606:4700:e5::/48",
-	"2606:4700:e6::/48",
-	"2606:4700:e7::/48",
-	"2606:4700:e::/48",
-	"2606:4700:f1::/48",
-	"2606:4700:f2::/48",
-	"2606:4700:f3::/48",
-	"2606:4700:f4::/48",
-	"2606:4700:f5::/48",
-	"2606:4700:f::/48",
-	"2803:f800:50::/48",
-	"2803:f800:51::/48",
-	"2a06:98c1:3100::/48",
-	"2a06:98c1:3101::/48",
-	"2a06:98c1:3102::/48",
-	"2a06:98c1:3103::/48",
-	"2a06:98c1:3104::/48",
-	"2a06:98c1:3105::/48",
-	"2a06:98c1:3106::/48",
-	"2a06:98c1:3107::/48",
-	"2a06:98c1:3108::/48",
-	"2a06:98c1:3109::/48",
-	"2a06:98c1:310a::/48",
-	"2a06:98c1:310b::/48",
-	"2a06:98c1:310c::/48",
-	"2a06:98c1:310d::/48",
-	"2a06:98c1:310e::/48",
-	"2a06:98c1:310f::/48",
-	"2a06:98c1:3120::/48",
-	"2a06:98c1:3121::/48",
-	"2a06:98c1:3122::/48",
-	"2a06:98c1:3123::/48",
-	"2a06:98c1:3200::/48",
-	"2a06:98c1:50::/48",
-	"2a06:98c1:51::/48",
-	"2a06:98c1:54::/48",
-	"2a06:98c1:58::/48",
+	"2803:f800::/32",
+	"2405:b500::/32",
+	"2405:8100::/32",
+	"2a06:98c0::/29",
+	"2c0f:f248::/32",
 }
 
 type CleanIPGenerator struct {
@@ -375,10 +279,25 @@ func randomIPv6InCIDR(cidr string, rng *rand.Rand) string {
 	}
 	ones, _ := ipnet.Mask.Size()
 	ip := make(net.IP, 16)
-	copy(ip, ipnet.IP)
-	fullBytes := ones / 8
-	for i := fullBytes; i < 16; i++ {
-		ip[i] = byte(rng.Intn(256))
+	copy(ip, ipnet.IP.To16())
+	// Randomize exactly the host bits (everything after the first `ones` bits),
+	// masking at the bit level. Preserving whole bytes (ones/8) only works for
+	// byte-aligned prefixes; a /29 like 2a06:98c0::/29 has 5 network bits in byte
+	// 3, so the old code generated addresses OUTSIDE the published Cloudflare
+	// range — wasting scan budget on IPs that aren't Cloudflare's.
+	for i := 0; i < 16; i++ {
+		bitStart := i * 8
+		switch {
+		case bitStart >= ones:
+			// Fully a host byte — randomize all 8 bits.
+			ip[i] = byte(rng.Intn(256))
+		case bitStart+8 > ones:
+			// Straddling byte — top (ones-bitStart) bits are network, low bits host.
+			hostBits := bitStart + 8 - ones
+			mask := byte((1 << hostBits) - 1)
+			ip[i] = (ip[i] &^ mask) | (byte(rng.Intn(256)) & mask)
+		}
+		// else fully a network byte — leave as-is.
 	}
 	return ip.String()
 }
@@ -392,6 +311,9 @@ type CleanIPResult struct {
 	Passes   int
 	Best     time.Duration
 	Jitter   time.Duration
+	Loss     float64 // packet-loss % from the quality pass (0–100)
+	Score    int     // 0–100 quality rank (latency+jitter+loss)
+	H3       bool    // endpoint answered an HTTP/3 (QUIC) probe
 	Colo     string
 	Loc      string
 }
@@ -715,7 +637,7 @@ func buildColoMap(ctx context.Context, results []CleanIPResult, sni string, maxI
 			case <-ctx.Done():
 				return
 			}
-			colo, loc := probeCloudflareTrace(ctx, t.endpoint, sni, 2*time.Second)
+			colo, loc := probeCloudflareTrace(ctx, t.endpoint, sni, 3*time.Second)
 			if colo == "" && loc == "" {
 				return
 			}
@@ -739,6 +661,125 @@ func applyColo(results []CleanIPResult, coloMap map[string][2]string) {
 			results[i].Colo = cl[0]
 			results[i].Loc = cl[1]
 		}
+	}
+}
+
+// qualitySample is the per-IP quality measurement produced by measureQuality.
+type qualitySample struct {
+	best   time.Duration
+	median time.Duration
+	jitter time.Duration
+	loss   float64 // 0–100
+}
+
+// measureQuality probes up to maxIPs distinct responders (fastest first, since
+// results arrive latency-sorted) with k INDEPENDENT single-shot TCP dials each,
+// yielding per-IP loss / jitter / median. Phase 1 does one dial per endpoint
+// (retried only on timeout) to maximize the discovery hit-rate; that can't
+// measure loss, because a dropped SYN is retried away. This pass deliberately
+// does discrete dials so drops count, and computes the jitter Phase 1 leaves at
+// zero — turning "it responded once" into a real quality signal for the handful
+// of IPs the user will actually pick. Bounded + concurrent and off the dial hot
+// path, exactly like buildColoMap, so dense ranges aren't throttled.
+func measureQuality(ctx context.Context, results []CleanIPResult, k, maxIPs, concurrency int, timeout time.Duration) map[string]qualitySample {
+	if k <= 0 {
+		k = 4
+	}
+	if maxIPs <= 0 {
+		maxIPs = 64
+	}
+	if concurrency <= 0 {
+		concurrency = 48
+	}
+
+	type target struct{ ip, endpoint string }
+	var targets []target
+	seen := make(map[string]bool)
+	for _, r := range results {
+		if !r.Success {
+			continue
+		}
+		ip := ipOnly(r.Endpoint)
+		if ip == "" || seen[ip] {
+			continue
+		}
+		seen[ip] = true
+		targets = append(targets, target{ip: ip, endpoint: r.Endpoint})
+		if len(targets) >= maxIPs {
+			break
+		}
+	}
+
+	out := make(map[string]qualitySample, len(targets))
+	if len(targets) == 0 {
+		return out
+	}
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, concurrency)
+	for _, tgt := range targets {
+		wg.Add(1)
+		go func(t target) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+			var lats []time.Duration
+			for i := 0; i < k; i++ {
+				if ctx.Err() != nil {
+					return
+				}
+				// maxAttempts=1 → one independent dial, no internal retry, so a
+				// dropped/refused connection is recorded as loss rather than masked.
+				if rtt, ok := dialReachable(ctx, t.endpoint, timeout, 1); ok {
+					lats = append(lats, rtt)
+				}
+			}
+			if ctx.Err() != nil {
+				return
+			}
+			sample := qualitySample{loss: lossPercent(len(lats), k)}
+			if len(lats) > 0 {
+				sample.best = bestDuration(lats)
+				sample.median = medianDuration(lats)
+				sample.jitter = jitterDuration(lats)
+			}
+			mu.Lock()
+			out[t.ip] = sample
+			mu.Unlock()
+		}(tgt)
+	}
+	wg.Wait()
+	return out
+}
+
+// applyQuality writes loss/jitter/best from a quality map onto matching results
+// and (re)computes each result's Score from its own displayed latency plus the
+// measured jitter and loss. Phase-1 results score off their TCP latency; Phase-2
+// results keep their tunnel latency and inherit the edge IP's measured loss/jitter,
+// so the score reflects both the proxy path and the underlying IP's stability.
+// Callers must hold job.mu when results is the published job slice.
+func applyQuality(results []CleanIPResult, qmap map[string]qualitySample) {
+	if len(qmap) == 0 {
+		return
+	}
+	for i := range results {
+		s, ok := qmap[ipOnly(results[i].Endpoint)]
+		if !ok {
+			continue
+		}
+		results[i].Loss = s.loss
+		if results[i].Jitter == 0 {
+			results[i].Jitter = s.jitter
+		}
+		if s.best > 0 && (results[i].Best == 0 || s.best < results[i].Best) {
+			results[i].Best = s.best
+		}
+		results[i].Score = qualityScore(results[i].Latency, results[i].Jitter, results[i].Loss)
 	}
 }
 
@@ -1038,9 +1079,36 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	if job.Config != nil {
 		coloSNI = job.Config.SNI
 	}
-	coloMap := buildColoMap(ctx, phase1Results, coloSNI, coloCap, 48)
+	// Enrich the fastest responders with colo, quality (loss/jitter/score), and
+	// h3 reachability — three independent, bounded, top-N passes. They're run
+	// concurrently so the QUIC handshake cost hides under the colo/quality work
+	// instead of adding to the wall clock. Quality is capped tighter than colo
+	// (k dials per IP); h3 tighter still (a full QUIC handshake per IP).
+	qualityCap := coloCap
+	if qualityCap > 96 {
+		qualityCap = 96
+	}
+	h3Cap := qualityCap
+	if h3Cap > 64 {
+		h3Cap = 64
+	}
+	// colo + quality run concurrently (both important and usually fast). The h3
+	// pass runs AFTER, never alongside: a full QUIC handshake is the most
+	// expensive probe, and on UDP-blocked networks every one times out — run
+	// concurrently it starved the colo TLS handshakes and left the Colo column
+	// empty. Keeping h3 last also lets buildH3Map early-bail when QUIC is blocked.
+	var coloMap map[string][2]string
+	var qMap map[string]qualitySample
+	var ewg sync.WaitGroup
+	ewg.Add(2)
+	go func() { defer ewg.Done(); coloMap = buildColoMap(ctx, phase1Results, coloSNI, coloCap, 48) }()
+	go func() { defer ewg.Done(); qMap = measureQuality(ctx, phase1Results, 4, qualityCap, 48, phase1Timeout) }()
+	ewg.Wait()
+	h3Map := buildH3Map(ctx, phase1Results, coloSNI, h3Cap, 24, 3*time.Second)
 	job.mu.Lock()
 	applyColo(job.Phase1Results, coloMap)
+	applyQuality(job.Phase1Results, qMap)
+	applyH3(job.Phase1Results, h3Map)
 	job.mu.Unlock()
 
 	// Nearby scan: expand around working phase 1 results
@@ -1082,8 +1150,18 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			for k, v := range nearbyColo {
 				coloMap[k] = v
 			}
+			nearbyQ := measureQuality(ctx, nearbyPhase1Results, 4, qualityCap, 48, phase1Timeout)
+			for k, v := range nearbyQ {
+				qMap[k] = v // merge so nearby Phase-2 results inherit the sample by IP
+			}
+			nearbyH3 := buildH3Map(ctx, nearbyPhase1Results, coloSNI, h3Cap, 24, 3*time.Second)
+			for k, v := range nearbyH3 {
+				h3Map[k] = v
+			}
 			job.mu.Lock()
 			applyColo(job.NearbyPhase1Results, nearbyColo)
+			applyQuality(job.NearbyPhase1Results, nearbyQ)
+			applyH3(job.NearbyPhase1Results, nearbyH3)
 			job.mu.Unlock()
 		}
 	}
@@ -1325,6 +1403,10 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	job.mu.Lock()
 	applyColo(phase2Results, coloMap)
 	applyColo(nearbyPhase2Results, coloMap)
+	applyQuality(phase2Results, qMap)
+	applyQuality(nearbyPhase2Results, qMap)
+	applyH3(phase2Results, h3Map)
+	applyH3(nearbyPhase2Results, h3Map)
 	job.Phase2Results = phase2Results
 	job.NearbyPhase2Results = nearbyPhase2Results
 	job.Phase2Progress = len(phase2Results) + len(nearbyPhase2Results)

@@ -5,6 +5,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.6.0] — 2026-06-19
+
+Quality-ranking release. Results are no longer ordered by latency alone — every
+endpoint now gets packet-loss, jitter and an HTTP/3 reachability signal folded
+into a single quality score, and the results view visualizes the set.
+
+### Added
+- **Quality score (0–100).** Latency, jitter and packet loss combine into one
+  rank (`metrics.go:qualityScore`); both scanners sort by it by default. The
+  formula leaves room for a future throughput term without touching callers.
+- **Packet loss + jitter.** A bounded, concurrent top-N pass dials the fastest
+  responders with independent probes so dropped connections actually count as
+  loss (clean IP: `cleanip.go:measureQuality`; WARP: derived from the native
+  handshake's multi-attempt passes). Surfaced as a **Loss** column.
+- **HTTP/3 / QUIC reachability.** Each top edge IP is probed over h3
+  (`http3.go`, `github.com/quic-go/quic-go`) and flagged in a **QUIC** column.
+  The pass early-bails on UDP-blocked networks so it costs ~one probe there.
+- **Result visualizations** (pure SVG, no new frontend deps): latency
+  distribution, quality mix, and top-datacenter bars (`ResultCharts.svelte`).
+- **CSV + JSON export** of results (`lib/exporters.js`), alongside the existing
+  raw/QR/subscription outputs.
+- **Recent-scans history** — a local, summary-only log of finished scans
+  (`ScanHistory.svelte`).
+
+### Changed
+- **Results stream off the SSE status channel** (throttled) instead of a blind
+  `setInterval` poll — fewer redundant fetches, and the enriched terminal
+  snapshot always lands.
+- **Cloudflare IP pools updated to the official compact ranges** (v4 + v6 from
+  cloudflare.com/ips); the old hand-split list had missed `172.68.0.0–172.71.*`.
+- The two scanner tabs now share one results action bar (`ResultsActions.svelte`).
+
+### Fixed
+- **IPv6 generator emitted out-of-range addresses** for non-byte-aligned
+  prefixes (e.g. `2a06:98c0::/29`), wasting scan budget on non-Cloudflare IPs.
+  Host bits are now masked at the bit level. (`cleanip.go:randomIPv6InCIDR`)
+- **Colo column could come up empty** when colo/quality/h3 enrichment ran
+  concurrently: the QUIC pass starved the colo TLS handshakes past their
+  timeout. h3 now runs after colo+quality and the colo probe timeout is more
+  forgiving. (`cleanip.go`)
+- Hardened parsing/validation: reject empty address or out-of-range port in
+  proxy URLs, reject invalid custom-range lines and replacer endpoints, and cap
+  replacer output count. (`proxy.go`, `server.go`)
+
+---
+
 ## [v3.5.1] — 2026-06-14
 
 Bug-fix release from a full audit of the scan/parse pipelines. No new features;

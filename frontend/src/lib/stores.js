@@ -56,3 +56,27 @@ export function beginResultsPersistence() {
   endpointRaw.subscribe(persistResults)
   cleanData.subscribe(persistResults)
 }
+
+// ─── Scan history (cfscanner_history) ───
+// A lightweight rolling log of finished scans (summary only — not full result
+// sets) so the user can see what they ran and compare runs over time. One-shot
+// tool: this is local memory, not a scheduler.
+const HISTORY_KEY = 'cfscanner_history'
+const HISTORY_MAX = 25
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') || [] } catch { return [] }
+}
+export const scanHistory = writable(loadHistory())
+
+export function recordScan(entry) {
+  scanHistory.update((list) => {
+    const next = [{ ...entry, ts: entry.ts || Date.now() }, ...list].slice(0, HISTORY_MAX)
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)) } catch {}
+    return next
+  })
+}
+
+export function clearHistory() {
+  try { localStorage.removeItem(HISTORY_KEY) } catch {}
+  scanHistory.set([])
+}
