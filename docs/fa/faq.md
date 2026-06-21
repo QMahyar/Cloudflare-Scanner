@@ -5,6 +5,7 @@
 ### این برنامه چه کاری انجام می‌دهد؟
 
 سه ابزار دارد:
+
 1. **اسکنر اندپوینت** — اندپوینت‌های واپ کلاودفلر را که کانفیگ WireGuard شما روی آنها کار می‌کند پیدا می‌کند
 2. **اسکنر آی‌پی** — آی‌پی‌های کلاودفلر را که به عنوان پروکسی با لینک VLESS/Trojan شما کار می‌کنند پیدا می‌کند
 3. **جایگزین آی‌پی** — تمام ترکیب‌های کانفیگ‌های اشتراک شما با لیست اندپوینت‌های تمیز را تولید می‌کند
@@ -22,6 +23,15 @@
 بله. رابط وب تا ۳۶۰ پیکسل کاملاً واکنش‌گرا است. بعد از اجرای برنامه روی دسکتاپ/سرور، آدرس `http://127.0.0.1:PORT` را در مرورگر گوشی باز کنید، یا مستقیماً در Termux روی اندروید اجرا کنید.
 
 ## اجرا
+
+### نصب‌کننده یک‌خطی کار نمی‌کند
+
+دستور را در شل درست اجرا کنید:
+
+- ویندوز: `[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; irm https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-windows.ps1 | iex` را در PowerShell اجرا کنید
+- لینوکس: `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-linux.sh | sh` را در شل واقعی لینوکس اجرا کنید، نه Git Bash/WSL ویندوز
+- مک: `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-macos.sh | sh`
+- Termux: `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh`
 
 ### مرورگر به صورت خودکار باز نشد
 
@@ -100,6 +110,7 @@
 ### می‌گوید "no valid configs found"
 
 چک کنید:
+
 - لینک اشتراک قابل دسترسی باشد (پشت صفحه ورود نباشد)
 - متن چسبانده شده شامل لینک‌های معتبر `vless://`، `trojan://` یا `vmess://` باشد
 - پاسخ اشتراک خالی یا HTML نباشد (بعضی ارائه‌دهندگان صفحه ورود برمی‌گردانند)

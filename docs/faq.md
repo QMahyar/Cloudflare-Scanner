@@ -5,6 +5,7 @@
 ### What does this app do?
 
 It has three tools:
+
 1. **Endpoint Scanner** — Finds Cloudflare Warp endpoints where your WireGuard config works
 2. **IP Scanner** — Finds Cloudflare IPs that work as proxies with your VLESS/Trojan URL
 3. **IP Replacer** — Generates all combinations of your subscription configs with a list of clean endpoints
@@ -22,6 +23,15 @@ No. The app bundles xray-core v1.8.24. Everything is self-contained in the archi
 Yes. The web UI is fully responsive down to 360 px. Open `http://127.0.0.1:PORT` in your phone's browser after launching the app on a desktop/server, or run it directly in Termux on Android.
 
 ## Running
+
+### The one-liner installer doesn't work
+
+Use the installer for the shell you are actually in:
+
+- Windows: run `[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; irm https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-windows.ps1 | iex` in PowerShell
+- Linux: run `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-linux.sh | sh` in a real Linux shell, not Git Bash/WSL on Windows
+- macOS: run `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-macos.sh | sh`
+- Termux: run `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh`
 
 ### The browser doesn't open automatically
 
@@ -104,6 +114,7 @@ Newlines, spaces, commas, semicolons, and pipes: `, ; |`. You can mix them.
 ### It says "no valid configs found"
 
 Check that:
+
 - Your subscription URL is accessible (not behind a login page or expired)
 - Your pasted text contains valid `vless://`, `trojan://`, or `vmess://` URLs
 - The subscription response is not empty or HTML (some providers return a login page)

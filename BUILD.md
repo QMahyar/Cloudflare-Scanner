@@ -210,10 +210,8 @@ User uploads .conf  ──>  ParseWarpConfig() → extracted keys/addresses/rese
                      Worker 1        Worker 2 ...  Worker N
                           │              │              │
                      testEndpointAttempts (2 attempts)
-                     └─ GenerateConfig(endpoint, port) → xray JSON
-                     └─ StartXray() → xray process
-                     └─ WaitForPort() → SOCKS5 listener up
-                     └─ SOCKS5 handshake → HTTP GET generate_204
+                     └─ no noise: WarpHandshakeProbe() native UDP handshake
+                     └─ with noise: xray WG outbound → SOCKS5 → HTTP GET
                      └─ median latency across attempts
                           │              │              │
                           └──────────────┴──────────────┘

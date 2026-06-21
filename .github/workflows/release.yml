@@ -2,16 +2,17 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
         description: 'Version number — no "v" prefix (e.g. 2.1.0)'
         required: true
       changelog:
-        description: "What's changed — markdown (leave empty to auto-generate from git log)"
+        description: >-
+          What's changed — markdown (leave empty to auto-generate from git log)
         required: false
-        default: ''
+        default: ""
 
 env:
   XRAY_VERSION: v1.8.24
@@ -91,8 +92,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
       - name: Build UI
@@ -103,7 +104,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version: "1.26"
           cache: true
 
       - name: Resolve version
@@ -114,14 +115,17 @@ jobs:
           # input) must match it, so the version can't drift between files.
           BASE=$(tr -d ' \t\r\n' < VERSION)
           TAG="v${BASE#v}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
-            if [ "v${{ inputs.version }}" != "$TAG" ]; then
-              echo "::error::workflow_dispatch version '${{ inputs.version }}' does not match VERSION file ('$BASE'). Bump VERSION or fix the input."
+          EVENT="${{ github.event_name }}"
+          INPUT_VERSION="${{ inputs.version }}"
+          REF_NAME="${{ github.ref_name }}"
+          if [ "$EVENT" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION" ]; then
+            if [ "v$INPUT_VERSION" != "$TAG" ]; then
+              echo "::error::workflow_dispatch version must match VERSION"
               exit 1
             fi
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            if [ "${{ github.ref_name }}" != "$TAG" ]; then
-              echo "::error::Pushed tag '${{ github.ref_name }}' does not match VERSION file ('$TAG'). Bump VERSION and re-tag so they match."
+          elif [ "$EVENT" = "push" ]; then
+            if [ "$REF_NAME" != "$TAG" ]; then
+              echo "::error::Pushed tag must match VERSION"
               exit 1
             fi
           fi
@@ -146,7 +150,10 @@ jobs:
       - name: Download xray-core
         shell: bash
         run: |
-          XRAY_URL="https://github.com/XTLS/Xray-core/releases/download/${{ env.XRAY_VERSION }}/${{ matrix.xray_zip }}"
+          XRAY_BASE="https://github.com/XTLS/Xray-core/releases/download"
+          XRAY_VERSION="${{ env.XRAY_VERSION }}"
+          XRAY_ZIP="${{ matrix.xray_zip }}"
+          XRAY_URL="${XRAY_BASE}/${XRAY_VERSION}/${XRAY_ZIP}"
           curl -fsSL "$XRAY_URL" -o xray.zip
           unzip -o xray.zip "${{ matrix.xray_in }}"
           chmod +x "${{ matrix.xray_in }}" 2>/dev/null || true
@@ -195,14 +202,17 @@ jobs:
           # input) must match it, so the version can't drift between files.
           BASE=$(tr -d ' \t\r\n' < VERSION)
           TAG="v${BASE#v}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.version }}" ]; then
-            if [ "v${{ inputs.version }}" != "$TAG" ]; then
-              echo "::error::workflow_dispatch version '${{ inputs.version }}' does not match VERSION file ('$BASE'). Bump VERSION or fix the input."
+          EVENT="${{ github.event_name }}"
+          INPUT_VERSION="${{ inputs.version }}"
+          REF_NAME="${{ github.ref_name }}"
+          if [ "$EVENT" = "workflow_dispatch" ] && [ -n "$INPUT_VERSION" ]; then
+            if [ "v$INPUT_VERSION" != "$TAG" ]; then
+              echo "::error::workflow_dispatch version must match VERSION"
               exit 1
             fi
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            if [ "${{ github.ref_name }}" != "$TAG" ]; then
-              echo "::error::Pushed tag '${{ github.ref_name }}' does not match VERSION file ('$TAG'). Bump VERSION and re-tag so they match."
+          elif [ "$EVENT" = "push" ]; then
+            if [ "$REF_NAME" != "$TAG" ]; then
+              echo "::error::Pushed tag must match VERSION"
               exit 1
             fi
           fi
@@ -223,11 +233,14 @@ jobs:
             echo "$MANUAL" > changelog.md
           else
             # Auto-generate from commits since the previous tag
-            PREV=$(git describe --abbrev=0 --tags HEAD^ 2>/dev/null || git rev-list --max-parents=0 HEAD)
+            PREV=$(git describe --abbrev=0 --tags HEAD^ 2>/dev/null \
+              || git rev-list --max-parents=0 HEAD)
             {
               echo "### Commits since $PREV"
               echo ""
-              git log --pretty=format:"- %s" "$PREV..HEAD" | grep -v "^- docs:" | head -30
+              git log --pretty=format:"- %s" "$PREV..HEAD" \
+                | grep -v "^- docs:" \
+                | head -30
             } > changelog.md
           fi
           cat changelog.md
@@ -245,6 +258,14 @@ jobs:
           xray = os.environ['XRAY']
           repo = os.environ['REPO']
           raw  = f"https://raw.githubusercontent.com/{repo}/master"
+          exe  = f"**Cloudflare Scanner {tag}**"
+          xray_name = f"**xray-core {xray}**"
+          archive_note = f"Each archive includes {exe} + {xray_name}."
+          windows_install = (
+              "[Net.ServicePointManager]::SecurityProtocol="
+              "[Net.SecurityProtocolType]::Tls12; "
+              f"irm {raw}/scripts/install-windows.ps1 | iex"
+          )
 
           with open('changelog.md') as f:
               changelog = f.read().strip()
@@ -252,23 +273,21 @@ jobs:
           body = textwrap.dedent(f"""\
           ## Downloads
 
-          Each archive includes **Cloudflare Scanner {tag}** + **xray-core {xray}** — no separate download needed.
+          {archive_note}
 
-          | Platform | Architecture | File |
-          |----------|-------------|------|
-          | 🪟 Windows | x86-64 | `Cloudflare-Scanner-{tag}-windows-amd64.zip` |
-          | 🪟 Windows | ARM64 | `Cloudflare-Scanner-{tag}-windows-arm64.zip` |
-          | 🐧 Linux | x86-64 | `Cloudflare-Scanner-{tag}-linux-amd64.tar.gz` |
-          | 🐧 Linux | ARM64 / Raspberry Pi | `Cloudflare-Scanner-{tag}-linux-arm64.tar.gz` |
-          | 🍎 macOS | Intel (x86-64) | `Cloudflare-Scanner-{tag}-darwin-amd64.tar.gz` |
-          | 🍎 macOS | Apple Silicon | `Cloudflare-Scanner-{tag}-darwin-arm64.tar.gz` |
-          | 📱 Termux / Android | ARM64 | `Cloudflare-Scanner-{tag}-termux-arm64.tar.gz` |
+          - Windows x86-64: `Cloudflare-Scanner-{tag}-windows-amd64.zip`
+          - Windows ARM64: `Cloudflare-Scanner-{tag}-windows-arm64.zip`
+          - Linux x86-64: `Cloudflare-Scanner-{tag}-linux-amd64.tar.gz`
+          - Linux ARM64: `Cloudflare-Scanner-{tag}-linux-arm64.tar.gz`
+          - macOS Intel: `Cloudflare-Scanner-{tag}-darwin-amd64.tar.gz`
+          - macOS Apple Silicon: `Cloudflare-Scanner-{tag}-darwin-arm64.tar.gz`
+          - Termux Android: `Cloudflare-Scanner-{tag}-termux-arm64.tar.gz`
 
           ## One-Liner Install
 
           ```powershell
-          # Windows (PowerShell — run as Administrator)
-          irm {raw}/scripts/install-windows.ps1 | iex
+          # Windows (PowerShell)
+          {windows_install}
           ```
 
           ```sh

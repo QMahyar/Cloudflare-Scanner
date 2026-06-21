@@ -41,14 +41,19 @@ Anyone who uses **Cloudflare WARP**, **v2ray/v2rayN**, **Nekobox**, **Sing-box**
 
 Each archive contains the app **and** xray-core — nothing extra to install.
 
-### 2. Extract and Run
+### 2. Install and Run
+
+Use the one-liner for your OS, or download and extract the archive manually.
 
 <details>
-<summary><strong>Windows</strong></summary>
+<summary><strong>Windows — PowerShell</strong></summary>
 
-1. Right-click the `.zip` → **Extract All** (or use [7-Zip](https://7-zip.org))
-2. Double-click `Cloudflare-Scanner.exe`
-3. A browser tab opens at `http://127.0.0.1:PORT`
+```powershell
+[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; irm https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-windows.ps1 | iex
+Cloudflare-Scanner
+```
+
+Run this in **PowerShell**, not Git Bash/WSL. Manual install: extract the `.zip`, keep `Cloudflare-Scanner.exe` and `xray.exe` together, then double-click `Cloudflare-Scanner.exe`.
 
 *Troubleshooting:* Antivirus may flag `xray.exe` — add an exclusion for the extracted folder.
 </details>
@@ -57,21 +62,35 @@ Each archive contains the app **and** xray-core — nothing extra to install.
 <summary><strong>Linux</strong></summary>
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-linux.sh | sh
+cloudflare-scanner
+```
+
+Manual install:
+
+```bash
 tar -xzf Cloudflare-Scanner-*-linux-amd64.tar.gz
 chmod +x Cloudflare-Scanner xray
 ./Cloudflare-Scanner
 ```
 
-ARM64: use the `*-linux-arm64.tar.gz` archive.
+ARM64: use the `*-linux-arm64.tar.gz` archive. Do not use this installer in Git Bash on Windows; use the PowerShell command instead.
 </details>
 
 <details>
 <summary><strong>macOS</strong></summary>
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-macos.sh | sh
+cloudflare-scanner
+```
+
+Manual install:
+
+```bash
 tar -xzf Cloudflare-Scanner-*-darwin-arm64.tar.gz   # Apple Silicon
 chmod +x Cloudflare-Scanner xray
-xattr -dr com.apple.quarantine xray  # remove Gatekeeper flag
+xattr -dr com.apple.quarantine Cloudflare-Scanner xray
 ./Cloudflare-Scanner
 ```
 
@@ -107,7 +126,7 @@ Each tab has built-in guidance and tooltips — start with **Endpoint Scanner** 
 
 | Feature | Details |
 |---------|---------|
-| **WARP endpoint scanning** | Tests WireGuard endpoints via SOCKS5 through real xray-core outbound |
+| **WARP endpoint scanning** | Tests WireGuard endpoints with the native WireGuard handshake; xray is used only for UDP-noise scans |
 | **Clean IP scanning** | Two-phase: fast TCP probe → Xray validation (VLESS/Trojan) |
 | **Custom ranges** | Scan your own CIDR / `a-b` ranges / single IPs (or a file) instead of the CF pool — small ranges scanned in full, large ones sampled |
 | **Port selection** | All 13 official CF CDN ports (HTTP + HTTPS) |

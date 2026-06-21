@@ -204,10 +204,8 @@ Cloudflare-Scanner/
                         Worker 1        Worker 2 ...  Worker N
                              │              │              │
                         testEndpointAttempts (۲ تلاش)
-                        └─ GenerateConfig(endpoint, port) → JSON xray
-                        └─ StartXray() → فرآیند xray
-                        └─ WaitForPort() → SOCKS5 آماده
-                        └─ دست دادن SOCKS5 → HTTP GET generate_204
+                        └─ بدون نویز: WarpHandshakeProbe() هندشیک UDP بومی
+                        └─ با نویز: xray WG outbound → SOCKS5 → HTTP GET
                         └─ میانه تأخیر در تلاش‌ها
                              │              │              │
                              └──────────────┴──────────────┘

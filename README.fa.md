@@ -41,14 +41,19 @@
 
 هر فایل شامل برنامه **و** xray-core است.
 
-### ۲. استخراج و اجرا
+### ۲. نصب و اجرا
+
+از دستور یک‌خطی مخصوص سیستم‌عامل خودتان استفاده کنید، یا آرشیو را دستی دانلود و استخراج کنید.
 
 <details>
-<summary><strong>ویندوز</strong></summary>
+<summary><strong>ویندوز — PowerShell</strong></summary>
 
-۱. روی فایل `.zip` راست‌کلیک → **Extract All**  
-۲. دوبار کلیک روی `Cloudflare-Scanner.exe`  
-۳. یک تب مرورگر در `http://127.0.0.1:PORT` باز می‌شود
+```powershell
+[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; irm https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-windows.ps1 | iex
+Cloudflare-Scanner
+```
+
+این دستور را در **PowerShell** اجرا کنید، نه Git Bash/WSL. نصب دستی: فایل `.zip` را استخراج کنید، `Cloudflare-Scanner.exe` و `xray.exe` را کنار هم نگه دارید، سپس `Cloudflare-Scanner.exe` را اجرا کنید.
 
 *عیب‌یابی:* آنتی‌ویروس ممکن است `xray.exe` را بلاک کند — برای پوشه استثنا تعریف کنید.
 </details>
@@ -57,21 +62,35 @@
 <summary><strong>لینوکس</strong></summary>
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-linux.sh | sh
+cloudflare-scanner
+```
+
+نصب دستی:
+
+```bash
 tar -xzf Cloudflare-Scanner-*-linux-amd64.tar.gz
 chmod +x Cloudflare-Scanner xray
 ./Cloudflare-Scanner
 ```
 
-ARM64: از آرشیو `*-linux-arm64.tar.gz` استفاده کنید.
+ARM64: از آرشیو `*-linux-arm64.tar.gz` استفاده کنید. این نصب‌کننده را در Git Bash ویندوز اجرا نکنید؛ در ویندوز از دستور PowerShell استفاده کنید.
 </details>
 
 <details>
 <summary><strong>مک</strong></summary>
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-macos.sh | sh
+cloudflare-scanner
+```
+
+نصب دستی:
+
+```bash
 tar -xzf Cloudflare-Scanner-*-darwin-arm64.tar.gz   # Apple Silicon
 chmod +x Cloudflare-Scanner xray
-xattr -dr com.apple.quarantine xray
+xattr -dr com.apple.quarantine Cloudflare-Scanner xray
 ./Cloudflare-Scanner
 ```
 
@@ -105,7 +124,7 @@ scan
 
 | ویژگی | جزئیات |
 |---------|---------|
-| **اسکن اندپوینت WARP** | تست اندپوینت‌های WireGuard از طریق SOCKS5 با xray-core واقعی |
+| **اسکن اندپوینت WARP** | تست اندپوینت‌های WireGuard با هندشیک بومی WireGuard؛ xray فقط برای اسکن‌های دارای UDP Noise استفاده می‌شود |
 | **اسکن آی‌پی تمیز** | دو فاز: پروب TCP سریع → اعتبارسنجی با Xray (VLESS/Trojan) |
 | **محدوده‌های دلخواه** | به‌جای مخزن کلاودفلر، CIDR / محدودهٔ `a-b` / تک‌آی‌پی خودتان (یا یک فایل) را اسکن کنید — محدوده‌های کوچک کامل، بزرگ‌ها نمونه‌برداری |
 | **انتخاب پورت** | هر ۱۳ پورت رسمی CDN کلاودفلر (HTTP + HTTPS) |

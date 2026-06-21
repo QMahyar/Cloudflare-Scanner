@@ -1,9 +1,14 @@
 #Requires -Version 5.1
 # Cloudflare Scanner — one-liner installer for Windows
-# Run in PowerShell (as Administrator for PATH update):
-#   irm https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-windows.ps1 | iex
+# Run in PowerShell:
+#   [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; irm https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-windows.ps1 | iex
 
 $ErrorActionPreference = 'Stop'
+
+if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
+    Write-Error "This installer is for Windows PowerShell/pwsh only. Use scripts/install-linux.sh or scripts/install-macos.sh on Unix."
+    exit 1
+}
 
 $Repo      = "QMahyar/Cloudflare-Scanner"
 $InstallDir = "$env:LOCALAPPDATA\CloudflareScanner"

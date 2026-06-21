@@ -5,6 +5,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **One-liner installers could install the wrong binary.** The Unix installers
+  only checked CPU architecture, so running `install-linux.sh` in Git Bash/MSYS
+  on Windows downloaded a Linux ELF that then failed with `Exec format error`.
+  Each installer now verifies the OS first and points users to the correct
+  script: `install-linux.sh` requires Linux (and rejects Termux), `install-
+  macos.sh` requires macOS, `termux-setup.sh` requires Termux, and `install-
+  windows.ps1` rejects non-Windows `pwsh`.
+- **Windows one-liner failed on stock Windows PowerShell 5.1** behind older TLS
+  defaults. The documented command and the generated release notes now set
+  `Tls12` before fetching from GitHub, and the “run as Administrator” note was
+  dropped (the installer only edits the per-user PATH).
+
+### Documentation
+
+- README (EN/FA) now lead with the working per-OS one-liners plus manual-install
+  fallbacks, and warn against running the Linux installer from Git Bash on
+  Windows. Added a matching FAQ entry.
+- Corrected the WARP endpoint-scanning description in README and BUILD (EN/FA):
+  validation uses the native WireGuard handshake by default and only falls back
+  to xray for UDP-noise scans.
+
+---
+
 ## [v3.6.0] — 2026-06-19
 
 Quality-ranking release. Results are no longer ordered by latency alone — every
@@ -12,6 +39,7 @@ endpoint now gets packet-loss, jitter and an HTTP/3 reachability signal folded
 into a single quality score, and the results view visualizes the set.
 
 ### Added
+
 - **Quality score (0–100).** Latency, jitter and packet loss combine into one
   rank (`metrics.go:qualityScore`); both scanners sort by it by default. The
   formula leaves room for a future throughput term without touching callers.
@@ -30,6 +58,7 @@ into a single quality score, and the results view visualizes the set.
   (`ScanHistory.svelte`).
 
 ### Changed
+
 - **Results stream off the SSE status channel** (throttled) instead of a blind
   `setInterval` poll — fewer redundant fetches, and the enriched terminal
   snapshot always lands.
@@ -38,6 +67,7 @@ into a single quality score, and the results view visualizes the set.
 - The two scanner tabs now share one results action bar (`ResultsActions.svelte`).
 
 ### Fixed
+
 - **IPv6 generator emitted out-of-range addresses** for non-byte-aligned
   prefixes (e.g. `2a06:98c0::/29`), wasting scan budget on non-Cloudflare IPs.
   Host bits are now masked at the bit level. (`cleanip.go:randomIPv6InCIDR`)
@@ -57,6 +87,7 @@ Bug-fix release from a full audit of the scan/parse pipelines. No new features;
 behaviour is unchanged except where it was previously broken.
 
 ### Fixed
+
 - **Endpoint Scanner hung forever on the "Insane" (5000) and "Massive" (10000)
   depth presets.** The WARP IPv4 endpoint generator draws from a finite pool of
   14 prefixes × 256 = **3584** unique addresses, but its uniqueness loop had no
@@ -100,6 +131,7 @@ behaviour is unchanged except where it was previously broken.
   idle connections on return. (`cleanip.go`)
 
 ### Tests
+
 - Added `endpoint_test.go` covering exact-count generation, the exhausted-pool
   attempt bound (a regression guard that hangs the suite if the cap is removed),
   and the IPv4-only / no-IPv6-leak invariant.
@@ -109,6 +141,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v3.5.0] — 2026-06-13
 
 ### Added
+
 - **Concurrency control in Endpoint Scanner Advanced settings.** Users can now
   tune the number of concurrent workers (default: 0 = auto, which uses 256 for
   native WireGuard handshake or 12 for noise mode). Useful for optimizing scan
@@ -123,6 +156,7 @@ behaviour is unchanged except where it was previously broken.
   `/api/version` endpoint (`about.go`).
 
 ### Performance
+
 - **xray is now pooled per batch instead of spawned per endpoint.** Clean-IP
   Phase 2 and the WARP noise fallback build one xray config (a SOCKS inbound +
   outbound + routing rule per endpoint) and run a batch of 16 through a single
@@ -131,6 +165,7 @@ behaviour is unchanged except where it was previously broken.
   a fresh batch. (`cleanip.go`, `scanner.go`, `proxy.go`, `xray.go`, `server.go`)
 
 ### Changed
+
 - **Frontend build artifacts (`ui/dist/`) no longer committed to Git.** CI/CD
   workflows now automatically build the UI before Go compilation. Local builds
   require `cd frontend && npm run build` before `go build`. Keeps the repository
@@ -141,6 +176,7 @@ behaviour is unchanged except where it was previously broken.
   proper Go tooling support and `go install` compatibility. (`go.mod`)
 
 ### Fixed
+
 - **Release build break:** `sort.js` now exports `latBar`, which
   `EndpointScanner.svelte` imports — the missing export had failed the
   production Vite build (and every release-workflow platform job).
@@ -151,6 +187,7 @@ behaviour is unchanged except where it was previously broken.
   working config's SNI so DPI doesn't reset the `/cdn-cgi/trace` lookup.
 
 ### Documentation
+
 - Added `IMPROVEMENTS.md` documenting the three architectural improvements,
   including rationale, implementation details, testing recommendations, and
   rollout plan.
@@ -161,6 +198,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v3.4.1] — 2026-06-11
 
 ### Fixed
+
 - **IP Scanner Phase 2 failed for every clean IP when the config had no explicit
   `sni=`.** Validation repoints the config's address at each candidate IP, after
   which xray fell back to using that raw IP as the TLS SNI — which Cloudflare
@@ -171,6 +209,7 @@ behaviour is unchanged except where it was previously broken.
   address is already a bare IP, are unaffected. (`proxy.go`)
 
 ### Changed
+
 - **Phase-2 failures now surface the real cause from xray's log** instead of a
   generic "no usable response through the tunnel". A reset handshake now reads as
   `connection reset mid-handshake (likely ISP/DPI filtering or a dead origin)`,
@@ -178,6 +217,7 @@ behaviour is unchanged except where it was previously broken.
   all-failed Phase 2 is diagnosable rather than a silent dead end. (`cleanip.go`)
 
 ### Security
+
 - Force `esbuild` to `^0.25.0` via an npm `overrides`, clearing the transitive
   `svelte-i18n → esbuild@0.19.12` advisory (GHSA-67mh-4wv8-2f99). Dev-only with
   no runtime exposure — the build already used Vite's patched esbuild and the
@@ -188,6 +228,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v3.4.0] — 2026-06-11
 
 ### Changed
+
 - **Frontend rewritten as a Vite + Svelte 5 SPA** (`frontend/`), built to
   `ui/dist/` and embedded via `//go:embed all:ui/dist`. Replaces the old
   monolithic hand-written HTML/JS UI; behavior, settings keys, and persisted
@@ -206,6 +247,7 @@ behaviour is unchanged except where it was previously broken.
   `paths:` trigger so Go-only pushes don't needlessly run `npm ci && npm build`.
 
 ### Fixed
+
 - **AudioContext exhaustion on rapid scan completions** — `beep()` previously
   created a new `AudioContext` per call and closed it 600 ms later. Chrome caps
   concurrent instances at 6; back-to-back completions silently failed beyond
@@ -221,6 +263,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v3.3.0] — 2026-06-09
 
 ### Added
+
 - **About tab** — version, GitHub source link, and an update check (proxied
   through Go via `/api/version` + `/api/update-check` so the page CSP stays locked
   to `'self'`). Includes a crypto donation section (USDT-TRC20/TRON, native
@@ -260,6 +303,7 @@ behaviour is unchanged except where it was previously broken.
   `main.go`).
 
 ### Changed
+
 - `dist/` is gitignored so local build archives no longer show up as untracked.
 - **Result action bars moved above the table** — Copy All / Download / Export /
   Select are now reachable at the top of every results list (Endpoint scanner,
@@ -269,6 +313,7 @@ behaviour is unchanged except where it was previously broken.
   fast IPs.
 
 ### Fixed
+
 - **IP-Scanner Phase 2 failing for CDN-fronted configs** — the xray validation
   builder now falls back the WebSocket / httpupgrade `Host` header to the SNI when
   no explicit `host=` is set (matching `GenerateShareURL`). Previously xray sent
@@ -284,6 +329,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v3.2.0] — 2026-06-09
 
 ### Added
+
 - **Native WireGuard handshake probing for the Endpoint Scanner.** WARP endpoints
   are now validated with a real Noise_IKpsk2 handshake over UDP (`warp_probe.go`),
   using the uploaded `.conf`'s registered credentials, instead of spinning up an
@@ -299,6 +345,7 @@ behaviour is unchanged except where it was previously broken.
   never displayed.
 
 ### Changed
+
 - **IP Scanner Phase 1 is much faster on dense ranges.** The `/cdn-cgi/trace`
   colo/loc probe was moved out of the TCP-dial hot path; it now runs as a bounded,
   concurrent enrichment pass over the fastest responders (`buildColoMap`) instead
@@ -307,6 +354,7 @@ behaviour is unchanged except where it was previously broken.
   scans), so scanning works when the app is installed in a read-only location.
 
 ### Fixed
+
 - Clean-IP validation now requires an exact HTTP 204 (was 204 *or* 200), avoiding
   false positives from captive-portal / edge error pages.
 - Apply-results filenames, paths, and config contents are now HTML-escaped before
@@ -317,6 +365,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v3.1.1] — 2026-06-08
 
 ### Fixed
+
 - **`scripts/build.ps1` failed to run on stock Windows PowerShell 5.1** — the file
   was BOM-less UTF-8, so 5.1 decoded its box-drawing/em-dash characters as ANSI and
   the script failed to parse (`Unexpected token '}'`). It only worked under
@@ -333,6 +382,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v3.1.0] — 2026-06-07
 
 ### Added
+
 - **Custom-range scanning (IP Scanner)** — a new **IP source** toggle lets you
   scan your own ranges instead of the built-in Cloudflare pool. Accepts CIDR
   (`104.16.0.0/13`), dash ranges (`104.16.0.0-104.16.5.255` and short
@@ -345,6 +395,7 @@ behaviour is unchanged except where it was previously broken.
   `custom_ranges` field. (`iprange.go`, `server.go`, `ui/index.html`)
 
 ### Changed
+
 - **Nearby scan now expands around *every* working Phase-1 responder**, not just
   the fastest 10 (the previous hardcoded cap). A new `maxNearbyEndpoints` ceiling
   keeps the total bounded when many IPs respond. (`cleanip.go`)
@@ -353,6 +404,7 @@ behaviour is unchanged except where it was previously broken.
   `select{}` forever. (`main.go`)
 
 ### Fixed
+
 - **Clean-IP `/cdn-cgi/trace` colo probe is now cancellable** — it honors the
   job context instead of `context.Background()`, so stopping a scan no longer
   leaves trace probes running. (`cleanip.go`)
@@ -362,6 +414,7 @@ behaviour is unchanged except where it was previously broken.
   (`ui/index.html`)
 
 ### Internal
+
 - Removed dead code (`Scanner.Run`, `Scanner.testEndpoint`, `XrayManager.WaitForPort`).
 - Deduplicated the replacer `ProxyConfig` ↔ entry mapping into shared helpers. (`server.go`)
 - Added tests: `iprange_test.go` (range parsing + smart selection) and a
@@ -372,6 +425,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v3.0.1] — 2026-06-07
 
 ### Fixed
+
 - **Phase 2 mux interference** — strip `PacketEncoding` (mux/xudp) from the
   xray config used during Phase 2 clean-IP validation. A single `GET /generate_204`
   probe through a mux-enabled outbound would stall or mis-report latency because
@@ -384,6 +438,7 @@ behaviour is unchanged except where it was previously broken.
   message gave no diagnosis. (`server.go`, `ui/index.html`)
 
 ### Added
+
 - **Local build scripts** — `scripts/build.sh` (Linux / macOS / Termux) and
   `scripts/build.ps1` (Windows PowerShell). Both scripts:
   - Auto-install Go if missing or too old (reads the required version from `go.mod`)
@@ -399,6 +454,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v3.0.0] — 2026-06-07
 
 ### Added
+
 - **Fully responsive UI** — phone, tablet, and PC all supported with a single adaptive layout
 - **Safe-area insets** — `env(safe-area-inset-*)` padding on body and toast; correct display on notched phones (iPhone X+, Android punch-hole/island)
 - **Icon-only tabs on very small phones (≤ 380 px)** — all three tabs fit at 320 px without overflow; labels reappear above 381 px
@@ -406,6 +462,7 @@ behaviour is unchanged except where it was previously broken.
 - **Tablet column wrapping (640–768 px)** — 3-column settings rows (Phase 1/2 probes + Phase 2 count) wrap to 2 + 1 when columns would be too narrow to read
 
 ### Changed
+
 - **Button bar** — buttons use natural content width on desktop/tablet (≥ 640 px) instead of stretching to fill the full 1040 px container; equal-width fill is kept on mobile for easy tapping
 - **Fetch button** — full-width on mobile (≤ 480 px) to match the URL input above it in the stacked layout
 - **App shell** — border-radius reduced on mobile; inner padding tightened
@@ -420,12 +477,14 @@ behaviour is unchanged except where it was previously broken.
 ## [v2.0.1] — 2026-06-03
 
 ### Fixed
+
 - **Stop now cancels instantly** — `runScan` and `runCleanPhase1TCP` no longer block on `wg.Wait()` after cancel. Partial results return immediately; in-flight goroutines drain in the background.
 - **Progress text wasn't updating** — a local variable `t` in `pollCleanStatus` was shadowing the `t()` translation function, breaking Phase 1/2 progress text with a silent `TypeError`.
 - **Reset/Rescan buttons** — Start button now works correctly in TCP-only mode after Reset. Scan/Rescan buttons restore immediately after Stop instead of waiting for the next poll interval.
 - **Rescan progress bar** — `startScan` now resets the progress bar width and cancelled class on a fresh run, so Rescan after a cancelled scan shows a clean bar.
 
 ### Changed
+
 - `switchTab` renamed `forEach` loop variable to avoid confusion with the `t()` translation function.
 
 ---
@@ -433,6 +492,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v2.0.0] — 2026-06-03
 
 ### Added
+
 - **Port selection in IP Scanner** — choose which Cloudflare CDN ports to scan via a persistent checkbox grid
   - Quick-select presets: **443 only**, **HTTPS (6)**, **HTTP (7)**, **All (13)**, **Config port** (reads port from VLESS URL)
   - Supported ports: HTTP 80, 8080, 8880, 2052, 2082, 2086, 2095 · HTTPS 443, 8443, 2053, 2083, 2087, 2096
@@ -445,6 +505,7 @@ behaviour is unchanged except where it was previously broken.
 - **Windows `.zip` archives** — Windows releases packaged as `.zip` in addition to `.tar.gz` for easier extraction
 
 ### Changed
+
 - `GenerateIPs` refactored to accept `[]int` ports; separates unique-IP generation from endpoint building
 - `generateNearbyIPs` updated to probe all selected ports per nearby IP
 - `CleanIPJob` gains `ScanPorts []int` field
@@ -458,12 +519,14 @@ behaviour is unchanged except where it was previously broken.
 ## [v1.8.0] — 2026-06-03
 
 ### Added
+
 - Mobile-responsive UI — tabs, tables, buttons scale to 360 px+ screens
 - Per-config output cards with copy button, QR code, and selectable textarea
 - Browse button for output folder (native `showDirectoryPicker` on Chromium)
 - Touch targets ≥44 px throughout
 
 ### Changed
+
 - Persian RTL layout fixes on mobile viewports
 
 ---
@@ -471,6 +534,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v1.7.0] — 2026-06-02
 
 ### Added
+
 - Full UI rewrite — IIFE module pattern, config usage toggles, TCP-only scan mode
 - Standardised IP Scanner layout: presets, buttons, and `OutCount` filter
 
@@ -479,11 +543,13 @@ behaviour is unchanged except where it was previously broken.
 ## [v1.6.0] — 2026-06-01
 
 ### Added
+
 - Nearby-scan feature — after Phase 1, expand around working IPs to find adjacent clean IPs
 - Subscription deduplication and cross-product config replacement in IP Replacer
 - Phase 2 probes selector (5/12/25/50/100 concurrent validators)
 
 ### Fixed
+
 - Security: concurrency and resource-leak hardening (double-close on channels, goroutine leaks)
 - Path traversal guard on `apply-endpoint` output directory
 
@@ -492,12 +558,14 @@ behaviour is unchanged except where it was previously broken.
 ## [v1.5.0] — 2026-05-30
 
 ### Added
+
 - Two-phase clean IP scanning (TCP probe → xray-core validation)
 - VLESS/Trojan URL parser for Phase 2 validation
 - IP Replacer tab — fetch subscription, deduplicate, replace IP:port in bulk
 - xray process manager with SOCKS5 handshake verification
 
 ### Changed
+
 - Endpoint generator expanded to 14 IPv4 prefixes, 4 IPv6 prefixes, 55 WARP ports
 - Bilingual UI (English + Persian/Farsi) with instant language switching
 
@@ -506,6 +574,7 @@ behaviour is unchanged except where it was previously broken.
 ## [v1.0.0] — 2026-05-01
 
 ### Added
+
 - Initial public release
 - Endpoint Scanner — parallel Warp WireGuard endpoint testing
 - UDP noise injection to evade DPI-based Warp blocking
