@@ -3,8 +3,40 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
+
+// One xray process serves a whole Phase-2 batch, so its log interleaves every
+// endpoint's errors. extractXrayError must attribute a cause to an endpoint only
+// when a log line names that endpoint's IP — otherwise one IP's failure leaks
+// onto a neighbor (two endpoints reporting an error that names a third IP).
+func TestExtractXrayErrorScopesByIP(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "xray.log")
+	log := strings.Join([]string{
+		`2026/01/01 [Warning] read tcp 10.0.0.1:5000->172.65.28.218:443: wsarecv: forcibly closed by the remote host.`,
+		`2026/01/01 [Info] something harmless`,
+	}, "\n")
+	if err := os.WriteFile(logPath, []byte(log), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// The endpoint named in the log gets its concrete cause.
+	if got := extractXrayError(logPath, "172.65.28.218"); got == "" || !strings.Contains(got, "forcibly closed") {
+		t.Errorf("named endpoint: expected the forcibly-closed cause, got %q", got)
+	}
+	// A different endpoint in the same batch must NOT inherit it.
+	if got := extractXrayError(logPath, "172.65.252.236"); got != "" {
+		t.Errorf("unnamed endpoint: expected no attribution, got %q", got)
+	}
+	// With no hint (single-endpoint use), the last error line still surfaces.
+	if got := extractXrayError(logPath, ""); !strings.Contains(got, "forcibly closed") {
+		t.Errorf("no hint: expected the last error line, got %q", got)
+	}
+}
 
 func TestCloudflareIPv4PoolIncludesOfficial172Range(t *testing.T) {
 	ip := net.ParseIP("172.71.255.255")

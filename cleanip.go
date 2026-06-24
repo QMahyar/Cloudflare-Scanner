@@ -817,8 +817,10 @@ func summarizeFailure(err string) string {
 
 // withXrayCause formats a Phase-2 transport error, appending the deepest cause
 // from xray's log when one is available so the failure is self-explanatory.
-func withXrayCause(stage string, err error, logPath string) string {
-	if cause := extractXrayError(logPath); cause != "" {
+// ipHint is the failing endpoint's IP; in the pooled batch path a single log is
+// shared by every endpoint, so it scopes the cause to the right one.
+func withXrayCause(stage string, err error, logPath, ipHint string) string {
+	if cause := extractXrayError(logPath, ipHint); cause != "" {
 		return fmt.Sprintf("%s: %v | xray: %s", stage, err, cause)
 	}
 	return fmt.Sprintf("%s: %v", stage, err)
@@ -831,7 +833,14 @@ func withXrayCause(stage string, err error, logPath string) string {
 // it into the result turns "no usable response" into something actionable (e.g.
 // distinguishing ISP/DPI filtering from a dead origin). Returns "" when nothing
 // useful is found.
-func extractXrayError(logPath string) string {
+//
+// One xray process serves a whole batch (BuildXrayJSONBatch), so its log
+// interleaves every endpoint's errors. Picking the bare last error line would
+// mis-attribute one endpoint's failure to another — two endpoints reporting an
+// error that names a third IP. When ipHint is set we therefore only accept a log
+// line that mentions THIS endpoint's IP, and return "" (letting the honest base
+// error stand) when none does.
+func extractXrayError(logPath, ipHint string) string {
 	data, err := os.ReadFile(logPath)
 	if err != nil || len(data) == 0 {
 		return ""
@@ -846,6 +855,11 @@ func extractXrayError(logPath string) string {
 		if !strings.Contains(low, "failed") && !strings.Contains(low, "forcibly closed") &&
 			!strings.Contains(low, "refused") && !strings.Contains(low, "reset") &&
 			!strings.Contains(low, "eof") && !strings.Contains(low, "rejected") {
+			continue
+		}
+		// Shared batch log: only trust a line that names this endpoint's IP, or we'd
+		// attribute a neighbor's failure to it.
+		if ipHint != "" && !strings.Contains(l, ipHint) {
 			continue
 		}
 		// Keep only the deepest cause (xray chains them with "> ").
@@ -868,6 +882,8 @@ func extractXrayError(logPath string) string {
 // lifecycle; logPath points at that process's run log for failure-cause extraction.
 func socks204Probe(ctx context.Context, endpoint string, socksPort int, timeout time.Duration, logPath string) CleanIPResult {
 	addr := fmt.Sprintf("127.0.0.1:%d", socksPort)
+	// IP hint scopes xray-log error mining to this endpoint — the batch shares one log.
+	ipHint := ipOnly(endpoint)
 	start := time.Now()
 
 	var d net.Dialer
@@ -888,12 +904,12 @@ func socks204Probe(ctx context.Context, endpoint string, socksPort int, timeout 
 
 	req := "GET /generate_204 HTTP/1.1\r\nHost: www.gstatic.com\r\nConnection: close\r\nUser-Agent: Mozilla/5.0\r\n\r\n"
 	if _, err := conn.Write([]byte(req)); err != nil {
-		return CleanIPResult{Endpoint: endpoint, Error: withXrayCause("http write", err, logPath)}
+		return CleanIPResult{Endpoint: endpoint, Error: withXrayCause("http write", err, logPath, ipHint)}
 	}
 
 	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
 	if err != nil {
-		return CleanIPResult{Endpoint: endpoint, Error: withXrayCause("http read", err, logPath)}
+		return CleanIPResult{Endpoint: endpoint, Error: withXrayCause("http read", err, logPath, ipHint)}
 	}
 	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()

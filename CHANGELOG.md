@@ -7,8 +7,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## [v3.6.1] — 2026-06-24
+
+Bug-fix release. Sharper Phase-2 failure diagnostics and a lighter clean-IP
+results payload, alongside the install/doc fixes that had been queued.
+
 ### Fixed
 
+- **Phase-2 validation failures could be blamed on the wrong IP.** A whole batch
+  of clean IPs is validated through one pooled xray process that shares a single
+  run log, but each endpoint's failure reason was mined from the *last* error
+  line in that log — so one IP could inherit a neighbour's reset (two endpoints
+  reporting an error that named a third IP). `extractXrayError` now only accepts
+  a log line naming the failing endpoint's own IP, and lets the honest base error
+  stand when none does (`cleanip.go`).
+- **Clean-IP result responses carried a redundant duplicate of every successful
+  entry** (`entries` plus an identical `raw` the UI never read), doubling the
+  JSON on large scans. Removed (`server.go`).
 - **One-liner installers could install the wrong binary.** The Unix installers
   only checked CPU architecture, so running `install-linux.sh` in Git Bash/MSYS
   on Windows downloaded a Linux ELF that then failed with `Exec format error`.

@@ -1393,12 +1393,6 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 			}
 			entries = append(entries, cleanEntry(r))
 		}
-		raw := make([]resultEntry, 0)
-		for _, r := range phase2Results {
-			if r.Success {
-				raw = append(raw, cleanEntry(r))
-			}
-		}
 		nearbyEntries := make([]resultEntry, 0, len(nearbyPhase2Results))
 		for _, r := range nearbyPhase2Results {
 			if !r.Success {
@@ -1435,7 +1429,6 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"entries":         entries,
-			"raw":             raw,
 			"total":           len(entries),
 			"scanned":         len(phase2Results),
 			"phase2_failures": phase2Failures,
