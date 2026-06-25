@@ -325,16 +325,26 @@ func socks5Handshake(conn net.Conn, host string, port int) error {
 
 	// Skip remaining address
 	switch resp[3] {
-	case 0x01:
-		io.ReadFull(conn, make([]byte, 4))
-	case 0x03:
+	case 0x01: // IPv4
+		if _, err := io.ReadFull(conn, make([]byte, 4)); err != nil {
+			return fmt.Errorf("skip addr: %w", err)
+		}
+	case 0x03: // domain
 		n := make([]byte, 1)
-		io.ReadFull(conn, n)
-		io.ReadFull(conn, make([]byte, n[0]))
-	case 0x04:
-		io.ReadFull(conn, make([]byte, 16))
+		if _, err := io.ReadFull(conn, n); err != nil {
+			return fmt.Errorf("skip domain len: %w", err)
+		}
+		if _, err := io.ReadFull(conn, make([]byte, n[0])); err != nil {
+			return fmt.Errorf("skip domain: %w", err)
+		}
+	case 0x04: // IPv6
+		if _, err := io.ReadFull(conn, make([]byte, 16)); err != nil {
+			return fmt.Errorf("skip addr: %w", err)
+		}
 	}
-	io.ReadFull(conn, make([]byte, 2))
+	if _, err := io.ReadFull(conn, make([]byte, 2)); err != nil {
+		return fmt.Errorf("skip port: %w", err)
+	}
 
 	return nil
 }

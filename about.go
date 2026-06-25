@@ -30,7 +30,7 @@ func handleVersion(w http.ResponseWriter, r *http.Request) {
 func handleUpdateCheck(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	api := "https://api.github.com/repos/" + GitHubRepo + "/releases/latest"
-	req, err := http.NewRequest("GET", api, nil)
+	req, err := http.NewRequestWithContext(r.Context(), "GET", api, nil)
 	if err != nil {
 		jsonError(w, fmt.Sprintf("build request: %v", err), 500)
 		return

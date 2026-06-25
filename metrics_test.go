@@ -15,7 +15,7 @@ func TestLossPercent(t *testing.T) {
 		{0, 4, 100}, // total loss
 		{3, 4, 25},
 		{1, 2, 50},
-		{5, 4, 0},  // passes > attempts clamps to 0 loss
+		{5, 4, 0},    // passes > attempts clamps to 0 loss
 		{-1, 4, 100}, // negative passes clamps to 0
 	}
 	for _, c := range cases {

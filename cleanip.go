@@ -995,7 +995,14 @@ func validateBatchWithXray(ctx context.Context, cfg *ProxyConfig, endpoints []st
 			started = true
 			break
 		}
-		time.Sleep(80 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			for i := range results {
+				results[i].Error = "cancelled"
+			}
+			return results
+		case <-time.After(80 * time.Millisecond):
+		}
 	}
 	if !started {
 		for i := range results {

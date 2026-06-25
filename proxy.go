@@ -72,6 +72,34 @@ func decodeBase64Loose(raw string) ([]byte, error) {
 	return nil, lastErr
 }
 
+// looseString unmarshals a JSON value that some clients quote and others emit
+// bare into a string. The vmess base64-JSON payload is wildly inconsistent
+// across panels: `port`, `aid`, and `v` are frequently numbers, and
+// `allowInsecure` is sometimes a bool, even though the de-facto v2rayN format
+// quotes everything. Declaring those fields as plain `string` makes
+// json.Unmarshal fail on the whole object, so one numeric field silently
+// rejects an otherwise-valid config (and, for an all-vmess subscription, every
+// config). This accepts either form so `"port":443` parses like `"port":"443"`.
+type looseString string
+
+func (s *looseString) UnmarshalJSON(b []byte) error {
+	t := strings.TrimSpace(string(b))
+	if t == "" || t == "null" {
+		return nil
+	}
+	if t[0] == '"' {
+		var str string
+		if err := json.Unmarshal([]byte(t), &str); err != nil {
+			return err
+		}
+		*s = looseString(str)
+		return nil
+	}
+	// Bare number/bool token (e.g. 443, true) — keep its textual form verbatim.
+	*s = looseString(t)
+	return nil
+}
+
 func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
 	if !strings.HasPrefix(rawURL, "vmess://") {
 		return nil, fmt.Errorf("not a vmess URL")
@@ -83,24 +111,25 @@ func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
 		return nil, fmt.Errorf("vmess base64 decode: %w", err)
 	}
 
+	// Numeric-or-string fields use looseString; the rest are reliably quoted.
 	var vmess struct {
-		V             string `json:"v"`
-		Remark        string `json:"ps"`
-		Address       string `json:"add"`
-		Port          string `json:"port"`
-		ID            string `json:"id"`
-		Aid           string `json:"aid"`
-		Security      string `json:"scy"`
-		Network       string `json:"net"`
-		Type          string `json:"type"`
-		Host          string `json:"host"`
-		Path          string `json:"path"`
-		TLS           string `json:"tls"`
-		SNI           string `json:"sni"`
-		ALPN          string `json:"alpn"`
-		Fingerprint   string `json:"fp"`
-		AllowInsecure string `json:"allowInsecure"`
-		Flow          string `json:"flow"`
+		V             looseString `json:"v"`
+		Remark        string      `json:"ps"`
+		Address       string      `json:"add"`
+		Port          looseString `json:"port"`
+		ID            string      `json:"id"`
+		Aid           looseString `json:"aid"`
+		Security      string      `json:"scy"`
+		Network       string      `json:"net"`
+		Type          string      `json:"type"`
+		Host          string      `json:"host"`
+		Path          string      `json:"path"`
+		TLS           string      `json:"tls"`
+		SNI           string      `json:"sni"`
+		ALPN          string      `json:"alpn"`
+		Fingerprint   string      `json:"fp"`
+		AllowInsecure looseString `json:"allowInsecure"`
+		Flow          string      `json:"flow"`
 	}
 
 	if err := json.Unmarshal(decoded, &vmess); err != nil {
@@ -111,8 +140,8 @@ func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
 		return nil, fmt.Errorf("vmess: empty address")
 	}
 
-	port, _ := strconv.Atoi(vmess.Port)
-	if port == 0 {
+	port, _ := strconv.Atoi(strings.TrimSpace(string(vmess.Port)))
+	if port <= 0 || port > 65535 {
 		port = 443
 	}
 
@@ -158,7 +187,7 @@ func ParseVMessURL(rawURL string) (*ProxyConfig, error) {
 		RawURL:      rawURL,
 	}
 
-	if parseInsecureFlag(vmess.AllowInsecure) {
+	if parseInsecureFlag(string(vmess.AllowInsecure)) {
 		cfg.AllowInsecure = true
 	}
 

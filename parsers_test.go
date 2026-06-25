@@ -454,6 +454,38 @@ func TestParseProxyURL_VMessURLSafeBase64(t *testing.T) {
 		t.Errorf("wrong SNI: %s", cfg.SNI)
 	}
 }
+
+// Many real-world panels emit the vmess base64-JSON with `v`, `port`, and `aid`
+// as JSON NUMBERS and `allowInsecure` as a BOOL, not the quoted strings the
+// de-facto v2rayN format uses. The parser must accept both so a single numeric
+// field doesn't reject an otherwise-valid config (or a whole subscription).
+func TestParseProxyURL_VMessNumericAndBoolFields(t *testing.T) {
+	payload := `{"v":2,"ps":"r","add":"1.2.3.4","port":443,"id":"uuid-1234","aid":0,"scy":"auto","net":"ws","type":"none","host":"example.com","path":"/ws","tls":"tls","sni":"example.com","allowInsecure":true}`
+	raw := "vmess://" + base64.StdEncoding.EncodeToString([]byte(payload))
+	cfg, err := ParseProxyURL(raw)
+	if err != nil {
+		t.Fatalf("vmess with numeric port/aid/v and bool allowInsecure failed to parse: %v", err)
+	}
+	if cfg.Port != 443 {
+		t.Errorf("numeric port not parsed: got %d", cfg.Port)
+	}
+	if cfg.Address != "1.2.3.4" {
+		t.Errorf("wrong Address: %s", cfg.Address)
+	}
+	if !cfg.AllowInsecure {
+		t.Errorf("bool allowInsecure not parsed as true")
+	}
+	// A missing port (field absent entirely) must still default to 443.
+	noPort := `{"add":"5.6.7.8","id":"u","net":"tcp"}`
+	cfg2, err := ParseProxyURL("vmess://" + base64.StdEncoding.EncodeToString([]byte(noPort)))
+	if err != nil {
+		t.Fatalf("vmess with no port failed to parse: %v", err)
+	}
+	if cfg2.Port != 443 {
+		t.Errorf("absent port should default to 443, got %d", cfg2.Port)
+	}
+}
+
 func TestParseProxyURL_UnsupportedScheme(t *testing.T) {
 	_, err := ParseProxyURL("ss://whatever@host:1234")
 	if err == nil {

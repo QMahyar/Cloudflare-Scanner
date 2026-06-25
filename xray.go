@@ -229,7 +229,11 @@ func (xm *XrayManager) WaitForPortCtx(ctx context.Context, port int, timeout tim
 			conn.Close()
 			return true
 		}
-		time.Sleep(80 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(80 * time.Millisecond):
+		}
 	}
 	return false
 }
