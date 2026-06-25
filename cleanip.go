@@ -858,8 +858,11 @@ func extractXrayError(logPath, ipHint string) string {
 			continue
 		}
 		// Shared batch log: only trust a line that names this endpoint's IP, or we'd
-		// attribute a neighbor's failure to it.
-		if ipHint != "" && !strings.Contains(l, ipHint) {
+		// attribute a neighbor's failure to it. xray logs the dial target as
+		// "ip:port" (v4) or "[ip]:port" (v6), so require the IP followed by its
+		// delimiter — a bare Contains would let "1.2.3.4" match "1.2.3.40" (and
+		// "2606:4700::1" match "2606:4700::10").
+		if ipHint != "" && !strings.Contains(l, ipHint+":") && !strings.Contains(l, ipHint+"]") {
 			continue
 		}
 		// Keep only the deepest cause (xray chains them with "> ").

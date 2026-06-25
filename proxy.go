@@ -189,8 +189,11 @@ func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
 		Encryption: "none",
 		Security:   "none",
 		Network:    "tcp",
-		Path:       "/",
-		RawURL:     rawURL,
+		// Path is intentionally left empty (not defaulted to "/"): an empty Path
+		// means "the URL carried no path", which lets GenerateShareURL omit it,
+		// while a bare "/" supplied in the URL is a real value that must survive
+		// the round trip. The two use sites (ws/httpupgrade) default empty->"/".
+		RawURL: rawURL,
 	}
 
 	if parsed.User != nil {
@@ -293,7 +296,9 @@ func ParseProxyURL(rawURL string) (*ProxyConfig, error) {
 		cfg.SNI = cfg.Address
 	}
 
-	if cfg.ServiceName == "" && cfg.Path != "" && cfg.Path != "/" {
+	// Some gRPC panels carry the service name in the path field; derive it only
+	// for gRPC so ws/httpupgrade configs don't pick up a spurious serviceName.
+	if cfg.Network == "grpc" && cfg.ServiceName == "" && cfg.Path != "" && cfg.Path != "/" {
 		cfg.ServiceName = strings.TrimPrefix(cfg.Path, "/")
 	}
 
@@ -350,7 +355,16 @@ func (c *ProxyConfig) GenerateShareURL() string {
 	}
 
 	q := url.Values{}
-	if c.Encryption != "" && c.Encryption != "none" {
+	// VLESS share links must always carry an encryption field (always "none"
+	// today); strict clients reject a vless URL that omits it. Other protocols
+	// only emit an explicit, non-default value.
+	if c.Protocol == "vless" {
+		enc := c.Encryption
+		if enc == "" {
+			enc = "none"
+		}
+		q.Set("encryption", enc)
+	} else if c.Encryption != "" && c.Encryption != "none" {
 		q.Set("encryption", c.Encryption)
 	}
 	if c.Security != "" && c.Security != "none" {
@@ -368,14 +382,14 @@ func (c *ProxyConfig) GenerateShareURL() string {
 	if c.Host != "" {
 		q.Set("host", c.Host)
 	}
-	if c.Path != "" && c.Path != "/" {
+	if c.Path != "" {
 		q.Set("path", c.Path)
 	}
 	if c.Network == "ws" && c.Host == "" {
 		q.Set("host", c.SNI)
 	}
-	if c.PacketEncoding == "xudp" {
-		q.Set("packetEncoding", "xudp")
+	if c.PacketEncoding != "" {
+		q.Set("packetEncoding", c.PacketEncoding)
 	}
 	if c.Flow != "" {
 		q.Set("flow", c.Flow)
@@ -652,8 +666,14 @@ func (c *ProxyConfig) buildStreamSettings() json.RawMessage {
 
 	switch c.Network {
 	case "ws", "websocket":
+		// WSSettings.Path has no omitempty, so an empty Path would marshal to
+		// "path":"" — a literal empty path, not the "/" xray clients assume.
+		wsPath := c.Path
+		if wsPath == "" {
+			wsPath = "/"
+		}
 		wsCfg := WSSettings{
-			Path:                c.Path,
+			Path:                wsPath,
 			MaxEarlyData:        c.MaxEarlyData,
 			EarlyDataHeaderName: c.EarlyDataHeaderName,
 		}
@@ -696,8 +716,12 @@ func (c *ProxyConfig) buildStreamSettings() json.RawMessage {
 		if hugHost == "" {
 			hugHost = c.SNI
 		}
+		hugPath := c.Path
+		if hugPath == "" {
+			hugPath = "/"
+		}
 		hugCfg := HTTPUpgradeSettings{
-			Path: c.Path,
+			Path: hugPath,
 			Host: hugHost,
 		}
 		hugJSON, _ := json.Marshal(hugCfg)

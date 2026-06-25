@@ -9,6 +9,59 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.6.2] — 2026-06-25
+
+Hardening release. Closes two SSRF vectors and a DNS-rebinding hole in the local
+server, fixes several share-URL round-trip bugs in the IP Replacer, and removes a
+latent port-collision and a deadlock from the scan pipeline.
+
+### Security
+
+- **SSRF via DNS rebinding in the subscription fetcher.** `FetchSubscription`
+  resolved the host, checked the IPs, then dialed the host *again* — a rebinding
+  DNS server could answer the check with a public IP and the dial with
+  `127.0.0.1`/a cloud-metadata address. Validation now runs in a `net.Dialer`
+  `Control` hook against the concrete connect IP, so the address that's checked is
+  the address that's dialed (and every redirect hop is re-checked) (`replacer.go`).
+- **Widened the SSRF blocklist** to cover CGNAT `100.64.0.0/10` (RFC 6598),
+  `0.0.0.0/8`, and interface-local multicast — none of which `IsPrivate()` catches
+  (`replacer.go`).
+- **DNS-rebinding to the local API.** A malicious page that rebinds its own
+  hostname to `127.0.0.1` could read scan results over the GET endpoints. The
+  server now rejects any request whose `Host` header isn't a loopback name before
+  it reaches a handler (`server.go`).
+- **Folder picker resolves `powershell.exe` by absolute System32 path** instead of
+  a `PATH` lookup, closing a PATH-injection vector (`server.go`).
+
+### Fixed
+
+- **VLESS share URLs lost a bare `path=/`.** Many Workers/CDN configs use `path=/`;
+  the generator treated `/` as a droppable default and stripped it, producing a
+  dead exported config. A bare `/` now survives the parse → URL → parse round trip,
+  while path-less configs still emit no `path` (`proxy.go`).
+- **VLESS share URLs dropped `encryption=none`.** The field is required by the
+  VLESS share-link standard; strict clients reject a URL without it. It's now
+  always emitted for VLESS (`proxy.go`).
+- **WebSocket/httpupgrade configs picked up a spurious `serviceName`.** The
+  gRPC-only path→serviceName derivation ran for every transport. Gated to gRPC
+  (`proxy.go`).
+- **Non-`xudp` `packetEncoding` was dropped** on regeneration; the generator now
+  preserves whatever was parsed (`proxy.go`).
+- **WARP noise-scan SOCKS port windows could overlap.** The window stride
+  (`(n*16) % 9000`) wasn't aligned to the 16-port batch size, so windows began
+  overlapping after ~562 lifetime batches and silently failed 16-endpoint batches.
+  Aligned to an exact multiple of the stride (`server.go`).
+- **Guarded a 0-concurrency deadlock.** A 0 here made the worker semaphore
+  unbuffered and hung the whole job; concurrency is now clamped to ≥1 (`server.go`).
+- **Phase-2 cause attribution could match the wrong IP** — `1.2.3.4` substring-
+  matched `1.2.3.40` in the shared batch log. It now requires the IP's delimiter,
+  for both IPv4 and IPv6 (`cleanip.go`).
+- **A failed/short upload of a WARP `.conf` was misreported** as a parse error; the
+  `io.Copy` error is now surfaced directly (`server.go`). Multipart uploads also
+  clean up any spilled temp files.
+
+---
+
 ## [v3.6.1] — 2026-06-24
 
 Bug-fix release. Sharper Phase-2 failure diagnostics and a lighter clean-IP

@@ -483,6 +483,9 @@ func TestShareURLRoundTrip(t *testing.T) {
 	vmessPayload := `{"v":"2","ps":"r","add":"1.2.3.4","port":"443","id":"uuid-1234","aid":"0","scy":"auto","net":"ws","type":"none","host":"example.com","path":"/ws","tls":"tls","sni":"example.com"}`
 	cases := []string{
 		"vless://uuid-1234@1.2.3.4:443?security=tls&sni=example.com&fp=chrome&type=ws&host=example.com&path=/ws#remark",
+		// A bare "/" path is load-bearing for many Workers configs and must survive
+		// the struct->URL->struct round trip (GenerateShareURL used to drop it).
+		"vless://5391f0cd-7ab5-4100-8206-4b08c5b7d1f4@172.67.155.31:443?encryption=none&security=tls&sni=ez-85eb7e.qhorror13194.workers.dev&fp=chrome&type=ws&host=ez-85eb7e.qhorror13194.workers.dev&path=/&packetEncoding=xudp#Mahyar-2-443",
 		"trojan://password123@192.168.1.1:8443?security=tls&sni=host.example",
 		"vmess://" + base64.RawURLEncoding.EncodeToString([]byte(vmessPayload)),
 	}
@@ -519,6 +522,14 @@ func TestShareURLRoundTrip(t *testing.T) {
 		}
 		if c1.Path != c2.Path {
 			t.Errorf("%s: Path %q -> %q", c1.Protocol, c1.Path, c2.Path)
+		}
+		if c1.Encryption != c2.Encryption {
+			t.Errorf("%s: Encryption %q -> %q", c1.Protocol, c1.Encryption, c2.Encryption)
+		}
+		// VLESS share links must always carry encryption=none, even when the
+		// source URL omitted it — strict clients reject a vless URL without it.
+		if c1.Protocol == "vless" && !strings.Contains(regen, "encryption=none") {
+			t.Errorf("vless regen missing encryption=none: %s", regen)
 		}
 	}
 }

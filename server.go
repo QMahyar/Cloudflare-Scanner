@@ -83,7 +83,14 @@ func selectOutputDir() (string, error) {
 
 func selectOutputDirWindows() (string, error) {
 	script := `Add-Type -AssemblyName System.Windows.Forms; $dlg = New-Object System.Windows.Forms.FolderBrowserDialog; $dlg.Description = "Select output folder"; $dlg.ShowNewFolderButton = $true; if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($dlg.SelectedPath) } else { exit 2 }`
-	cmd := exec.Command("powershell", "-NoProfile", "-Command", script)
+	// Resolve powershell.exe by absolute path rather than via PATH lookup, so a
+	// stray powershell.exe in an untrusted working/PATH directory can't be run.
+	// Mirrors the absolute cmd.exe path used in openBrowser (main.go).
+	psPath := filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+	if _, err := os.Stat(psPath); err != nil {
+		psPath = "powershell" // fall back to PATH if SystemRoot layout is unusual
+	}
+	cmd := exec.Command(psPath, "-NoProfile", "-NonInteractive", "-Command", script)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 2 {
@@ -240,8 +247,36 @@ func newCSRFToken() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
+// isLoopbackHost reports whether an HTTP Host header targets this loopback-only
+// server. It rejects any other hostname so a malicious page that rebinds its own
+// DNS name to 127.0.0.1 can't reach the API (the browser still sends the
+// attacker's hostname in Host, never "127.0.0.1"). An empty Host is allowed: the
+// rebinding vector is a browser, which always sends one.
+func isLoopbackHost(hostHeader string) bool {
+	if hostHeader == "" {
+		return true
+	}
+	host := hostHeader
+	if h, _, err := net.SplitHostPort(hostHeader); err == nil {
+		host = h
+	}
+	host = strings.TrimPrefix(strings.TrimSuffix(host, "]"), "[")
+	if host == "localhost" {
+		return true
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		return true
+	}
+	return false
+}
+
 func csrfMiddleware(next http.Handler, token string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isLoopbackHost(r.Host) {
+			jsonError(w, "forbidden", http.StatusForbidden)
+			return
+		}
+
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			http.SetCookie(w, &http.Cookie{
 				Name:     csrfCookieName,
@@ -347,6 +382,12 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 			jsonError(w, err.Error(), 400)
 			return
 		}
+		// Remove any multipart parts that spilled to temp files. Harmless today
+		// (the body cap == the in-memory budget, so nothing spills), but correct
+		// idiom and the safety net if either limit is ever raised independently.
+		if r.MultipartForm != nil {
+			defer r.MultipartForm.RemoveAll()
+		}
 
 		var cfg *WarpConfig
 		file, _, err := r.FormFile("config")
@@ -358,7 +399,11 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 				return
 			}
 			defer os.Remove(tmpFile.Name())
-			io.Copy(tmpFile, file)
+			if _, err := io.Copy(tmpFile, file); err != nil {
+				tmpFile.Close()
+				jsonError(w, fmt.Sprintf("read uploaded config: %v", err), 400)
+				return
+			}
 			tmpFile.Close()
 			cfg, err = ParseWarpConfig(tmpFile.Name())
 			if err != nil {
@@ -496,7 +541,9 @@ func runScan(job *ScanJob, xrayPath string) {
 	}
 
 	var wg sync.WaitGroup
-	sem := make(chan struct{}, scanner.Concurrency)
+	// Guard the buffered-channel size: a 0 here makes sem unbuffered and every
+	// worker blocks forever acquiring a slot (the job would hang until its TTL).
+	sem := make(chan struct{}, clampInt(scanner.Concurrency, 1, maxEndpointConcurrency))
 
 	for i, ep := range job.Endpoints {
 		select {
@@ -601,7 +648,11 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 		// clean-IP Phase-2 band (+20799). The counter is process-global so
 		// concurrent WARP noise scans don't collide on the same ports.
 		n := int(warpSocksPortBase.Add(1))
-		return 10800 + (n*batchSize)%9000
+		// The span MUST be an exact multiple of batchSize, or successive windows
+		// straddle the wrap boundary and overlap (9000 % 16 == 8 did exactly that,
+		// colliding ports after ~562 batches). 8992 == 16*562 partitions cleanly and
+		// stays clear of the clean-IP band at +20799. Mirrors cleanip.go's +20799/20000.
+		return 10800 + (n*batchSize)%8992
 	}
 
 	var batches [][]string
@@ -979,6 +1030,9 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(10 << 22); err != nil {
 		jsonError(w, err.Error(), 400)
 		return
+	}
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
 	}
 
 	endpoint := r.FormValue("endpoint")

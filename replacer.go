@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net"
@@ -9,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -31,7 +31,22 @@ func parseConfigTokens(tokens []string) []*ProxyConfig {
 }
 
 func blockedSubscriptionIP(ip net.IP) bool {
-	return ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast()
+	if ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsInterfaceLocalMulticast() {
+		return true
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		// 100.64.0.0/10 CGNAT (RFC 6598) — not covered by IsPrivate().
+		if ip4[0] == 100 && ip4[1]&0xc0 == 0x40 {
+			return true
+		}
+		// 0.0.0.0/8 "this host on this network" (RFC 1122).
+		if ip4[0] == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func validateSubscriptionURL(rawURL string) (*url.URL, error) {
@@ -43,25 +58,27 @@ func validateSubscriptionURL(rawURL string) (*url.URL, error) {
 }
 
 func subscriptionHTTPClient() *http.Client {
-	dialer := &net.Dialer{Timeout: 10 * time.Second}
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
-			host, port, err := net.SplitHostPort(address)
+	dialer := &net.Dialer{
+		Timeout: 10 * time.Second,
+		// Control runs after DNS resolution with the concrete remote IP, immediately
+		// before connect. Validating here — rather than pre-resolving in DialContext
+		// and re-resolving to dial — closes the resolve-then-dial TOCTOU that a
+		// rebinding DNS server could use to slip a private/loopback address past the
+		// check. It also re-checks every IP the happy-eyeballs dialer tries and every
+		// hop after a redirect.
+		Control: func(network, address string, _ syscall.RawConn) error {
+			host, _, err := net.SplitHostPort(address)
 			if err != nil {
-				return nil, err
+				return err
 			}
-			ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
-			if err != nil {
-				return nil, err
+			ip := net.ParseIP(host)
+			if ip == nil || blockedSubscriptionIP(ip) {
+				return fmt.Errorf("subscription host resolves to a private or local address")
 			}
-			for _, ip := range ips {
-				if blockedSubscriptionIP(ip.IP) {
-					return nil, fmt.Errorf("subscription host resolves to a private or local address")
-				}
-			}
-			return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
+			return nil
 		},
 	}
+	transport := &http.Transport{DialContext: dialer.DialContext}
 	return &http.Client{
 		Timeout:   30 * time.Second,
 		Transport: transport,
