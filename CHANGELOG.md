@@ -9,6 +9,41 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.6.3] — 2026-06-28
+
+Performance and reliability pass on the scan pipeline. No user-facing behavior
+change for normal scans; large scans use far less memory and clean-IP Phase 2 is
+more reliable on Linux.
+
+### Fixed
+
+- **Clean-IP Phase-2 SOCKS port band overlapped Linux's ephemeral range.** Batch
+  windows were allocated as `20799 + n·16 mod 20000`, topping out near 40798 —
+  inside Linux's default ephemeral range (32768–60999). An xray inbound bind
+  landing on a port the OS had already handed out as an ephemeral source port
+  failed sporadically under load, surfacing as a spurious "xray startup timeout".
+  The band now caps at 32766 (`mod 11968`), clear of both the WARP band below and
+  the ephemeral range above. Windows/macOS were unaffected (`cleanip.go`).
+- **Stop now works in the brief `pending` window** between clean-scan creation and
+  Phase 1 starting, instead of returning "scan not running" (`server.go`).
+- **Nil-config guard** before Phase 2 dereferences the proxy config (`cleanip.go`).
+
+### Changed
+
+- **Bounded goroutine use in the scan hot loops.** The WARP scan loop and the
+  clean-IP Phase-1 dial loop spawned one goroutine per endpoint (gated by a
+  semaphore), parking up to `count` goroutines at once — ~200 MB of stacks for a
+  100k-endpoint scan. Both now use a fixed worker pool fed over a channel, capping
+  live goroutines at the configured concurrency. Cancellation/stop-after semantics
+  are preserved, and the clean path now always drains in-flight workers before
+  snapshotting results (`server.go`, `cleanip.go`).
+- **xray run-log read once per Phase-2 batch** instead of re-read per failed
+  endpoint (up to 16× the same file). Failure-cause enrichment moved out of the
+  per-endpoint probe into a single post-batch pass, still scoped per IP
+  (`cleanip.go`).
+
+---
+
 ## [v3.6.2] — 2026-06-25
 
 Hardening release. Closes two SSRF vectors and a DNS-rebinding hole in the local

@@ -540,94 +540,83 @@ func runScan(job *ScanJob, xrayPath string) {
 		return
 	}
 
-	var wg sync.WaitGroup
-	// Guard the buffered-channel size: a 0 here makes sem unbuffered and every
-	// worker blocks forever acquiring a slot (the job would hang until its TTL).
-	sem := make(chan struct{}, clampInt(scanner.Concurrency, 1, maxEndpointConcurrency))
+	// Fixed worker pool: a feeder pushes endpoints through a channel and
+	// `concurrency` workers drain it. This caps live goroutines at `concurrency`
+	// instead of spawning one parked goroutine per endpoint (a 100k-endpoint scan
+	// otherwise parks 100k goroutines on the semaphore at once).
+	concurrency := clampInt(scanner.Concurrency, 1, maxEndpointConcurrency)
+	if len(job.Endpoints) < concurrency {
+		concurrency = len(job.Endpoints)
+	}
 
-	for i, ep := range job.Endpoints {
-		select {
-		case <-ctx.Done():
-			job.mu.Lock()
-			if job.TargetReached {
-				job.Status = "done"
-			} else {
-				job.Status = "cancelled"
-			}
-			job.mu.Unlock()
-			wg.Wait()
-			return
-		default:
-		}
-
-		wg.Add(1)
-		go func(endpoint string, idx int) {
-			defer wg.Done()
+	work := make(chan string)
+	go func() {
+		defer close(work)
+		for _, ep := range job.Endpoints {
 			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
 			case <-ctx.Done():
 				return
+			case work <- ep:
 			}
-
-			result := scanner.testEndpointAttempts(ctx, endpoint, job.Attempts)
-
-			// Drop a result that landed after the scan was cancelled or the
-			// stop-after target was reached: the caller is about to publish a
-			// final snapshot and late appenders must not keep ticking
-			// Progress/Results on a "done"/"cancelled" job. The worker that
-			// actually triggers the stop-after target commits first (below) and
-			// then cancels ctx; subsequent in-flight workers exit here.
-			if ctx.Err() != nil {
-				return
-			}
-
-			job.mu.Lock()
-			job.Results = append(job.Results, result)
-			job.Progress = len(job.Results)
-			if result.Success {
-				job.Successes++
-			}
-			reached := job.StopAfter > 0 && job.Successes >= job.StopAfter
-			if reached {
-				job.TargetReached = true
-			}
-			_ = idx
-			job.mu.Unlock()
-
-			// Auto-stop: enough working endpoints found — cancel the rest.
-			if reached {
-				job.stop()
-			}
-		}(ep, i)
-	}
-
-	done := make(chan struct{})
-	go func() { wg.Wait(); close(done) }()
-
-	select {
-	case <-done:
-	case <-ctx.Done():
-		wg.Wait()
-		job.mu.Lock()
-		if job.TargetReached {
-			job.Status = "done"
-		} else {
-			job.Status = "cancelled"
 		}
-		job.Progress = len(job.Results)
-		job.mu.Unlock()
-		return
+	}()
+
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for endpoint := range work {
+				if ctx.Err() != nil {
+					return
+				}
+				result := scanner.testEndpointAttempts(ctx, endpoint, job.Attempts)
+
+				// Drop a result that landed after the scan was cancelled or the
+				// stop-after target was reached: the caller is about to publish a
+				// final snapshot and late appenders must not keep ticking
+				// Progress/Results on a "done"/"cancelled" job.
+				if ctx.Err() != nil {
+					return
+				}
+
+				job.mu.Lock()
+				job.Results = append(job.Results, result)
+				job.Progress = len(job.Results)
+				if result.Success {
+					job.Successes++
+				}
+				reached := job.StopAfter > 0 && job.Successes >= job.StopAfter
+				if reached {
+					job.TargetReached = true
+				}
+				job.mu.Unlock()
+
+				// Auto-stop: enough working endpoints found — cancel the rest.
+				if reached {
+					job.stop()
+				}
+			}
+		}()
 	}
+	wg.Wait()
 
 	job.mu.Lock()
+	// TargetReached is a success even though ctx is cancelled (stop() cancels it);
+	// a bare ctx cancel without the target is a user stop.
+	if !job.TargetReached && ctx.Err() != nil {
+		job.Status = "cancelled"
+	} else {
+		job.Status = "done"
+	}
 	results := append([]ScanResult(nil), job.Results...)
 	job.mu.Unlock()
+
 	sortScanResults(results)
 
 	job.mu.Lock()
-	job.Status = "done"
 	job.Results = results
+	job.Progress = len(results)
 	job.mu.Unlock()
 }
 
@@ -1309,7 +1298,9 @@ func handleCleanScanStop(w http.ResponseWriter, r *http.Request) {
 	status := job.Status
 	job.mu.Unlock()
 
-	if status != "running-phase1" && status != "running-phase2" {
+	// "pending" covers the brief window between job creation and runCleanScan
+	// flipping to running-phase1 — a stop clicked there must still take effect.
+	if status != "pending" && status != "running-phase1" && status != "running-phase2" {
 		jsonError(w, "scan not running", 400)
 		return
 	}

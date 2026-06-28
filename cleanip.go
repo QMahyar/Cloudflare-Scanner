@@ -394,11 +394,12 @@ func dialReachable(ctx context.Context, endpoint string, timeout time.Duration, 
 
 func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob, concurrency int, stopAfter int) []CleanIPResult {
 	var mu sync.Mutex
-	var wg sync.WaitGroup
 	if concurrency <= 0 {
 		concurrency = 500
 	}
-	sem := make(chan struct{}, concurrency)
+	if len(endpoints) < concurrency {
+		concurrency = len(endpoints)
+	}
 	results := make([]CleanIPResult, 0, len(endpoints))
 
 	// localStop lets phase 1 finish early once stopAfter responders are found,
@@ -408,108 +409,98 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 	stopNow := func() { stopOnce.Do(func() { close(localStop) }) }
 
 	// phaseCtx is cancelled on either job cancel or local early-stop, so one
-	// context drives all worker slots without per-goroutine cancel watchers.
+	// context drives all workers without per-goroutine cancel watchers.
 	phaseCtx, phaseCancel := context.WithCancel(ctx)
 	defer phaseCancel()
 	go func() {
 		select {
 		case <-localStop:
 			phaseCancel()
+		case <-cancel:
+			phaseCancel()
 		case <-phaseCtx.Done():
 		}
 	}()
 
-	for i, ep := range endpoints {
-		select {
-		case <-cancel:
-			return results
-		case <-localStop:
-			// Target reached — stop launching new probes; in-flight ones drain.
-			goto wait
-		default:
-		}
-
-		wg.Add(1)
-		go func(endpoint string, idx int) {
-			defer wg.Done()
+	// Fixed worker pool: a feeder pushes endpoints through a channel and
+	// `concurrency` workers drain it, capping live goroutines at `concurrency`
+	// instead of one parked goroutine per endpoint (a 100k-IP scan otherwise
+	// parks 100k goroutines on the semaphore at once). wg.Wait() below always
+	// drains the in-flight set before snapshotting, so no appender touches
+	// `results` after we sort/return it.
+	work := make(chan string)
+	go func() {
+		defer close(work)
+		for _, ep := range endpoints {
 			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
 			case <-phaseCtx.Done():
 				return
+			case work <- ep:
 			}
+		}
+	}()
 
-			latency, ok := dialReachable(phaseCtx, endpoint, timeout, 2)
-			if !ok {
-				// Count a cancelled probe as not-attempted: it was never actually
-				// tested, so reporting it as "scanned" would understate the hit
-				// rate after a stop. Failed-but-tested dials still count.
+	var wg sync.WaitGroup
+	for w := 0; w < concurrency; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for endpoint := range work {
+				latency, ok := dialReachable(phaseCtx, endpoint, timeout, 2)
+				if !ok {
+					// Count a cancelled probe as not-attempted: it was never
+					// actually tested, so reporting it as "scanned" would
+					// understate the hit rate after a stop. Failed-but-tested
+					// dials still count.
+					if phaseCtx.Err() != nil {
+						return
+					}
+					if job != nil {
+						job.mu.Lock()
+						job.Phase1Progress++
+						job.mu.Unlock()
+					}
+					continue
+				}
+
+				// Drop a result that landed after the job was cancelled or the
+				// local stop-after target was reached — the scan is winding down
+				// and the published snapshot must not drift under late appenders.
 				if phaseCtx.Err() != nil {
 					return
 				}
+
+				// Colo/loc are enriched separately for a bounded set of the
+				// fastest responders — keeping the trace round-trip out of this
+				// dial loop so dense ranges aren't throttled to ~2s per responder.
+				result := CleanIPResult{
+					Endpoint: endpoint,
+					Latency:  latency,
+					Success:  true,
+					Attempts: 1,
+					Passes:   1,
+					Best:     latency,
+				}
+
+				mu.Lock()
+				results = append(results, result)
+				n := len(results)
+				mu.Unlock()
+
 				if job != nil {
 					job.mu.Lock()
+					job.Phase1Results = append(job.Phase1Results, result)
 					job.Phase1Progress++
 					job.mu.Unlock()
 				}
-				return
-			}
 
-			// Drop a result that landed after the job was cancelled or the local
-			// stop-after target was reached — the scan is already winding down and
-			// the caller's published snapshot must not drift under late appenders.
-			if phaseCtx.Err() != nil {
-				return
+				if stopAfter > 0 && n >= stopAfter {
+					stopNow()
+				}
 			}
-
-			// Colo/loc are enriched separately (see enrichColo) for a bounded set
-			// of the fastest responders — keeping the trace round-trip out of this
-			// dial loop so dense ranges aren't throttled to ~2s per responder.
-			result := CleanIPResult{
-				Endpoint: endpoint,
-				Latency:  latency,
-				Success:  true,
-				Attempts: 1,
-				Passes:   1,
-				Best:     latency,
-			}
-
-			mu.Lock()
-			results = append(results, result)
-			n := len(results)
-			mu.Unlock()
-
-			if job != nil {
-				job.mu.Lock()
-				job.Phase1Results = append(job.Phase1Results, result)
-				job.Phase1Progress++
-				job.mu.Unlock()
-			}
-
-			if stopAfter > 0 && n >= stopAfter {
-				stopNow()
-			}
-		}(ep, i)
+		}()
 	}
-
-wait:
-	done := make(chan struct{})
-	go func() { wg.Wait(); close(done) }()
-
-	select {
-	case <-done:
-	case <-cancel:
-		// phaseCtx is derived from ctx, which the caller cancels together with
-		// closing `cancel` (see runCleanScan). Workers observe phaseCtx.Err() and
-		// stop appending, but to guarantee no appender touches `results` after we
-		// snapshot it, wait for the in-flight set to drain first — same contract
-		// as the localStop path. This turns "scan stopped" into a clean cutoff
-		// rather than a snapshot that keeps ticking.
-		<-done
-	case <-localStop:
-		// target reached; let in-flight finish so partial results are coherent
-		<-done
-	}
+	wg.Wait()
 
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Latency < results[j].Latency
@@ -815,34 +806,23 @@ func summarizeFailure(err string) string {
 	}
 }
 
-// withXrayCause formats a Phase-2 transport error, appending the deepest cause
-// from xray's log when one is available so the failure is self-explanatory.
-// ipHint is the failing endpoint's IP; in the pooled batch path a single log is
-// shared by every endpoint, so it scopes the cause to the right one.
-func withXrayCause(stage string, err error, logPath, ipHint string) string {
-	if cause := extractXrayError(logPath, ipHint); cause != "" {
-		return fmt.Sprintf("%s: %v | xray: %s", stage, err, cause)
-	}
-	return fmt.Sprintf("%s: %v", stage, err)
-}
-
-// extractXrayError mines xray's run log for the concrete reason a Phase-2 tunnel
-// failed. The error we observe locally is always a generic "http read timeout"
-// once the SOCKS CONNECT is (optimistically) accepted; the real cause — a TLS
-// reset, a refused dial, a routing rejection — only lives in xray's log. Folding
-// it into the result turns "no usable response" into something actionable (e.g.
-// distinguishing ISP/DPI filtering from a dead origin). Returns "" when nothing
-// useful is found.
+// extractXrayErrorFrom mines already-read xray log bytes for the concrete reason
+// a Phase-2 tunnel failed. The error we observe locally is always a generic
+// "http read timeout" once the SOCKS CONNECT is (optimistically) accepted; the
+// real cause — a TLS reset, a refused dial, a routing rejection — only lives in
+// xray's log. Folding it into the result turns "no usable response" into
+// something actionable (e.g. distinguishing ISP/DPI filtering from a dead origin).
+// Returns "" when nothing useful is found.
 //
 // One xray process serves a whole batch (BuildXrayJSONBatch), so its log
-// interleaves every endpoint's errors. Picking the bare last error line would
+// interleaves every endpoint's errors and the caller reads it ONCE for the whole
+// batch (not per failed endpoint). Picking the bare last error line would
 // mis-attribute one endpoint's failure to another — two endpoints reporting an
 // error that names a third IP. When ipHint is set we therefore only accept a log
 // line that mentions THIS endpoint's IP, and return "" (letting the honest base
 // error stand) when none does.
-func extractXrayError(logPath, ipHint string) string {
-	data, err := os.ReadFile(logPath)
-	if err != nil || len(data) == 0 {
+func extractXrayErrorFrom(data []byte, ipHint string) string {
+	if len(data) == 0 {
 		return ""
 	}
 	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
@@ -880,13 +860,12 @@ func extractXrayError(logPath, ipHint string) string {
 
 // socks204Probe runs the SOCKS5 + GET /generate_204 check against an already-up
 // local SOCKS port and returns the result. It is the shared core of the pooled
-// validateBatchWithXray path, keeping the success criterion (exact 204) and the
-// xray-log enrichment in one place. The caller owns the xray process and its
-// lifecycle; logPath points at that process's run log for failure-cause extraction.
-func socks204Probe(ctx context.Context, endpoint string, socksPort int, timeout time.Duration, logPath string) CleanIPResult {
+// validateBatchWithXray path, keeping the success criterion (exact 204) in one
+// place. The caller owns the xray process; it also enriches http write/read
+// failures with the xray-log cause once per batch (see validateBatchWithXray),
+// so this probe just returns the bare transport error.
+func socks204Probe(ctx context.Context, endpoint string, socksPort int, timeout time.Duration) CleanIPResult {
 	addr := fmt.Sprintf("127.0.0.1:%d", socksPort)
-	// IP hint scopes xray-log error mining to this endpoint — the batch shares one log.
-	ipHint := ipOnly(endpoint)
 	start := time.Now()
 
 	var d net.Dialer
@@ -907,12 +886,12 @@ func socks204Probe(ctx context.Context, endpoint string, socksPort int, timeout 
 
 	req := "GET /generate_204 HTTP/1.1\r\nHost: www.gstatic.com\r\nConnection: close\r\nUser-Agent: Mozilla/5.0\r\n\r\n"
 	if _, err := conn.Write([]byte(req)); err != nil {
-		return CleanIPResult{Endpoint: endpoint, Error: withXrayCause("http write", err, logPath, ipHint)}
+		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("http write: %v", err)}
 	}
 
 	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
 	if err != nil {
-		return CleanIPResult{Endpoint: endpoint, Error: withXrayCause("http read", err, logPath, ipHint)}
+		return CleanIPResult{Endpoint: endpoint, Error: fmt.Sprintf("http read: %v", err)}
 	}
 	io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
@@ -1025,10 +1004,30 @@ func validateBatchWithXray(ctx context.Context, cfg *ProxyConfig, endpoints []st
 				return
 			default:
 			}
-			results[idx] = socks204Probe(ctx, endpoints[idx], ports[idx], timeout, logPath)
+			results[idx] = socks204Probe(ctx, endpoints[idx], ports[idx], timeout)
 		}(i)
 	}
 	wg.Wait()
+
+	// Enrich tunnel failures with the deepest cause from xray's log. The whole
+	// batch shares one log, so read it ONCE here rather than re-reading it inside
+	// every failed probe. Only http write/read failures (SOCKS CONNECT accepted,
+	// the tunnel then failed) carry a usable xray-side cause; each is scoped to
+	// its own IP since the log interleaves every endpoint's errors.
+	if logData, rerr := os.ReadFile(logPath); rerr == nil && len(logData) > 0 {
+		for i := range results {
+			if results[i].Success {
+				continue
+			}
+			e := results[i].Error
+			if !strings.HasPrefix(e, "http write:") && !strings.HasPrefix(e, "http read:") {
+				continue
+			}
+			if cause := extractXrayErrorFrom(logData, ipOnly(results[i].Endpoint)); cause != "" {
+				results[i].Error = e + " | xray: " + cause
+			}
+		}
+	}
 	return results
 }
 
@@ -1230,6 +1229,16 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		return
 	}
 
+	// Defensive: Phase 2 dereferences the config. The handler guarantees a config
+	// whenever Phase 2 runs (it's only skipped in one-phase mode, which sets
+	// SkipPhase2), but guard the nil so a future wiring change can't panic.
+	if job.Config == nil {
+		job.mu.Lock()
+		job.Status = "done"
+		job.mu.Unlock()
+		return
+	}
+
 	// For the HTTP validation probe, mux/xudp can interfere with the single
 	// test request (GET /generate_204). Strip PacketEncoding so xray never
 	// enables mux concurrency during Phase 2.
@@ -1252,12 +1261,16 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 
 	allocPortBase := func() int {
 		// Each batch gets a non-overlapping window of phase2BatchSize ports.
-		// Stride monotonically and wrap inside a wide band well below the OS
-		// ephemeral range; a process is always killed before its window could be
-		// reused. Offset 20799 keeps clear of the WARP path's +10799 band. The
-		// counter is process-global so concurrent clean scans don't collide.
+		// Stride monotonically and wrap inside a band that stays clear of the WARP
+		// path's +10800 band below AND of Linux's default ephemeral range (32768+)
+		// above — an inbound bind landing on an OS-assigned ephemeral source port
+		// fails sporadically under load. 20799 + 11968 caps the top port at 32766
+		// (< 32768). 11968 == 16*748 partitions cleanly so windows never straddle
+		// the wrap; a process is always killed before reuse and concurrentBatches
+		// (<=16) is far below 748. Process-global counter so concurrent clean scans
+		// don't collide.
 		n := int(cleanSocksPortBase.Add(1))
-		return 20799 + (n*phase2BatchSize)%20000
+		return 20799 + (n*phase2BatchSize)%11968
 	}
 
 	// runPhase2Batches splits endpoints into batches, runs up to concurrentBatches
