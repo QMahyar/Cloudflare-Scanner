@@ -116,10 +116,11 @@ func openBrowserCmd(argv0 string, args []string) bool {
 
 func openBrowser(url string) {
 	if runtime.GOOS == "linux" && isTermux() {
-		if openBrowserCmd("/system/bin/sh", []string{"sh", "-c", "termux-open-url '" + url + "' 2>/dev/null"}) {
+		// ponytail: pass URL as argv directly — no shell, no injection
+		if openBrowserCmd("termux-open-url", []string{"termux-open-url", url}) {
 			return
 		}
-		if openBrowserCmd("/system/bin/sh", []string{"sh", "-c", "am start --user 0 -a android.intent.action.VIEW -d '" + url + "' 2>/dev/null"}) {
+		if openBrowserCmd("am", []string{"am", "start", "--user", "0", "-a", "android.intent.action.VIEW", "-d", url}) {
 			return
 		}
 		fmt.Println("  Could not auto-open browser on Termux.")

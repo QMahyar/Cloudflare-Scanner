@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -95,12 +96,12 @@ func (xm *XrayManager) GenerateConfigBatch(endpoints []string, basePort int) (co
 
 	tag := fmt.Sprintf("wgbatch_%d", basePort)
 	configDir := filepath.Join(os.TempDir(), "_xray_work", tag)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return "", nil, fmt.Errorf("cannot create work dir: %w", err)
 	}
 
 	logFile := filepath.Join(configDir, "xray.log")
-	_ = os.WriteFile(logFile, []byte{}, 0644)
+	_ = os.WriteFile(logFile, []byte{}, 0600)
 
 	var noiseEntries []NoiseEntry
 	if xm.Noise.Type != "" {
@@ -186,64 +187,118 @@ func (xm *XrayManager) GenerateConfigBatch(endpoints []string, basePort int) (co
 	}
 
 	configPath = filepath.Join(configDir, "config.json")
-	if err := os.WriteFile(configPath, configJSON, 0644); err != nil {
+	if err := os.WriteFile(configPath, configJSON, 0600); err != nil {
 		return "", nil, fmt.Errorf("write config: %w", err)
 	}
 
 	return configPath, ports, nil
 }
 
-func (xm *XrayManager) StartXray(configPath string) (*exec.Cmd, error) {
-	cmd := exec.Command(xm.XrayPath, "run", "-c", configPath)
-	cmd.Dir = filepath.Dir(configPath)
-
-	stderrPath := filepath.Join(filepath.Dir(configPath), "stderr.log")
-	f, err := os.Create(stderrPath)
-	if err != nil {
-		return nil, fmt.Errorf("create stderr log: %w", err)
-	}
-	cmd.Stderr = f
-
-	if err := cmd.Start(); err != nil {
-		f.Close()
-		return nil, fmt.Errorf("start xray: %w", err)
-	}
-
-	// Close our handle; the OS keeps the file open via the child process.
-	f.Close()
-	return cmd, nil
+// probeResult is the minimal result shape the shared batch lifecycle returns.
+// Callers map this to their own result types (CleanIPResult, ScanResult).
+type probeResult struct {	Endpoint string
+	Latency  time.Duration
+	Success  bool
+	Error    string
 }
 
-func (xm *XrayManager) WaitForPortCtx(ctx context.Context, port int, timeout time.Duration) bool {
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	deadline := time.Now().Add(timeout)
+// probeFunc is the per-endpoint probe function the caller supplies.
+type probeFunc func(ctx context.Context, endpoint string, socksPort int) probeResult
 
-	for time.Now().Before(deadline) {
+// BatchProbe runs the shared xray batch lifecycle: start process, wait for
+// port readiness, probe every endpoint concurrently, kill process, clean up.
+// The caller supplies a config (already written to disk) and a probe function
+// that tests one endpoint against its assigned SOCKS port. Returns results
+// aligned to the endpoints slice. The caller owns the config dir cleanup.
+func BatchProbe(ctx context.Context, xrayPath, configPath string, endpoints []string, basePort int, timeout time.Duration, probe probeFunc) []probeResult {
+	results := make([]probeResult, len(endpoints))
+	for i, ep := range endpoints {
+		results[i] = probeResult{Endpoint: ep, Error: "not run"}
+	}
+
+	select {
+	case <-ctx.Done():
+		for i := range results {
+			results[i] = probeResult{Endpoint: endpoints[i], Error: "cancelled"}
+		}
+		return results
+	default:
+	}
+
+	cmd := exec.Command(xrayPath, "run", "-c", configPath)
+	cmd.Dir = filepath.Dir(configPath)
+	stderrPath := filepath.Join(filepath.Dir(configPath), "stderr.log")
+	if f, ferr := os.Create(stderrPath); ferr == nil {
+		cmd.Stderr = f
+		defer f.Close()
+	}
+
+	if err := cmd.Start(); err != nil {
+		for i := range results {
+			results[i] = probeResult{Endpoint: endpoints[i], Error: fmt.Sprintf("start xray: %v", err)}
+		}
+		return results
+	}
+	defer func() {
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+			cmd.Wait()
+		}
+	}()
+
+	// Wait for the highest inbound port — xray binds in order.
+	lastAddr := fmt.Sprintf("127.0.0.1:%d", basePort+len(endpoints)-1)
+	startupDeadline := time.Now().Add(6 * time.Second)
+	started := false
+	for time.Now().Before(startupDeadline) {
 		select {
 		case <-ctx.Done():
-			return false
+			for i := range results {
+				results[i] = probeResult{Endpoint: endpoints[i], Error: "cancelled"}
+			}
+			return results
 		default:
 		}
-		conn, err := net.DialTimeout("tcp", addr, 300*time.Millisecond)
-		if err == nil {
+		conn, derr := net.DialTimeout("tcp", lastAddr, 300*time.Millisecond)
+		if derr == nil {
 			conn.Close()
-			return true
+			started = true
+			break
 		}
 		select {
 		case <-ctx.Done():
-			return false
+			for i := range results {
+				results[i] = probeResult{Endpoint: endpoints[i], Error: "cancelled"}
+			}
+			return results
 		case <-time.After(80 * time.Millisecond):
 		}
 	}
-	return false
-}
-
-func (xm *XrayManager) StopXray(cmd *exec.Cmd) {
-	if cmd == nil || cmd.Process == nil {
-		return
+	if !started {
+		for i := range results {
+			results[i] = probeResult{Endpoint: endpoints[i], Error: "xray startup timeout"}
+		}
+		return results
 	}
-	cmd.Process.Kill()
-	cmd.Wait()
+
+	// Probe every endpoint concurrently.
+	var wg sync.WaitGroup
+	for i := range endpoints {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				results[idx] = probeResult{Endpoint: endpoints[idx], Error: "cancelled"}
+				return
+			default:
+			}
+			results[idx] = probe(ctx, endpoints[idx], basePort+idx)
+		}(i)
+	}
+	wg.Wait()
+
+	return results
 }
 
 // VerifyXrayRunnable confirms the xray binary actually executes — not just that

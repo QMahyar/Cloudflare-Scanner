@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -910,110 +909,36 @@ func socks204Probe(ctx context.Context, endpoint string, socksPort int, timeout 
 // concurrently against the shared process. Results are aligned to the input
 // endpoints slice. Honors ctx cancellation between and during probes.
 func validateBatchWithXray(ctx context.Context, cfg *ProxyConfig, endpoints []string, xrayPath string, basePort int, timeout time.Duration) []CleanIPResult {
-	results := make([]CleanIPResult, len(endpoints))
-	for i, ep := range endpoints {
-		results[i] = CleanIPResult{Endpoint: ep, Error: "not run"}
-	}
-
-	select {
-	case <-ctx.Done():
-		for i := range results {
-			results[i].Error = "cancelled"
-		}
-		return results
-	default:
-	}
-
-	configPath, ports, err := cfg.BuildXrayJSONBatch(endpoints, basePort)
+	configPath, _, err := cfg.BuildXrayJSONBatch(endpoints, basePort)
 	if err != nil {
-		for i := range results {
-			results[i].Error = fmt.Sprintf("xray config: %v", err)
+		results := make([]CleanIPResult, len(endpoints))
+		for i, ep := range endpoints {
+			results[i] = CleanIPResult{Endpoint: ep, Error: fmt.Sprintf("xray config: %v", err)}
 		}
 		return results
 	}
 	defer os.RemoveAll(filepath.Dir(configPath))
 
-	cmd := exec.Command(xrayPath, "run", "-c", configPath)
-	cmd.Dir = filepath.Dir(configPath)
-	stderrPath := filepath.Join(filepath.Dir(configPath), "stderr.log")
-	if f, ferr := os.Create(stderrPath); ferr == nil {
-		cmd.Stderr = f
-		defer f.Close()
-	}
-
-	if err := cmd.Start(); err != nil {
-		for i := range results {
-			results[i].Error = fmt.Sprintf("start xray: %v", err)
-		}
-		return results
-	}
-	defer func() {
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-			cmd.Wait()
-		}
-	}()
-
-	// Wait for the LAST inbound port to come up. xray binds inbounds in order, so
-	// once the highest port accepts connections the whole batch is listening.
-	lastAddr := fmt.Sprintf("127.0.0.1:%d", ports[len(ports)-1])
-	startupDeadline := time.Now().Add(6 * time.Second)
-	started := false
-	for time.Now().Before(startupDeadline) {
-		select {
-		case <-ctx.Done():
-			for i := range results {
-				results[i].Error = "cancelled"
-			}
-			return results
-		default:
-		}
-		conn, derr := net.DialTimeout("tcp", lastAddr, 300*time.Millisecond)
-		if derr == nil {
-			conn.Close()
-			started = true
-			break
-		}
-		select {
-		case <-ctx.Done():
-			for i := range results {
-				results[i].Error = "cancelled"
-			}
-			return results
-		case <-time.After(80 * time.Millisecond):
-		}
-	}
-	if !started {
-		for i := range results {
-			results[i].Error = "xray startup timeout"
-		}
-		return results
-	}
-
 	logPath := filepath.Join(filepath.Dir(configPath), "xray.log")
 
-	// Probe every endpoint concurrently against the shared process.
-	var wg sync.WaitGroup
-	for i := range endpoints {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			select {
-			case <-ctx.Done():
-				results[idx] = CleanIPResult{Endpoint: endpoints[idx], Error: "cancelled"}
-				return
-			default:
-			}
-			results[idx] = socks204Probe(ctx, endpoints[idx], ports[idx], timeout)
-		}(i)
-	}
-	wg.Wait()
+	// ponytail: shared batch lifecycle via BatchProbe - same as scanner.go
+	pResults := BatchProbe(ctx, xrayPath, configPath, endpoints, basePort, timeout,
+		func(ctx context.Context, endpoint string, socksPort int) probeResult {
+			r := socks204Probe(ctx, endpoint, socksPort, timeout)
+			return probeResult{Endpoint: r.Endpoint, Latency: r.Latency, Success: r.Success, Error: r.Error}
+		},
+	)
 
-	// Enrich tunnel failures with the deepest cause from xray's log. The whole
-	// batch shares one log, so read it ONCE here rather than re-reading it inside
-	// every failed probe. Only http write/read failures (SOCKS CONNECT accepted,
-	// the tunnel then failed) carry a usable xray-side cause; each is scoped to
-	// its own IP since the log interleaves every endpoint's errors.
+	results := make([]CleanIPResult, len(pResults))
+	for i, pr := range pResults {
+		results[i] = CleanIPResult{Endpoint: pr.Endpoint, Latency: pr.Latency, Success: pr.Success, Error: pr.Error, Attempts: 1}
+		if pr.Success {
+			results[i].Passes = 1
+			results[i].Best = pr.Latency
+		}
+	}
+
+	// Enrich tunnel failures with the deepest cause from xray log (clean-IP specific).
 	if logData, rerr := os.ReadFile(logPath); rerr == nil && len(logData) > 0 {
 		for i := range results {
 			if results[i].Success {

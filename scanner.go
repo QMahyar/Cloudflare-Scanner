@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -196,63 +195,29 @@ func (s *Scanner) probe204(ctx context.Context, endpoint string, socksPort int) 
 // wait per endpoint for one per batch, while keeping each endpoint's 204 check
 // independent and concurrent. Results are aligned to the endpoints slice.
 func (s *Scanner) scanBatchNoise(ctx context.Context, endpoints []string, basePort int) []ScanResult {
-	results := make([]ScanResult, len(endpoints))
-	for i, ep := range endpoints {
-		results[i] = ScanResult{Endpoint: ep, Error: "not run"}
-	}
-
-	select {
-	case <-ctx.Done():
-		for i := range results {
-			results[i] = ScanResult{Endpoint: endpoints[i], Error: "cancelled"}
-		}
-		return results
-	default:
-	}
-
 	xm := &XrayManager{XrayPath: s.XrayPath, Config: s.Config, Noise: s.Noise}
-	configPath, ports, err := xm.GenerateConfigBatch(endpoints, basePort)
+	configPath, _, err := xm.GenerateConfigBatch(endpoints, basePort)
 	if err != nil {
-		for i := range results {
-			results[i] = ScanResult{Endpoint: endpoints[i], Error: fmt.Sprintf("config: %v", err)}
+		results := make([]ScanResult, len(endpoints))
+		for i, ep := range endpoints {
+			results[i] = ScanResult{Endpoint: ep, Error: fmt.Sprintf("config: %v", err)}
 		}
 		return results
 	}
 	defer os.RemoveAll(filepath.Dir(configPath))
 
-	cmd, err := xm.StartXray(configPath)
-	if err != nil {
-		for i := range results {
-			results[i] = ScanResult{Endpoint: endpoints[i], Error: fmt.Sprintf("start: %v", err)}
-		}
-		return results
-	}
-	defer xm.StopXray(cmd)
+	// ponytail: shared batch lifecycle via BatchProbe - same as cleanip.go
+	pResults := BatchProbe(ctx, s.XrayPath, configPath, endpoints, basePort, s.Timeout,
+		func(ctx context.Context, endpoint string, socksPort int) probeResult {
+			r := s.probe204(ctx, endpoint, socksPort)
+			return probeResult{Endpoint: r.Endpoint, Latency: r.Latency, Success: r.Success, Error: r.Error}
+		},
+	)
 
-	// xray binds inbounds in order, so the highest port being up means the whole
-	// batch is listening.
-	if !xm.WaitForPortCtx(ctx, ports[len(ports)-1], 6*time.Second) {
-		for i := range results {
-			results[i] = ScanResult{Endpoint: endpoints[i], Error: "xray startup timeout"}
-		}
-		return results
+	results := make([]ScanResult, len(pResults))
+	for i, pr := range pResults {
+		results[i] = ScanResult{Endpoint: pr.Endpoint, Latency: pr.Latency, Success: pr.Success, Error: pr.Error}
 	}
-
-	var wg sync.WaitGroup
-	for i := range endpoints {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			select {
-			case <-ctx.Done():
-				results[idx] = ScanResult{Endpoint: endpoints[idx], Error: "cancelled"}
-				return
-			default:
-			}
-			results[idx] = s.probe204(ctx, endpoints[idx], ports[idx])
-		}(i)
-	}
-	wg.Wait()
 	return results
 }
 

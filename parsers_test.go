@@ -718,3 +718,88 @@ func TestHandleApplyEndpoint_ValidEndpointRejectedWithoutFiles(t *testing.T) {
 		t.Errorf("expected 400 for missing files, got %d", rr.Code)
 	}
 }
+
+// ─── Fuzz tests ─────────────────────────────────────────────────────────────
+
+func FuzzParseProxyURL(f *testing.F) {
+	// Seed corpus: valid URLs from existing tests + edge cases
+	f.Add("vless://uuid@1.2.3.4:443?security=tls&sni=example.com")
+	f.Add("trojan://pass@192.168.1.1:8443?security=tls")
+	f.Add("vmess://eyJ2IjoiMiIsInBzIjoiUiIsImFkZCI6IjEuMi4zLjQiLCJwb3J0IjoiNDQzIiwiaWQiOiJ1dWlkLTEyMzQifQ==")
+	f.Add("vless://u@[::1]:443")
+	f.Add("vless://u@:443")
+	f.Add("ss://whatever@host:1234")
+	f.Add("")
+	f.Add("vless://u@1.2.3.4:70000?security=tls")
+	f.Add("vless://u@1.2.3.4:443?security=tls&sni=" + string(make([]byte, 1000)))
+
+	f.Fuzz(func(t *testing.T, rawURL string) {
+		cfg, err := ParseProxyURL(rawURL)
+		if err != nil {
+			return // invalid input — expected
+		}
+		// Invariant: parsed config must have non-empty protocol and address
+		if cfg.Protocol == "" {
+			t.Errorf("ParseProxyURL(%q) returned empty Protocol", rawURL)
+		}
+		if cfg.Address == "" {
+			t.Errorf("ParseProxyURL(%q) returned empty Address", rawURL)
+		}
+		if cfg.Port < 0 || cfg.Port > 65535 {
+			t.Errorf("ParseProxyURL(%q) returned invalid port %d", rawURL, cfg.Port)
+		}
+		// Round-trip: GenerateShareURL must not panic
+		shareURL := cfg.GenerateShareURL()
+		if shareURL == "" {
+			t.Errorf("GenerateShareURL returned empty for parsed config from %q", rawURL)
+		}
+	})
+}
+
+func FuzzParseVMessURL(f *testing.F) {
+	f.Add("vmess://eyJ2IjoiMiIsInBzIjoiUiIsImFkZCI6IjEuMi4zLjQiLCJwb3J0IjoiNDQzIiwiaWQiOiJ1dWlkLTEyMzQifQ==")
+	f.Add("vmess://" + base64.RawURLEncoding.EncodeToString([]byte(`{"add":"1.2.3.4","id":"u","net":"tcp"}`)))
+	f.Add("vmess://not-base64-at-all")
+	f.Add("vmess://")
+
+	f.Fuzz(func(t *testing.T, rawURL string) {
+		cfg, err := ParseVMessURL(rawURL)
+		if err != nil {
+			return
+		}
+		if cfg.Protocol != "vmess" {
+			t.Errorf("ParseVMessURL(%q) returned protocol %q, want vmess", rawURL, cfg.Protocol)
+		}
+		if cfg.Address == "" {
+			t.Errorf("ParseVMessURL(%q) returned empty Address", rawURL)
+		}
+	})
+}
+
+func FuzzParseIPRanges(f *testing.F) {
+	f.Add("104.16.0.0/13\n104.16.0.0-104.16.5.255\n104.16.1.1")
+	f.Add("2606:4700::/32")
+	f.Add("104.16.0.0-255")
+	f.Add("not-a-range")
+	f.Add("")
+	f.Add("104.16.0.0/33")
+	f.Add("::1/128")
+	f.Add("104.16.0.0/0")
+
+	f.Fuzz(func(t *testing.T, text string) {
+		ranges, bad := ParseIPRanges(text)
+		// Invariant: every returned range must have lo <= hi
+		for i, r := range ranges {
+			if r.lo.Cmp(r.hi) > 0 {
+				t.Errorf("ParseIPRanges range %d has lo > hi: %v > %v", i, r.lo, r.hi)
+			}
+		}
+		_ = bad
+		// Invariant: GenerateFromRanges must not panic
+		if len(ranges) > 0 {
+			rng := newRangeRNG()
+			eps := GenerateFromRanges(ranges, 10, []int{443}, rng)
+			_ = eps
+		}
+	})
+}

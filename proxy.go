@@ -790,12 +790,12 @@ func (c *ProxyConfig) BuildXrayJSONBatch(endpoints []string, basePort int) (conf
 
 	tag := fmt.Sprintf("batch_%d", basePort)
 	configDir := filepath.Join(os.TempDir(), "_xray_clean", tag)
-	if err := os.MkdirAll(configDir, 0755); err != nil {
+	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return "", nil, fmt.Errorf("cannot create work dir: %w", err)
 	}
 
 	logFile := filepath.Join(configDir, "xray.log")
-	os.WriteFile(logFile, []byte{}, 0644)
+	os.WriteFile(logFile, []byte{}, 0600)
 
 	socksSettings, _ := json.Marshal(map[string]interface{}{
 		"auth": "noauth",
@@ -865,7 +865,7 @@ func (c *ProxyConfig) BuildXrayJSONBatch(endpoints []string, basePort int) (conf
 	}
 
 	configPath = filepath.Join(configDir, "config.json")
-	if err := os.WriteFile(configPath, configJSON, 0644); err != nil {
+	if err := os.WriteFile(configPath, configJSON, 0600); err != nil {
 		return "", nil, fmt.Errorf("write config: %w", err)
 	}
 
