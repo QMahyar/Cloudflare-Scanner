@@ -82,9 +82,9 @@ func TestBatchConfigWireGuard(t *testing.T) {
 	xm := &XrayManager{
 		XrayPath: "unused",
 		Config: &WarpConfig{
-			PrivateKey: "KPfZ9oNYi6etptKQKEMqynTQRrxqrDem/It8rwjUe2Q=",
+			PrivateKey: "pstiyhXYh1zksH3Wc7Fbaz7cyeMssM/VdYNxKI4IvfA=",
 			Addresses:  []string{"172.16.0.2/32"},
-			PublicKey:  "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=",
+			PublicKey:  "SSS4YQvI4g1Nebt0Stm6BnfZR7p5IiVl6icQg7JQ9nM=",
 			Reserved:   []int{1, 2, 3},
 			MTU:        1280,
 		},

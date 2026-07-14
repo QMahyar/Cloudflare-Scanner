@@ -94,10 +94,10 @@ func writeSampleConf(t *testing.T) string {
 	// Syntactically valid Curve25519 keys (base64, 32 bytes) — test material only,
 	// no real WARP account; the probe never completes a handshake.
 	const conf = `[Interface]
-PrivateKey = KPfZ9oNYi6etptKQKEMqynTQRrxqrDem/It8rwjUe2Q=
+PrivateKey = pstiyhXYh1zksH3Wc7Fbaz7cyeMssM/VdYNxKI4IvfA=
 Address = 172.16.0.2/32
 [Peer]
-PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
+PublicKey = SSS4YQvI4g1Nebt0Stm6BnfZR7p5IiVl6icQg7JQ9nM=
 Endpoint = 192.0.2.1:65535
 `
 	p := t.TempDir() + "/warp.conf"
