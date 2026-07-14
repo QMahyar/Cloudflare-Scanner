@@ -1,5 +1,11 @@
 # Implementation Summary: Three Key Improvements
 
+> **Historical record (2026-06-13).** This documents a past change set and is kept
+> for provenance. It is **not** a live to-do list. For the current build contract
+> see `CLAUDE.md` / `AGENTS.md` / `BUILD.md` (short version: `ui/dist/` is
+> git-ignored and rebuilt with `npm run build` before `go build`; CI does this
+> automatically). The `ui/dist/`-related rollout steps below have already shipped.
+
 This document summarizes the three improvements made to the Cloudflare Scanner codebase based on the architectural review.
 
 ---
@@ -132,27 +138,31 @@ Settings
 
 ---
 
-## Rollout Plan
+## Rollout Plan (completed)
 
-1. ✅ Commit these changes to a feature branch
-2. ⚠️ **Important**: Commit the current `ui/dist/` one last time before adding to .gitignore (for backward compatibility)
-3. Run CI to verify builds work
-4. Merge to master
-5. Tag a new release (the release workflow will build UI automatically)
-
----
-
-## Future Enhancements (Not Implemented)
-
-These were identified in the review but not implemented in this batch:
-
-- **IP Scanner concurrency controls**: Similar UI for Phase 1/2 worker counts
-- **Auto-tuning**: Detect CPU count and network speed to suggest optimal concurrency
-- **Persistent scan state**: Resume scans after restart
-- **Rate limiting**: Per-client scan limits to prevent resource exhaustion
+1. ✅ Committed these changes
+2. ✅ `ui/dist/` moved out of git and into `.gitignore`; CI now rebuilds it before every Go step
+3. ✅ CI verifies builds across all platform targets
+4. ✅ Merged to master
+5. ✅ Release workflow builds the UI automatically
 
 ---
 
-**Implementation Date**: 2026-06-13  
+## Follow-up status (updated 2026-07-14)
+
+Items originally listed as "not implemented" — current state:
+
+- **IP Scanner concurrency controls**: ✅ shipped — the clean-scan request exposes
+  `phase1_probes` / `phase2_probes` (clamped to `maxCleanPhase1Probes` /
+  `maxCleanPhase2Probes` in `server.go`).
+- **Rate limiting / resource-exhaustion guards**: ✅ partially shipped — request
+  inputs (`count`, concurrency, probe counts, and the port list) are clamped
+  server-side so no single request can drive an unbounded allocation.
+- **Auto-tuning** (detect CPU/network to suggest concurrency): not implemented.
+- **Persistent scan state** (resume after restart): not implemented.
+
+---
+
+**Original implementation date**: 2026-06-13  
 **Reviewed By**: Architecture review findings  
 **Implemented By**: AI Assistant (Claude Sonnet 4.5)
