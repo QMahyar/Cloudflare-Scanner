@@ -520,6 +520,13 @@ func TestShareURLRoundTrip(t *testing.T) {
 		"vless://5391f0cd-7ab5-4100-8206-4b08c5b7d1f4@172.67.155.31:443?encryption=none&security=tls&sni=ez-85eb7e.qhorror13194.workers.dev&fp=chrome&type=ws&host=ez-85eb7e.qhorror13194.workers.dev&path=/&packetEncoding=xudp#Mahyar-2-443",
 		"trojan://password123@192.168.1.1:8443?security=tls&sni=host.example",
 		"vmess://" + base64.RawURLEncoding.EncodeToString([]byte(vmessPayload)),
+		// REALITY + xTLS Vision over gRPC: the most fragile round-trip fields
+		// (pbk/sid/spx/flow/serviceName) in one case.
+		"vless://uuid-5678@2.3.4.5:443?encryption=none&security=reality&pbk=SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc&sid=abcd12&spx=%2F&flow=xtls-rprx-vision&type=grpc&serviceName=grpcSvc&sni=example.com&fp=chrome#reality-case",
+		// Plain gRPC over TLS (serviceName without reality).
+		"vless://uuid-9abc@3.4.5.6:2053?encryption=none&security=tls&sni=grpc.example&type=grpc&serviceName=TunnelService#grpc-case",
+		// mKCP with a header type.
+		"vless://uuid-def0@4.5.6.7:2096?encryption=none&security=tls&sni=kcp.example&type=kcp&headerType=srtp#kcp-case",
 	}
 	for _, raw := range cases {
 		c1, err := ParseProxyURL(raw)
@@ -557,6 +564,29 @@ func TestShareURLRoundTrip(t *testing.T) {
 		}
 		if c1.Encryption != c2.Encryption {
 			t.Errorf("%s: Encryption %q -> %q", c1.Protocol, c1.Encryption, c2.Encryption)
+		}
+		// REALITY/xTLS fields must survive the round trip — the fragile ones a
+		// generator regression would silently drop (pbk/sid/spx/flow).
+		if c1.Security == "reality" {
+			if c1.PublicKey == "" || c1.PublicKey != c2.PublicKey {
+				t.Errorf("reality PublicKey %q -> %q", c1.PublicKey, c2.PublicKey)
+			}
+			if c1.ShortId == "" || c1.ShortId != c2.ShortId {
+				t.Errorf("reality ShortId %q -> %q", c1.ShortId, c2.ShortId)
+			}
+			if c1.SpiderX != c2.SpiderX {
+				t.Errorf("reality SpiderX %q -> %q", c1.SpiderX, c2.SpiderX)
+			}
+			if c1.Flow == "" || c1.Flow != c2.Flow {
+				t.Errorf("Flow %q -> %q", c1.Flow, c2.Flow)
+			}
+		}
+		// gRPC serviceName and kcp headerType are transport-critical.
+		if c1.Network == "grpc" && (c1.ServiceName == "" || c1.ServiceName != c2.ServiceName) {
+			t.Errorf("grpc ServiceName %q -> %q", c1.ServiceName, c2.ServiceName)
+		}
+		if c1.Network == "kcp" && (c1.HeaderType == "" || c1.HeaderType != c2.HeaderType) {
+			t.Errorf("kcp HeaderType %q -> %q", c1.HeaderType, c2.HeaderType)
 		}
 		// VLESS share links must always carry encryption=none, even when the
 		// source URL omitted it — strict clients reject a vless URL without it.
