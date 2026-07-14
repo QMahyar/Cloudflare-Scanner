@@ -555,10 +555,6 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type failEntry struct {
-		Endpoint string `json:"endpoint"`
-		Error    string `json:"error"`
-	}
 	failures := make([]failEntry, 0)
 	reasons := map[string]int{}
 	failedCount := 0

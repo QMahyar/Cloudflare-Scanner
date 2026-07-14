@@ -325,10 +325,6 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 		// silent dead end (broken xray, wrong Host, too-tight timeout all look the
 		// same). We return a bounded sample of endpoint+error plus an aggregated
 		// reason->count summary so the UI can explain the outcome.
-		type failEntry struct {
-			Endpoint string `json:"endpoint"`
-			Error    string `json:"error"`
-		}
 		failures := make([]failEntry, 0)
 		reasons := map[string]int{}
 		for _, r := range phase2Results {

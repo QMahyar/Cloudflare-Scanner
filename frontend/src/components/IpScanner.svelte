@@ -280,7 +280,7 @@
     } catch {}
   }
 
-  // scheduleFetch throttles result fetches to ~1 per 500ms during a scan, and
+  // scheduleFetch throttles result fetches to ~1 per 600ms during a scan, and
   // forces an immediate final fetch on completion so the enriched
   // (score/loss/QUIC/colo) terminal snapshot always lands.
   function scheduleFetch(id, force) {
@@ -290,7 +290,7 @@
       fetchResultsNow(id)
       return
     }
-    const wait = 500 - (Date.now() - lastFetch)
+    const wait = 600 - (Date.now() - lastFetch)
     if (wait <= 0) { lastFetch = Date.now(); fetchResultsNow(id) }
     else if (!fetchTimer) {
       fetchTimer = setTimeout(() => { fetchTimer = null; lastFetch = Date.now(); fetchResultsNow(id) }, wait)

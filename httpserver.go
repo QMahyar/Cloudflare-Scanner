@@ -96,6 +96,12 @@ func stopAllJobs() {
 	cleanJobsMu.Unlock()
 }
 
+// failEntry is the shared failure row shape for scan/clean results responses.
+type failEntry struct {
+	Endpoint string `json:"endpoint"`
+	Error    string `json:"error"`
+}
+
 func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
