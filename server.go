@@ -211,6 +211,25 @@ func scheduleCleanJobCleanup(id string) {
 	})
 }
 
+// stopAllJobs cancels every in-flight scan/clean job so their goroutines unwind
+// and each xray BatchProbe's deferred Kill()/Wait() can run before the process
+// exits. os.Exit skips defers, so on shutdown we must trigger the
+// cancellation-driven cleanup explicitly or leak xray children + work dirs.
+// Idempotent: job.stop() is sync.Once-guarded.
+func stopAllJobs() {
+	scanJobsMu.Lock()
+	for _, j := range scanJobs {
+		j.stop()
+	}
+	scanJobsMu.Unlock()
+
+	cleanJobsMu.Lock()
+	for _, j := range cleanJobs {
+		j.stop()
+	}
+	cleanJobsMu.Unlock()
+}
+
 type scanRequest struct {
 	Noise       bool        `json:"noise"`
 	NoiseConfig NoiseConfig `json:"noiseConfig"`
@@ -353,7 +372,11 @@ func startServer(xrayPath string) (*http.Server, int, error) {
 	}
 
 	go func() {
-		if err := srv.Serve(listener); err != nil && !errors.Is(err, net.ErrClosed) {
+		// srv.Shutdown makes Serve return http.ErrServerClosed; a closed listener
+		// yields net.ErrClosed. Neither is a real error on graceful shutdown.
+		if err := srv.Serve(listener); err != nil &&
+			!errors.Is(err, net.ErrClosed) &&
+			!errors.Is(err, http.ErrServerClosed) {
 			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		}
 	}()

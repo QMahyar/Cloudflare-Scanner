@@ -88,9 +88,8 @@ func main() {
 }
 
 // waitForShutdown blocks until an interrupt/terminate signal arrives, then
-// gracefully shuts down the HTTP server (draining in-flight requests for up
-// to 5s), removes the xray work dirs left behind by in-flight scans, and
-// exits cleanly.
+// cancels in-flight scans (so their xray children get killed), gracefully shuts
+// down the HTTP server, removes the xray work dirs, and exits cleanly.
 func waitForShutdown(srv *http.Server) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
@@ -98,9 +97,15 @@ func waitForShutdown(srv *http.Server) {
 
 	fmt.Println("\n  Shutting down — cleaning up xray work dirs...")
 
-	// Give in-flight requests up to 5 seconds to finish before forcefully
-	// closing connections. SSE streams are torn down immediately (they hold
-	// the connection open indefinitely).
+	// Cancel every running job FIRST. This (a) lets each xray BatchProbe's
+	// deferred Kill()/Wait() run — os.Exit below skips defers, so without this
+	// the children leak and hold their ports; and (b) flips each job's status to
+	// done/cancelled, so the open SSE streams return within one 250ms tick and
+	// their connections go idle — otherwise srv.Shutdown would block the full 5s
+	// waiting on streams that never idle on their own.
+	stopAllJobs()
+	time.Sleep(500 * time.Millisecond) // brief grace for children to die
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
