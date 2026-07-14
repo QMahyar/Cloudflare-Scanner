@@ -81,39 +81,29 @@ type XrayManager struct {
 	Noise    NoiseConfig
 }
 
-// GenerateConfigBatch builds a SINGLE xray config that probes a whole batch of
-// WARP endpoints at once: one SOCKS inbound per endpoint, one WireGuard outbound
-// per endpoint (identical credentials/noise, only the peer Endpoint differs), and
-// a routing rule wiring each inbound to its outbound. The noise/AmneziaWG fallback
-// otherwise spawns one xray PROCESS per endpoint; collapsing a batch into one
-// process cuts that spawn cost by the batch factor while keeping each endpoint's
-// probe independent. Returns the config path and per-endpoint SOCKS ports (aligned
-// to the endpoints slice).
-func (xm *XrayManager) GenerateConfigBatch(endpoints []string, basePort int) (configPath string, ports []int, err error) {
+// buildBatchXrayConfig writes ONE xray config probing every endpoint in the batch:
+// a SOCKS inbound (in-%d, noauth, udp) + one outbound (out-%d, from makeOutbound) +
+// a routing rule per endpoint, plus trailing direct/block outbounds. dirName is the
+// subdir under os.TempDir() (e.g. "_xray_work/wgbatch_<port>"). Returns the config
+// path and per-endpoint SOCKS ports aligned to endpoints. Caller owns dir cleanup.
+//
+// This is the single implementation shared by the WARP noise-fallback
+// (GenerateConfigBatch) and clean-IP Phase-2 (BuildXrayJSONBatch) paths — only the
+// per-endpoint outbound and the dir name differ between them.
+func buildBatchXrayConfig(endpoints []string, basePort int, dirName string,
+	makeOutbound func(ep, outTag string) (OutboundConfig, error)) (configPath string, ports []int, err error) {
+
 	if len(endpoints) == 0 {
 		return "", nil, fmt.Errorf("no endpoints in batch")
 	}
 
-	tag := fmt.Sprintf("wgbatch_%d", basePort)
-	configDir := filepath.Join(os.TempDir(), "_xray_work", tag)
+	configDir := filepath.Join(os.TempDir(), dirName)
 	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return "", nil, fmt.Errorf("cannot create work dir: %w", err)
 	}
 
 	logFile := filepath.Join(configDir, "xray.log")
 	_ = os.WriteFile(logFile, []byte{}, 0600)
-
-	var noiseEntries []NoiseEntry
-	if xm.Noise.Type != "" {
-		noiseEntries = []NoiseEntry{
-			{
-				Type:   xm.Noise.Type,
-				Packet: xm.Noise.Packet,
-				Delay:  xm.Noise.Delay,
-				Count:  xm.Noise.Count,
-			},
-		}
-	}
 
 	socksSettings, _ := json.Marshal(map[string]interface{}{
 		"auth": "noauth",
@@ -141,21 +131,10 @@ func (xm *XrayManager) GenerateConfigBatch(endpoints []string, basePort int) (co
 		inTag := fmt.Sprintf("in-%d", i)
 		outTag := fmt.Sprintf("out-%d", i)
 
-		wgSettings := WireGuardSettings{
-			SecretKey: xm.Config.PrivateKey,
-			Address:   xm.Config.Addresses,
-			Peers: []WireGuardPeer{
-				{
-					PublicKey: xm.Config.PublicKey,
-					Endpoint:  ep,
-				},
-			},
-			Reserved:   xm.Config.Reserved,
-			Noises:     noiseEntries,
-			MTU:        xm.Config.MTU,
-			KernelMode: false,
+		ob, err := makeOutbound(ep, outTag)
+		if err != nil {
+			return "", nil, err
 		}
-		wgJSON, _ := json.Marshal(wgSettings)
 
 		cfg.Inbounds = append(cfg.Inbounds, InboundConfig{
 			Tag:      inTag,
@@ -164,11 +143,7 @@ func (xm *XrayManager) GenerateConfigBatch(endpoints []string, basePort int) (co
 			Protocol: "socks",
 			Settings: socksSettings,
 		})
-		cfg.Outbounds = append(cfg.Outbounds, OutboundConfig{
-			Tag:      outTag,
-			Protocol: "wireguard",
-			Settings: wgJSON,
-		})
+		cfg.Outbounds = append(cfg.Outbounds, ob)
 		cfg.Routing.Rules = append(cfg.Routing.Rules, RoutingRule{
 			Type:        "field",
 			InboundTag:  []string{inTag},
@@ -192,6 +167,53 @@ func (xm *XrayManager) GenerateConfigBatch(endpoints []string, basePort int) (co
 	}
 
 	return configPath, ports, nil
+}
+
+// GenerateConfigBatch builds a SINGLE xray config that probes a whole batch of
+// WARP endpoints at once: one SOCKS inbound per endpoint, one WireGuard outbound
+// per endpoint (identical credentials/noise, only the peer Endpoint differs), and
+// a routing rule wiring each inbound to its outbound. The noise/AmneziaWG fallback
+// otherwise spawns one xray PROCESS per endpoint; collapsing a batch into one
+// process cuts that spawn cost by the batch factor while keeping each endpoint's
+// probe independent. Returns the config path and per-endpoint SOCKS ports (aligned
+// to the endpoints slice).
+func (xm *XrayManager) GenerateConfigBatch(endpoints []string, basePort int) (configPath string, ports []int, err error) {
+	var noiseEntries []NoiseEntry
+	if xm.Noise.Type != "" {
+		noiseEntries = []NoiseEntry{
+			{
+				Type:   xm.Noise.Type,
+				Packet: xm.Noise.Packet,
+				Delay:  xm.Noise.Delay,
+				Count:  xm.Noise.Count,
+			},
+		}
+	}
+
+	dirName := filepath.Join("_xray_work", fmt.Sprintf("wgbatch_%d", basePort))
+	return buildBatchXrayConfig(endpoints, basePort, dirName,
+		func(ep, outTag string) (OutboundConfig, error) {
+			wgSettings := WireGuardSettings{
+				SecretKey: xm.Config.PrivateKey,
+				Address:   xm.Config.Addresses,
+				Peers: []WireGuardPeer{
+					{
+						PublicKey: xm.Config.PublicKey,
+						Endpoint:  ep,
+					},
+				},
+				Reserved:   xm.Config.Reserved,
+				Noises:     noiseEntries,
+				MTU:        xm.Config.MTU,
+				KernelMode: false,
+			}
+			wgJSON, _ := json.Marshal(wgSettings)
+			return OutboundConfig{
+				Tag:      outTag,
+				Protocol: "wireguard",
+				Settings: wgJSON,
+			}, nil
+		})
 }
 
 // probeResult is the minimal result shape the shared batch lifecycle returns.
