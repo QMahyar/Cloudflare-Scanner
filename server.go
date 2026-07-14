@@ -177,6 +177,12 @@ const maxCleanPhase1Probes = 4096
 const maxCleanPhase2Probes = 256
 const maxOutCount = 10000
 const maxReplacerOutputs = 50000
+
+// maxScanPorts caps the clean-scan port list. The port count multiplies the IP
+// count into the endpoint slice ((v4+v6)*len(ports)), so an unbounded list — the
+// one clean-scan input that wasn't clamped — could blow up allocation. 64 is far
+// above the official CF CDN port set while keeping maxScanPorts*maxScanCount sane.
+const maxScanPorts = 64
 const csrfCookieName = "cfscanner_token"
 const csrfHeaderName = "X-CSRF-Token"
 
@@ -247,6 +253,28 @@ func jsonError(w http.ResponseWriter, msg string, code int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// sanitizeScanPorts validates (1..65535), dedupes, and caps a requested port list
+// to maxScanPorts, defaulting to {443} when nothing valid remains. Bounding the
+// port count bounds the (v4+v6)*len(ports) endpoint allocation downstream.
+func sanitizeScanPorts(ports []int) []int {
+	out := make([]int, 0, len(ports))
+	seen := make(map[int]bool, len(ports))
+	for _, p := range ports {
+		if p < 1 || p > 65535 || seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+		if len(out) >= maxScanPorts {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return []int{443}
+	}
+	return out
 }
 
 func clampInt(v, min, max int) int {
@@ -1243,16 +1271,10 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 			req.IPv4 = true
 		}
 
-		// Resolve scan ports — validate and default to 443
-		var scanPorts []int
-		for _, p := range req.Ports {
-			if p >= 1 && p <= 65535 {
-				scanPorts = append(scanPorts, p)
-			}
-		}
-		if len(scanPorts) == 0 {
-			scanPorts = []int{443}
-		}
+		// Resolve scan ports — validate, dedupe, and cap. The port count multiplies
+		// the IP count into the endpoint slice, so an unbounded/duplicate-laden list
+		// could blow up allocation (this is the one clean-scan input left unclamped).
+		scanPorts := sanitizeScanPorts(req.Ports)
 
 		gen := NewCleanIPGenerator()
 		var endpoints []string

@@ -240,3 +240,39 @@ S1 = 999
 		t.Error("expected error for S1=999, got nil")
 	}
 }
+
+// TestSanitizeScanPorts locks the clean-scan port bound: valid ports pass,
+// out-of-range drop, duplicates collapse, the result never exceeds maxScanPorts,
+// and an empty/all-invalid input defaults to 443. This bounds the downstream
+// (v4+v6)*len(ports) endpoint allocation.
+func TestSanitizeScanPorts(t *testing.T) {
+	if got := sanitizeScanPorts(nil); len(got) != 1 || got[0] != 443 {
+		t.Fatalf("nil input should default to [443], got %v", got)
+	}
+	if got := sanitizeScanPorts([]int{0, 70000, -5}); len(got) != 1 || got[0] != 443 {
+		t.Fatalf("all-invalid input should default to [443], got %v", got)
+	}
+	if got := sanitizeScanPorts([]int{443, 443, 2053, 2053, 443}); len(got) != 2 {
+		t.Fatalf("duplicates should collapse to 2, got %v", got)
+	}
+	// A huge duplicate-free list must be capped at maxScanPorts.
+	big := make([]int, 0, 1000)
+	for p := 1; p <= 1000; p++ {
+		big = append(big, p)
+	}
+	if got := sanitizeScanPorts(big); len(got) != maxScanPorts {
+		t.Fatalf("expected cap at %d, got %d", maxScanPorts, len(got))
+	}
+}
+
+// TestGenerateIPsBoundedByPorts confirms the endpoint count stays IP*ports once
+// the port list is sanitized — the multiplication that makes an unbounded port
+// list dangerous.
+func TestGenerateIPsBoundedByPorts(t *testing.T) {
+	g := NewCleanIPGenerator()
+	ports := sanitizeScanPorts([]int{443, 2053, 8443})
+	eps := g.GenerateIPs(100, true, false, ports)
+	if len(eps) > 100*len(ports) {
+		t.Fatalf("endpoint count %d exceeds ipCount*ports %d", len(eps), 100*len(ports))
+	}
+}
