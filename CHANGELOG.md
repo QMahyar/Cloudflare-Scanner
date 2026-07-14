@@ -9,6 +9,59 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.7.0] — 2026-07-14
+
+Advisor-plan implementation batch (16 plans, `plans/`): correctness/security
+hardening, test coverage, two internal refactors, a feature, and doc/CI cleanup.
+No breaking API changes — the one field rename is backward-compatible.
+
+### Fixed
+- Graceful shutdown now cancels in-flight scan/clean jobs before draining the HTTP
+  server, so xray child processes are always killed/waited (previously `os.Exit`
+  could skip their deferred cleanup) and open SSE streams no longer stall shutdown
+  for the full 5s grace window. `http.ErrServerClosed` is no longer logged as an error.
+- The native WARP handshake probe now honors `context.Context`: Stop is responsive
+  (aborts within ~700ms) instead of waiting out the full per-probe timeout (up to
+  60s) across every in-flight probe.
+- The clean-scan port list is now deduped and capped (`maxScanPorts = 64`) —
+  previously unbounded, so a large/duplicate-heavy port list could drive an
+  outsized endpoint allocation.
+- The apply-endpoint value is now validated against control characters/whitespace
+  before being written into a `.conf` file, closing a config-injection edge case.
+
+### Added
+- Clean-IP export is now protocol-neutral: the request accepts `config_url`
+  (the legacy `vless_url` field still works), and the exported filename/header
+  derive from the parsed protocol (e.g. `clean_ips_trojan.txt` for a Trojan
+  config) instead of always saying "vless".
+- Test coverage: replacer `ConfigFingerprint`/`DeduplicateConfigs` (previously
+  0%), REALITY/xTLS/gRPC/kcp share-URL round-trips, a WARP-probe context-
+  cancellation test, and an offline test suite for the new batch-orchestration runner.
+- CI now runs a `gofmt -l` gate (linux/amd64) so formatting regressions are caught.
+
+### Changed
+- Internal refactor: the two xray batch-config builders (WARP noise fallback,
+  clean-IP Phase 2) now share one `buildBatchXrayConfig`; the two batch
+  orchestration loops now share one generic `runBatches[T]`. Structural/offline
+  tests pin both to their pre-refactor behavior.
+- `server.go` and `cleanip.go` (each 1300–1800 lines) split into focused files
+  along their existing seams (pickers / http bootstrap / scan handlers / clean-scan
+  handlers / replacer handlers; IP generation / measurement / xray validation /
+  orchestration). No behavior change.
+- `.go` sources normalized to LF line endings (`.gitattributes`), so `gofmt -l`
+  is meaningful going forward.
+
+### Docs
+- Corrected the build contract everywhere it was stated wrong: `ui/dist/` is
+  git-ignored and must be built with `npm run build` before `go build` — several
+  docs previously said the opposite (`CLAUDE.md`, `AGENTS.md`, `README.md`,
+  `BUILD.md`, `BUILD.fa.md`).
+- `IMPROVEMENTS.md` marked as a historical record and reconciled with what has
+  since shipped.
+- `sample.conf`'s real-looking WireGuard key material replaced with placeholders.
+
+---
+
 ## [v3.6.3] — 2026-06-28
 
 Performance and reliability pass on the scan pipeline. No user-facing behavior
