@@ -1204,72 +1204,14 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	// success path), and calls onBatch with each completed batch's results.
 	// Returns true if the job was cancelled mid-run.
 	runPhase2Batches := func(endpoints []string, onBatch func([]CleanIPResult)) bool {
-		var batches [][]string
-		for i := 0; i < len(endpoints); i += phase2BatchSize {
-			end := i + phase2BatchSize
-			if end > len(endpoints) {
-				end = len(endpoints)
-			}
-			batches = append(batches, endpoints[i:end])
-		}
-
-		sem := make(chan struct{}, concurrentBatches)
-		var wg sync.WaitGroup
-		var cancelled atomic.Bool
-
-		for _, b := range batches {
-			select {
-			case <-job.Cancel:
-				cancelled.Store(true)
-			default:
-			}
-			if cancelled.Load() {
-				break
-			}
-
-			wg.Add(1)
-			go func(batch []string) {
-				defer wg.Done()
-				select {
-				case sem <- struct{}{}:
-					defer func() { <-sem }()
-				case <-ctx.Done():
-					return
-				}
-
-				res := validateBatchWithXray(ctx, &validationCfg, batch, xrayPath, allocPortBase(), phase2Timeout)
-
-				// Retry the ones that failed, once, in a fresh batch — a single
-				// dropped TLS/handshake under load shouldn't condemn an IP. Skip
-				// the retry entirely when the whole batch failed: that's systemic
-				// (broken xray, wrong config, every endpoint dead) and a second
-				// spawn only doubles the cost for zero benefit. Also skip once the
-				// job is cancelled.
-				var retryIdx []int
-				var retryEps []string
-				for i, r := range res {
-					if !r.Success {
-						retryIdx = append(retryIdx, i)
-						retryEps = append(retryEps, batch[i])
-					}
-				}
-				partialFailure := len(retryEps) > 0 && len(retryEps) < len(batch)
-				if partialFailure {
-					select {
-					case <-ctx.Done():
-					default:
-						rres := validateBatchWithXray(ctx, &validationCfg, retryEps, xrayPath, allocPortBase(), phase2Timeout)
-						for j, rr := range rres {
-							if rr.Success {
-								rr.Attempts = 2
-								res[retryIdx[j]] = rr
-							} else {
-								res[retryIdx[j]].Attempts = 2
-							}
-						}
-					}
-				}
-
+		return runBatches[CleanIPResult](
+			ctx, job.Cancel, endpoints, phase2BatchSize, concurrentBatches, allocPortBase,
+			func(batch []string, basePort int) []CleanIPResult {
+				return validateBatchWithXray(ctx, &validationCfg, batch, xrayPath, basePort, phase2Timeout)
+			},
+			func(r CleanIPResult) bool { return r.Success },
+			func(r *CleanIPResult) { r.Attempts = 2 },
+			func(res []CleanIPResult) {
 				for i := range res {
 					if res[i].Attempts == 0 {
 						res[i].Attempts = 1
@@ -1280,11 +1222,8 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 					}
 				}
 				onBatch(res)
-			}(b)
-		}
-
-		wg.Wait()
-		return cancelled.Load()
+			},
+		)
 	}
 
 	var mu sync.Mutex

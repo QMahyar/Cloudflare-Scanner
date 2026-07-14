@@ -720,67 +720,14 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 		return 10800 + (n*batchSize)%8992
 	}
 
-	var batches [][]string
-	for i := 0; i < len(job.Endpoints); i += batchSize {
-		end := i + batchSize
-		if end > len(job.Endpoints) {
-			end = len(job.Endpoints)
-		}
-		batches = append(batches, job.Endpoints[i:end])
-	}
-
-	sem := make(chan struct{}, concurrentBatches)
-	var wg sync.WaitGroup
-
-	for _, b := range batches {
-		select {
-		case <-ctx.Done():
-			goto wait
-		default:
-		}
-
-		wg.Add(1)
-		go func(batch []string) {
-			defer wg.Done()
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-ctx.Done():
-				return
-			}
-
-			res := scanner.scanBatchNoise(ctx, batch, allocPortBase())
-
-			// Retry the failures once in a fresh batch — mirrors the old 2-attempt
-			// behavior without paying 2× on endpoints that pass first try. Skip
-			// when the whole batch failed (systemic: broken xray / wrong config /
-			// every endpoint dead) since a second spawn only doubles the cost for
-			// no benefit, and skip once the job is cancelled.
-			var retryIdx []int
-			var retryEps []string
-			for i, r := range res {
-				if !r.Success {
-					retryIdx = append(retryIdx, i)
-					retryEps = append(retryEps, batch[i])
-				}
-			}
-			partialFailure := len(retryEps) > 0 && len(retryEps) < len(batch)
-			if partialFailure {
-				select {
-				case <-ctx.Done():
-				default:
-					rres := scanner.scanBatchNoise(ctx, retryEps, allocPortBase())
-					for j, rr := range rres {
-						if rr.Success {
-							rr.Attempts = 2
-							res[retryIdx[j]] = rr
-						} else {
-							res[retryIdx[j]].Attempts = 2
-						}
-					}
-				}
-			}
-
+	runBatches[ScanResult](
+		ctx, job.Cancel, job.Endpoints, batchSize, concurrentBatches, allocPortBase,
+		func(batch []string, basePort int) []ScanResult {
+			return scanner.scanBatchNoise(ctx, batch, basePort)
+		},
+		func(r ScanResult) bool { return r.Success },
+		func(r *ScanResult) { r.Attempts = 2 },
+		func(res []ScanResult) {
 			job.mu.Lock()
 			// If the job was cancelled by the user, drop this late batch's
 			// results — the caller's terminal snapshot is authoritative and late
@@ -818,11 +765,8 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 			if reached {
 				job.stop()
 			}
-		}(b)
-	}
-
-wait:
-	wg.Wait()
+		},
+	)
 
 	job.mu.Lock()
 	if !job.TargetReached {
