@@ -85,13 +85,13 @@ func TestValidateEndpointHostPort(t *testing.T) {
 	}
 	invalid := []string{
 		"1.2.3.4\nInjected = x:443", // newline injection
-		"host\t:443",               // tab in host
-		"ho st:443",                // space in host
-		"1.2.3.4:0",                // port too low
-		"1.2.3.4:70000",            // port too high
-		"1.2.3.4:abc",              // non-numeric port
-		"1.2.3.4",                  // no port
-		":443",                     // empty host
+		"host\t:443",                // tab in host
+		"ho st:443",                 // space in host
+		"1.2.3.4:0",                 // port too low
+		"1.2.3.4:70000",             // port too high
+		"1.2.3.4:abc",               // non-numeric port
+		"1.2.3.4",                   // no port
+		":443",                      // empty host
 	}
 	for _, ep := range invalid {
 		if err := validateEndpointHostPort(ep); err == nil {

@@ -218,7 +218,8 @@ func (xm *XrayManager) GenerateConfigBatch(endpoints []string, basePort int) (co
 
 // probeResult is the minimal result shape the shared batch lifecycle returns.
 // Callers map this to their own result types (CleanIPResult, ScanResult).
-type probeResult struct {	Endpoint string
+type probeResult struct {
+	Endpoint string
 	Latency  time.Duration
 	Success  bool
 	Error    string

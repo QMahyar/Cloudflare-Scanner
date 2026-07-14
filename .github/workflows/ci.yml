@@ -42,6 +42,16 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
 
+      - name: Format check
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
       - name: Test
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         run: |
