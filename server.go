@@ -277,6 +277,30 @@ func sanitizeScanPorts(ports []int) []int {
 	return out
 }
 
+// validateEndpointHostPort enforces a strict host:port for values written into a
+// .conf file: a numeric in-range port and a host with no control characters or
+// whitespace. net.SplitHostPort alone accepts embedded newlines in the host, which
+// would let a crafted endpoint inject extra lines into the generated WireGuard config.
+func validateEndpointHostPort(endpoint string) error {
+	host, portStr, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		return fmt.Errorf("expected host:port: %w", err)
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port < 1 || port > 65535 {
+		return fmt.Errorf("port must be 1-65535")
+	}
+	if host == "" {
+		return fmt.Errorf("host required")
+	}
+	for _, r := range host {
+		if r < 0x20 || r == 0x7f || r == ' ' {
+			return fmt.Errorf("host contains an invalid character")
+		}
+	}
+	return nil
+}
+
 func clampInt(v, min, max int) int {
 	if v < min {
 		return min
@@ -1081,8 +1105,8 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "endpoint required", 400)
 		return
 	}
-	if _, _, err := net.SplitHostPort(endpoint); err != nil {
-		jsonError(w, fmt.Sprintf("invalid endpoint format (expected host:port): %v", err), 400)
+	if err := validateEndpointHostPort(endpoint); err != nil {
+		jsonError(w, fmt.Sprintf("invalid endpoint: %v", err), 400)
 		return
 	}
 

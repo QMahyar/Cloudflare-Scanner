@@ -72,3 +72,30 @@ func TestIsLoopbackHost(t *testing.T) {
 		}
 	}
 }
+
+// validateEndpointHostPort must reject control chars / whitespace in the host and
+// bad ports — the value is written verbatim into a WireGuard .conf, so a newline
+// would inject config lines.
+func TestValidateEndpointHostPort(t *testing.T) {
+	valid := []string{"1.2.3.4:8886", "[2606:4700::1]:443", "example.com:2053"}
+	for _, ep := range valid {
+		if err := validateEndpointHostPort(ep); err != nil {
+			t.Errorf("expected %q valid, got %v", ep, err)
+		}
+	}
+	invalid := []string{
+		"1.2.3.4\nInjected = x:443", // newline injection
+		"host\t:443",               // tab in host
+		"ho st:443",                // space in host
+		"1.2.3.4:0",                // port too low
+		"1.2.3.4:70000",            // port too high
+		"1.2.3.4:abc",              // non-numeric port
+		"1.2.3.4",                  // no port
+		":443",                     // empty host
+	}
+	for _, ep := range invalid {
+		if err := validateEndpointHostPort(ep); err == nil {
+			t.Errorf("expected %q rejected, got nil", ep)
+		}
+	}
+}
