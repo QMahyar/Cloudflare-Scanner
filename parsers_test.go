@@ -833,3 +833,37 @@ func FuzzParseIPRanges(f *testing.F) {
 		}
 	})
 }
+
+// TestGenerateExportProtocolNeutral confirms the clean-IP export engine is not
+// VLESS-specific: a trojan config produces trojan:// URLs for each endpoint.
+func TestGenerateExportProtocolNeutral(t *testing.T) {
+	cfg, err := ParseProxyURL("trojan://pw@1.2.3.4:443?security=tls&sni=host.example")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	urls := cfg.GenerateExport([]string{"5.6.7.8:443", "9.10.11.12:2053"})
+	if len(urls) != 2 {
+		t.Fatalf("want 2 urls, got %d", len(urls))
+	}
+	for _, u := range urls {
+		if !strings.HasPrefix(u, "trojan://") {
+			t.Errorf("expected trojan:// url, got %q", u)
+		}
+	}
+}
+
+// TestExportFilename derives the download name from the protocol.
+func TestExportFilename(t *testing.T) {
+	cases := map[string]string{
+		"vless":   "clean_ips_vless.txt",
+		"trojan":  "clean_ips_trojan.txt",
+		"vmess":   "clean_ips_vmess.txt",
+		"":        "clean_ips.txt",
+		"unknown": "clean_ips.txt",
+	}
+	for proto, want := range cases {
+		if got := exportFilename("clean_ips", proto); got != want {
+			t.Errorf("exportFilename(%q) = %q, want %q", proto, got, want)
+		}
+	}
+}

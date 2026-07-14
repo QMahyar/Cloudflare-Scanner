@@ -208,7 +208,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vless_url: onePhase ? '' : vlessURL.trim(),
+          config_url: onePhase ? '' : vlessURL.trim(),
           count: depth,
           ipv4: ipVersion === '4' || ipVersion === '46',
           ipv6: ipVersion === '6' || ipVersion === '46',
@@ -396,11 +396,16 @@
     try {
       const resp = await fetch('/api/clean-export', withCSRF({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vless_url: vlessURL.trim(), endpoints }),
+        body: JSON.stringify({ config_url: vlessURL.trim(), endpoints }),
       }))
       if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || resp.statusText) }
       const blob = await resp.blob()
-      downloadBlob(blob, list === 'nearby' ? 'nearby_ips_vless.txt' : 'clean_ips_vless.txt')
+      // Derive the download name from the config protocol so trojan/vmess users
+      // don't get a misleading "vless" filename.
+      const proto = (vlessURL.trim().match(/^(vless|trojan|vmess):\/\//) || [])[1] || ''
+      const prefix = list === 'nearby' ? 'nearby_ips' : 'clean_ips'
+      const filename = proto ? `${prefix}_${proto}.txt` : `${prefix}.txt`
+      downloadBlob(blob, filename)
       showToast($_('clean.exported', { values: { n: endpoints.length } }))
     } catch (e) {
       showToast($_('clean.errExport', { values: { msg: e.message } }), true)
