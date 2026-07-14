@@ -11,7 +11,7 @@
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
   import { subscribeStatus } from '../lib/sse.js'
-  import { cleanData, activeTab, getSetting, setSetting, recordScan } from '../lib/stores.js'
+  import { cleanData, activeTab, getSetting, setSetting, recordScan, cleanScanning } from '../lib/stores.js'
   import { pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
   import VirtualTable from './VirtualTable.svelte'
   import ScanProgress from './ScanProgress.svelte'
@@ -85,6 +85,10 @@
   // ─── Scan state ───
   let jobId = $state(null)
   let status = $state('idle') // idle | running | done | cancelled
+
+  // Mirror the running state into the shared store so the tab bar can show a
+  // pulse while a scan runs in the background on another tab.
+  $effect(() => { cleanScanning.set(status === 'running') })
   let progressPct = $state(0)
   let progressText = $state('')
   let startTime = 0

@@ -66,22 +66,34 @@ func ParseWarpConfig(path string) (*WarpConfig, error) {
 			case "reserved":
 				cfg.Reserved = cfg.Reserved[:0]
 				for _, b := range strings.Split(val, ",") {
-					n, _ := strconv.Atoi(strings.TrimSpace(b))
+					n, err := strconv.Atoi(strings.TrimSpace(b))
+					if err != nil || n < 0 || n > 255 {
+						return nil, fmt.Errorf("Reserved byte must be 0-255, got %s", strings.TrimSpace(b))
+					}
 					cfg.Reserved = append(cfg.Reserved, n)
 				}
 			case "s1":
 				if len(cfg.Reserved) > 0 && cfg.Reserved[0] == 0 {
-					n, _ := strconv.Atoi(val)
+					n, err := strconv.Atoi(val)
+					if err != nil || n < 0 || n > 255 {
+						return nil, fmt.Errorf("S1 must be 0-255, got %s", val)
+					}
 					cfg.Reserved[0] = n
 				}
 			case "s2":
 				if len(cfg.Reserved) > 1 && cfg.Reserved[1] == 0 {
-					n, _ := strconv.Atoi(val)
+					n, err := strconv.Atoi(val)
+					if err != nil || n < 0 || n > 255 {
+						return nil, fmt.Errorf("S2 must be 0-255, got %s", val)
+					}
 					cfg.Reserved[1] = n
 				}
 			case "s3":
 				if len(cfg.Reserved) > 2 && cfg.Reserved[2] == 0 {
-					n, _ := strconv.Atoi(val)
+					n, err := strconv.Atoi(val)
+					if err != nil || n < 0 || n > 255 {
+						return nil, fmt.Errorf("S3 must be 0-255, got %s", val)
+					}
 					cfg.Reserved[2] = n
 				}
 			case "mtu":

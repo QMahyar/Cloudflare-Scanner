@@ -1,82 +1,113 @@
-import { writable, get } from 'svelte/store'
+import { writable, get } from "svelte/store";
 
 // Which tab is visible. A store (not local App state) so any component can
 // navigate — e.g. "Use" on an endpoint switches to the Replacer tab.
-export const activeTab = writable('endpoint')
+export const activeTab = writable("endpoint");
 
 // ─── Settings persistence (cfscanner_settings) ───
 // Same localStorage key and field-name-keyed shape as the original, so existing
 // users keep their saved settings. Components read initial values via
 // getSetting() and write back via setSetting() (debounced).
-const SETTINGS_KEY = 'cfscanner_settings'
+const SETTINGS_KEY = "cfscanner_settings";
 function loadSettings() {
-  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || {} } catch { return {} }
+	try {
+		return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null") || {};
+	} catch {
+		return {};
+	}
 }
-export const settings = writable(loadSettings())
+export const settings = writable(loadSettings());
 
-let saveTimer
+let saveTimer;
 settings.subscribe((v) => {
-  clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => {
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(v)) } catch {}
-  }, 300)
-})
+	clearTimeout(saveTimer);
+	saveTimer = setTimeout(() => {
+		try {
+			localStorage.setItem(SETTINGS_KEY, JSON.stringify(v));
+		} catch {}
+	}, 300);
+});
 
 export function getSetting(key, fallback) {
-  const v = get(settings)[key]
-  return v === undefined ? fallback : v
+	const v = get(settings)[key];
+	return v === undefined ? fallback : v;
 }
 export function setSetting(key, value) {
-  settings.update((s) => ({ ...s, [key]: value }))
+	settings.update((s) => ({ ...s, [key]: value }));
 }
 
 // ─── Result stores (cfscanner_results) ───
 // endpointRaw: successful WARP endpoint results. cleanData: the IP-scanner
 // result payload. replacerGenerated: generated share URLs (not persisted).
-export const endpointRaw = writable([])
-export const cleanData = writable(null)
-export const replacerGenerated = writable([])
+export const endpointRaw = writable([]);
+export const cleanData = writable(null);
+export const replacerGenerated = writable([]);
 
-const RESULTS_KEY = 'cfscanner_results'
+const RESULTS_KEY = "cfscanner_results";
 export function loadResults() {
-  try { return JSON.parse(localStorage.getItem(RESULTS_KEY) || 'null') } catch { return null }
+	try {
+		return JSON.parse(localStorage.getItem(RESULTS_KEY) || "null");
+	} catch {
+		return null;
+	}
 }
 function persistResults() {
-  try {
-    localStorage.setItem(RESULTS_KEY, JSON.stringify({
-      endpointRaw: get(endpointRaw) || [],
-      cleanData: get(cleanData) || null,
-    }))
-  } catch {}
+	try {
+		localStorage.setItem(
+			RESULTS_KEY,
+			JSON.stringify({
+				endpointRaw: get(endpointRaw) || [],
+				cleanData: get(cleanData) || null,
+			}),
+		);
+	} catch {}
 }
-let persisting = false
+let persisting = false;
 export function beginResultsPersistence() {
-  if (persisting) return
-  persisting = true
-  endpointRaw.subscribe(persistResults)
-  cleanData.subscribe(persistResults)
+	if (persisting) return;
+	persisting = true;
+	endpointRaw.subscribe(persistResults);
+	cleanData.subscribe(persistResults);
 }
 
 // ─── Scan history (cfscanner_history) ───
 // A lightweight rolling log of finished scans (summary only — not full result
 // sets) so the user can see what they ran and compare runs over time. One-shot
 // tool: this is local memory, not a scheduler.
-const HISTORY_KEY = 'cfscanner_history'
-const HISTORY_MAX = 25
+const HISTORY_KEY = "cfscanner_history";
+const HISTORY_MAX = 25;
 function loadHistory() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') || [] } catch { return [] }
+	try {
+		return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]") || [];
+	} catch {
+		return [];
+	}
 }
-export const scanHistory = writable(loadHistory())
+export const scanHistory = writable(loadHistory());
 
 export function recordScan(entry) {
-  scanHistory.update((list) => {
-    const next = [{ ...entry, ts: entry.ts || Date.now() }, ...list].slice(0, HISTORY_MAX)
-    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)) } catch {}
-    return next
-  })
+	scanHistory.update((list) => {
+		const next = [{ ...entry, ts: entry.ts || Date.now() }, ...list].slice(
+			0,
+			HISTORY_MAX,
+		);
+		try {
+			localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+		} catch {}
+		return next;
+	});
 }
 
 export function clearHistory() {
-  try { localStorage.removeItem(HISTORY_KEY) } catch {}
-  scanHistory.set([])
+	try {
+		localStorage.removeItem(HISTORY_KEY);
+	} catch {}
+	scanHistory.set([]);
 }
+
+// ─── Live scan-running indicators ───
+// Each scanner tab flips its flag while a scan is in flight so the tab bar can
+// show a running pulse even when the user has navigated to another tab. Not
+// persisted — purely session UI state.
+export const endpointScanning = writable(false);
+export const cleanScanning = writable(false);

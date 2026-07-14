@@ -199,6 +199,13 @@ func GenerateReplacedConfigsNamed(configs []*ProxyConfig, endpoints []string, na
 			}
 			n++
 			clone := *cfg
+			// Pin the original hostname as SNI before repointing Address at a scan
+			// IP, exactly like WithEndpoint does. Without this, CDN-fronted configs
+			// (where SNI is empty and implicitly the Address hostname) would send
+			// SNI:<scan-IP> — which Cloudflare can't route — producing dead configs.
+			if clone.SNI == "" && net.ParseIP(cfg.Address) == nil {
+				clone.SNI = cfg.Address
+			}
 			clone.Address = host
 			clone.Port = p
 			clone.Remark = applyNameTemplate(nameTemplate, cfg, host, p, n)

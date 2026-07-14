@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestApplyNameTemplate(t *testing.T) {
 	cfg := &ProxyConfig{Protocol: "vless", Remark: "MyNode"}
@@ -24,5 +27,56 @@ func TestApplyNameTemplate(t *testing.T) {
 	bare := &ProxyConfig{Protocol: "trojan"}
 	if got := applyNameTemplate("", bare, "5.6.7.8", 8443, 1); got != "5.6.7.8:8443" {
 		t.Errorf("empty-remark fallback = %q, want %q", got, "5.6.7.8:8443")
+	}
+}
+
+// TestGenerateReplacedConfigsPinsSNI verifies the replacer pins the original
+// CDN hostname into SNI before repointing Address at a scan IP. Without it, a
+// CDN-fronted config (SNI implicitly = the hostname) would emit sni:<scan-IP>,
+// which Cloudflare cannot route — a dead config.
+func TestGenerateReplacedConfigsPinsSNI(t *testing.T) {
+	// A vless config whose SNI is empty and Address is a CDN hostname.
+	cfg := &ProxyConfig{
+		Protocol: "vless",
+		UUID:     "abc-123",
+		Address:  "cdn.example.com",
+		Port:     443,
+		Security: "tls",
+		Network:  "ws",
+	}
+	urls := GenerateReplacedConfigsNamed([]*ProxyConfig{cfg}, []string{"104.16.1.1:443"}, "")
+	if len(urls) != 1 {
+		t.Fatalf("expected 1 URL, got %d", len(urls))
+	}
+	// The generated share URL must carry sni=cdn.example.com, not the scan IP.
+	if !strings.Contains(urls[0], "sni=cdn.example.com") {
+		t.Errorf("expected original hostname pinned as SNI, got: %s", urls[0])
+	}
+	if strings.Contains(urls[0], "sni=104.16.1.1") {
+		t.Errorf("SNI was wrongly set to the scan IP: %s", urls[0])
+	}
+	// The address must still be repointed at the scan IP.
+	if !strings.Contains(urls[0], "104.16.1.1") {
+		t.Errorf("expected address repointed to scan IP, got: %s", urls[0])
+	}
+}
+
+// TestGenerateReplacedConfigsKeepsExplicitSNI verifies an explicit SNI is not
+// clobbered by the pinning logic.
+func TestGenerateReplacedConfigsKeepsExplicitSNI(t *testing.T) {
+	cfg := &ProxyConfig{
+		Protocol: "vless",
+		UUID:     "abc-123",
+		Address:  "cdn.example.com",
+		Port:     443,
+		Security: "tls",
+		SNI:      "explicit.sni.com",
+	}
+	urls := GenerateReplacedConfigsNamed([]*ProxyConfig{cfg}, []string{"104.16.1.1:443"}, "")
+	if len(urls) != 1 {
+		t.Fatalf("expected 1 URL, got %d", len(urls))
+	}
+	if !strings.Contains(urls[0], "sni=explicit.sni.com") {
+		t.Errorf("expected explicit SNI preserved, got: %s", urls[0])
 	}
 }

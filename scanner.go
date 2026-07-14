@@ -72,6 +72,7 @@ func (s *Scanner) testEndpointAttempts(ctx context.Context, endpoint string, att
 	}
 	var latencies []time.Duration
 	var lastErr string
+loop:
 	for i := 0; i < attempts; i++ {
 		result := s.testEndpointOnce(ctx, endpoint)
 		if result.Success {
@@ -82,7 +83,7 @@ func (s *Scanner) testEndpointAttempts(ctx context.Context, endpoint string, att
 		select {
 		case <-ctx.Done():
 			lastErr = "cancelled"
-			i = attempts
+			break loop
 		default:
 		}
 	}

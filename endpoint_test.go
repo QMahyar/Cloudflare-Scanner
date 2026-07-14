@@ -50,3 +50,18 @@ func TestGenerateBoundedOnExhaustedPool(t *testing.T) {
 		t.Fatalf("expected 1000 endpoints for in-pool count, got %d", got)
 	}
 }
+
+// TestGenerateEndpointsNoDuplicateEndpoints verifies that every generated
+// endpoint (ip:port) is unique, even when the IP pool is small relative to the
+// requested count. The old code marked an IP as seen before checking whether its
+// port was a duplicate, silently dropping that IP forever.
+func TestGenerateEndpointsNoDuplicateEndpoints(t *testing.T) {
+	eps := GenerateEndpoints(500, true, false)
+	seen := make(map[string]bool, len(eps))
+	for _, ep := range eps {
+		if seen[ep] {
+			t.Errorf("duplicate endpoint generated: %s", ep)
+		}
+		seen[ep] = true
+	}
+}

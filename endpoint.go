@@ -50,15 +50,26 @@ func GenerateEndpoints(count int, useIPv4, useIPv6 bool) []string {
 	for attempts := 0; len(endpoints) < v4Count && attempts < v4Count*20+len(ipv4Prefixes)*256; attempts++ {
 		prefix := ipv4Prefixes[rng.Intn(len(ipv4Prefixes))]
 		ip := fmt.Sprintf("%s%d", prefix, rng.Intn(256))
-		if _, ok := seen[ip]; ok {
+		if seen[ip] {
+			continue
+		}
+		ep := fmt.Sprintf("%s:%d", ip, ports[rng.Intn(len(ports))])
+		if seen[ep] {
+			// This ip:port is a duplicate (same IP got the same port by chance).
+			// Try a different port for this IP before giving up on it.
+			for _, p := range rng.Perm(len(ports))[:min(4, len(ports))] {
+				altEp := fmt.Sprintf("%s:%d", ip, ports[p])
+				if !seen[altEp] {
+					seen[altEp] = true
+					endpoints = append(endpoints, altEp)
+					break
+				}
+			}
 			continue
 		}
 		seen[ip] = true
-		ep := fmt.Sprintf("%s:%d", ip, ports[rng.Intn(len(ports))])
-		if !seen[ep] {
-			seen[ep] = true
-			endpoints = append(endpoints, ep)
-		}
+		seen[ep] = true
+		endpoints = append(endpoints, ep)
 	}
 
 	// The IPv6 loop targets v6Count endpoints ON TOP OF whatever v4 produced, so
@@ -71,15 +82,16 @@ func GenerateEndpoints(count int, useIPv4, useIPv6 bool) []string {
 		ip := fmt.Sprintf("[%s%x:%x:%x:%x]", prefix,
 			rng.Intn(65536), rng.Intn(65536),
 			rng.Intn(65536), rng.Intn(65536))
-		if _, ok := seen[ip]; ok {
+		if seen[ip] {
+			continue
+		}
+		ep := fmt.Sprintf("%s:%d", ip, ports[rng.Intn(len(ports))])
+		if seen[ep] {
 			continue
 		}
 		seen[ip] = true
-		ep := fmt.Sprintf("%s:%d", ip, ports[rng.Intn(len(ports))])
-		if !seen[ep] {
-			seen[ep] = true
-			endpoints = append(endpoints, ep)
-		}
+		seen[ep] = true
+		endpoints = append(endpoints, ep)
 	}
 
 	return endpoints

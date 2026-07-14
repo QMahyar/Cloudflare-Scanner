@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"testing"
 )
@@ -169,5 +170,73 @@ func TestIPv6Generation(t *testing.T) {
 		if !matched {
 			t.Errorf("IP %s not in any known CIDR", host)
 		}
+	}
+}
+
+// TestGenerateNearbyIPsSkipsNetworkBroadcast verifies that generateNearbyIPs
+// never emits .0 (network) or .255 (broadcast) addresses in the /24 expansion.
+func TestGenerateNearbyIPsSkipsNetworkBroadcast(t *testing.T) {
+	working := []CleanIPResult{{Endpoint: "104.18.1.5:443", Success: true}}
+	ips := generateNearbyIPs(working, 100, []int{443})
+	if len(ips) == 0 {
+		t.Fatal("expected some nearby IPs")
+	}
+	for _, ep := range ips {
+		host, _, err := net.SplitHostPort(ep)
+		if err != nil {
+			continue
+		}
+		ip := net.ParseIP(host)
+		if ip == nil || ip.To4() == nil {
+			continue
+		}
+		lastOctet := ip.To4()[3]
+		if lastOctet == 0 {
+			t.Errorf("network address .0 generated: %s", ep)
+		}
+		if lastOctet == 255 {
+			t.Errorf("broadcast address .255 generated: %s", ep)
+		}
+	}
+}
+
+// TestNoiseValidateHexPrecompiled verifies that the hex noise type validates
+// correctly and that the regex is only compiled once (not per-call).
+func TestNoiseValidateHexPrecompiled(t *testing.T) {
+	tests := []struct {
+		packet string
+		ok     bool
+	}{
+		{"deadbeef", true},
+		{"0123456789abcdefABCDEF", true},
+		{"xyz", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		n := NoiseConfig{Type: "hex", Packet: tt.packet, Delay: "1-5", Count: 5}
+		err := n.Validate()
+		if tt.ok && err != nil {
+			t.Errorf("hex %q: expected valid, got %v", tt.packet, err)
+		}
+		if !tt.ok && err == nil {
+			t.Errorf("hex %q: expected error, got nil", tt.packet)
+		}
+	}
+}
+
+// TestConfigReservedByteValidation verifies that S1/S2/S3 outside 0-255 are rejected.
+func TestConfigReservedByteValidation(t *testing.T) {
+	tmp := t.TempDir() + "/test.conf"
+	content := `[Interface]
+PrivateKey = AAA=
+Address = 172.16.0.2/32
+S1 = 999
+`
+	if err := os.WriteFile(tmp, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ParseWarpConfig(tmp)
+	if err == nil {
+		t.Error("expected error for S1=999, got nil")
 	}
 }

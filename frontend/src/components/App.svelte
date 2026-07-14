@@ -3,7 +3,7 @@
   import { _ } from 'svelte-i18n'
   import { toggleLanguage } from '../lib/i18n.js'
   import { apiJSON } from '../lib/api.js'
-  import { activeTab, endpointRaw, cleanData, replacerGenerated, loadResults, beginResultsPersistence } from '../lib/stores.js'
+  import { activeTab, endpointRaw, cleanData, replacerGenerated, loadResults, beginResultsPersistence, endpointScanning, cleanScanning } from '../lib/stores.js'
   import EndpointScanner from './EndpointScanner.svelte'
   import IpScanner from './IpScanner.svelte'
   import Replacer from './Replacer.svelte'
@@ -63,11 +63,11 @@
     <div class="tab-bar" role="tablist" aria-label="Scanner tabs">
       <button class="tab" class:active={$activeTab === 'endpoint'} role="tab" aria-selected={$activeTab === 'endpoint'} onclick={() => activeTab.set('endpoint')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        <span>{$_('tab.endpoint')}</span><span class="tab-badge" class:show={epBadge > 0}>{epBadge || ''}</span>
+        <span>{$_('tab.endpoint')}</span>{#if $endpointScanning}<span class="tab-scan-dot" title={$_('scan.scanning')}></span>{/if}<span class="tab-badge" class:show={epBadge > 0}>{epBadge || ''}</span>
       </button>
       <button class="tab" class:active={$activeTab === 'clean'} role="tab" aria-selected={$activeTab === 'clean'} onclick={() => activeTab.set('clean')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <span>{$_('tab.clean')}</span><span class="tab-badge" class:show={cleanBadge > 0}>{cleanBadge || ''}</span>
+        <span>{$_('tab.clean')}</span>{#if $cleanScanning}<span class="tab-scan-dot" title={$_('scan.scanning')}></span>{/if}<span class="tab-badge" class:show={cleanBadge > 0}>{cleanBadge || ''}</span>
       </button>
       <button class="tab" class:active={$activeTab === 'replacer'} role="tab" aria-selected={$activeTab === 'replacer'} onclick={() => activeTab.set('replacer')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>

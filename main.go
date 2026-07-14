@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 )
 
 //go:embed VERSION
@@ -56,7 +59,7 @@ func main() {
 		fmt.Println()
 	}
 
-	port, err := startServer(xrayPath)
+	srv, port, err := startServer(xrayPath)
 	if err != nil {
 		fmt.Printf("Failed to start server: %v\n", err)
 		os.Exit(1)
@@ -81,17 +84,29 @@ func main() {
 
 	openBrowser(url)
 
-	waitForShutdown()
+	waitForShutdown(srv)
 }
 
 // waitForShutdown blocks until an interrupt/terminate signal arrives, then
-// removes the xray work dirs left behind by in-flight scans and exits cleanly.
-func waitForShutdown() {
+// gracefully shuts down the HTTP server (draining in-flight requests for up
+// to 5s), removes the xray work dirs left behind by in-flight scans, and
+// exits cleanly.
+func waitForShutdown(srv *http.Server) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	<-sig
 
 	fmt.Println("\n  Shutting down — cleaning up xray work dirs...")
+
+	// Give in-flight requests up to 5 seconds to finish before forcefully
+	// closing connections. SSE streams are torn down immediately (they hold
+	// the connection open indefinitely).
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "  server shutdown: %v\n", err)
+	}
+
 	os.RemoveAll(filepath.Join(os.TempDir(), "_xray_work"))
 	os.RemoveAll(filepath.Join(os.TempDir(), "_xray_clean"))
 	os.Exit(0)

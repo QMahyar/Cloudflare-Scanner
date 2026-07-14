@@ -304,16 +304,16 @@ func csrfMiddleware(next http.Handler, token string) http.Handler {
 	})
 }
 
-func startServer(xrayPath string) (int, error) {
+func startServer(xrayPath string) (*http.Server, int, error) {
 	sub, err := fs.Sub(uiFS, "ui/dist")
 	if err != nil {
-		return 0, fmt.Errorf("embed ui/dist: %w", err)
+		return nil, 0, fmt.Errorf("embed ui/dist: %w", err)
 	}
 	distFS = sub
 
 	token, err := newCSRFToken()
 	if err != nil {
-		return 0, fmt.Errorf("csrf token: %w", err)
+		return nil, 0, fmt.Errorf("csrf token: %w", err)
 	}
 
 	mux := http.NewServeMux()
@@ -341,7 +341,7 @@ func startServer(xrayPath string) (int, error) {
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return 0, fmt.Errorf("listen: %w", err)
+		return nil, 0, fmt.Errorf("listen: %w", err)
 	}
 	srv := &http.Server{
 		Handler:           csrfMiddleware(mux, token),
@@ -356,7 +356,7 @@ func startServer(xrayPath string) (int, error) {
 			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
 		}
 	}()
-	return listener.Addr().(*net.TCPAddr).Port, nil
+	return srv, listener.Addr().(*net.TCPAddr).Port, nil
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {

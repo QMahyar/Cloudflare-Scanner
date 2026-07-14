@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// hexPattern is compiled once instead of on every Validate() call.
+var hexPattern = regexp.MustCompile(`^[0-9a-fA-F]+$`)
+
 type NoiseConfig struct {
 	Type   string
 	Packet string
@@ -39,8 +42,7 @@ func (n NoiseConfig) Validate() error {
 			return fmt.Errorf("invalid base64: %w", err)
 		}
 	case "hex":
-		matched, _ := regexp.MatchString(`^[0-9a-fA-F]+$`, n.Packet)
-		if !matched || len(n.Packet) == 0 {
+		if !hexPattern.MatchString(n.Packet) || len(n.Packet) == 0 {
 			return fmt.Errorf("invalid hex: %s", n.Packet)
 		}
 	case "str":

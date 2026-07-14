@@ -11,7 +11,7 @@
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
   import { subscribeStatus } from '../lib/sse.js'
-  import { endpointRaw, activeTab, getSetting, setSetting, recordScan } from '../lib/stores.js'
+  import { endpointRaw, activeTab, getSetting, setSetting, recordScan, endpointScanning } from '../lib/stores.js'
   import { pendingWarpEndpoint, replacerCtype } from '../lib/handoff.js'
   import HelpPanel from './HelpPanel.svelte'
   import VirtualTable from './VirtualTable.svelte'
@@ -67,6 +67,10 @@
   // ─── Scan state ───
   let jobId = $state(null)
   let status = $state('idle') // idle | running | done | cancelled
+
+  // Mirror the running state into the shared store so the tab bar can show a
+  // pulse while a scan runs in the background on another tab.
+  $effect(() => { endpointScanning.set(status === 'running') })
   let progressPct = $state(0)
   let progressText = $state('')
   let liveCountN = $state(0)
@@ -250,7 +254,7 @@
   }
 
   function onSort(field) { sort = toggleSort(sort, field) }
-  function sortArrow(field) { return sort.dir === 'asc' ? '▲' : '▼' }
+  function sortArrow() { return sort.dir === 'asc' ? '▲' : '▼' }
 
   function toggleSelect(ep, on) {
     const s = new Set(selected)
@@ -300,6 +304,8 @@
   function onKeydown(e) {
     if (e.key === 'Enter' && e.target.matches('input[type=text]') && !startDisabled) {
       e.preventDefault(); startScan()
+    } else if (e.key === 'Escape' && status === 'running') {
+      e.preventDefault(); stopScan()
     }
   }
 </script>
