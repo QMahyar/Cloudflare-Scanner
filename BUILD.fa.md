@@ -37,9 +37,10 @@ go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
 
 فایل باینری فرانت‌اند کامپایل‌شده (`ui/dist/`، یک SPA با Vite + Svelte 5 — به
 [فرانت‌اند (Svelte UI)](#فرانت‌اند-svelte-ui) مراجعه کنید) را از طریق دستور
-`//go:embed all:ui/dist` در گو توکار می‌کند. `ui/dist/` در ریپو commit شده،
-پس `go build` ساده نیازی به Node ندارد — فقط هنگام تغییر `frontend/src/` آن را
-با `npm run build` بازسازی کنید.
+`//go:embed all:ui/dist` در گو توکار می‌کند. `ui/dist/` در `.gitignore` است و
+commit نمی‌شود، پس روی یک clone تازه باید یک‌بار `cd frontend && npm run build`
+را پیش از `go build` اجرا کنید (و هر بار که `frontend/src/` را تغییر می‌دهید).
+اسکریپت‌های build و CI این کار را خودکار انجام می‌دهند.
 
 ## اسکریپت‌های ساخت (همه پلتفرم‌ها)
 
@@ -367,15 +368,16 @@ Endpoint = ...
 
 ## فرانت‌اند (Svelte UI)
 
-رابط کاربری یک SPA با Vite + Svelte 5 در `frontend/` است. باندل commit‌شده
-`ui/dist/` همان چیزی است که `go build` توکار می‌کند، پس **تغییر UI یک فرایند
-دو مرحله‌ای است**: ابتدا `ui/dist/` را بازسازی کنید، سپس باینری گو را.
+رابط کاربری یک SPA با Vite + Svelte 5 در `frontend/` است. باندل `ui/dist/` روی
+دیسک (که در `.gitignore` است) همان چیزی است که `go build` توکار می‌کند، پس
+**تغییر UI یک فرایند دو مرحله‌ای است**: ابتدا `ui/dist/` را با `npm run build`
+بازسازی کنید، سپس باینری گو را.
 
 ```bash
 cd frontend
 npm install        # فقط بار اول
 npm run dev        # سرور توسعه با hot-reload
-npm run build      # بازسازی ../ui/dist — این را همراه تغییرتان commit کنید
+npm run build      # بازسازی ../ui/dist (در .gitignore) پیش از go build
 cd ..
 go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
 ```

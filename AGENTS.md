@@ -22,7 +22,7 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 
 ## Key Architecture
 
-- **Single binary + embedded UI**: `//go:embed all:ui/dist` in `server.go` compiles the built Svelte bundle (`ui/dist/`) into the binary. No runtime files. Rebuild the UI with `cd frontend && npm run build` before `go build`; `ui/dist/` is committed so `go build` needs no Node.
+- **Single binary + embedded UI**: `//go:embed all:ui/dist` in `server.go` compiles the built Svelte bundle (`ui/dist/`) into the binary. No runtime files. `ui/dist/` is **git-ignored and not committed** — run `cd frontend && npm run build` before `go build` (at least once on a fresh clone, and after any UI change). CI builds the UI before every Go step.
 - **Requires `xray.exe`/`xray` co-located** — app exits with download link if missing.
 - **Entrypoint**: `main.go` → `startServer(xrayPath)` (random `127.0.0.1` port) → auto-open browser → `waitForShutdown` (blocks on SIGINT/SIGTERM, then cleans temp dirs and exits).
 - **No HTTP router**: plain `http.ServeMux`; job IDs sliced out of the path (`r.URL.Path[len(prefix):]`).
@@ -71,7 +71,7 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 - All i18n in `frontend/src/locales/en.json` + `fa.json` (identical keys), via `svelte-i18n`; language toggled in `lib/i18n.js`.
 - API calls through `lib/api.js` `apiJSON()` wrapper.
 - Scan status streams over SSE (`lib/sse.js` `subscribeStatus`, `/api/scan-events` / `/api/clean-events`), with `setInterval` polling fallback; results still poll. Large tables use `components/VirtualTable.svelte` (@tanstack/svelte-virtual).
-- Build: `cd frontend && npm run build` → emits `ui/dist/` (committed, embedded by Go). `npm run dev` for a hot-reload dev server.
+- Build: `cd frontend && npm run build` → emits `ui/dist/` (git-ignored, embedded by Go at build time). `npm run dev` for a hot-reload dev server.
 
 ## Key Architectural Decisions
 
@@ -86,7 +86,7 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 - **No HTTP Router**: Uses `http.ServeMux` with `r.PathValue()` for job IDs.
 - **In-Memory Job Maps**: `scanJobs` and `cleanJobs` with 10-min TTL cleanup.
 - **SSE Streaming**: Real-time progress via `/api/scan-events` and `/api/clean-events` with polling fallback.
-- **Embedded UI**: `//go:embed all:ui/dist` — `frontend/build` → `ui/dist/` committed to repo.
+- **Embedded UI**: `//go:embed all:ui/dist` — `npm run build` → `ui/dist/` (git-ignored; built before `go build`, not committed).
 
 ## Test Coverage
 

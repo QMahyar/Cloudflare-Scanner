@@ -192,6 +192,8 @@ Developers can build locally using the included scripts — no manual Go or xray
 
 The scripts auto-install Go if missing, compile the binary, download the matching xray-core sidecar, and produce release-identical archives under `dist/`. See [BUILD.md](BUILD.md) for full options (custom version, skip xray, cross-compile targets, env overrides).
 
+> **Building `go build` by hand?** The embedded UI (`ui/dist/`) is **git-ignored**, so a plain `go build` on a fresh clone fails until you generate it once: run `cd frontend && npm run build` before `go build`. The scripts above do this for you.
+
 ---
 
 ## Documentation

@@ -24,6 +24,7 @@ import (
 	"time"
 )
 
+// ui/dist is git-ignored; run `cd frontend && npm run build` before `go build`.
 //go:embed all:ui/dist
 var uiFS embed.FS
 

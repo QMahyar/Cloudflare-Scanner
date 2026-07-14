@@ -40,8 +40,9 @@ go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
 
 The binary embeds the built frontend (`ui/dist/`, a Vite + Svelte 5 SPA — see
 [Frontend (Svelte UI)](#frontend-svelte-ui)) via Go's `//go:embed all:ui/dist`
-directive. `ui/dist/` is committed, so a plain `go build` needs no Node — only
-rebuild it with `npm run build` when you change `frontend/src/`.
+directive. `ui/dist/` is **git-ignored**, so a plain `go build` on a fresh clone
+needs Node once: run `cd frontend && npm run build` before `go build` (and again
+whenever you change `frontend/src/`). The build scripts and CI do this for you.
 
 ## Build Scripts (All Platforms)
 
@@ -174,7 +175,7 @@ Cloudflare-Scanner/
 │       ├── lib/          # Shared helpers (api, sse, stores, i18n, ...)
 │       └── locales/      # en.json / fa.json (svelte-i18n)
 ├── ui/
-│   └── dist/         # Built frontend bundle, committed and embedded by Go
+│   └── dist/         # Built frontend bundle (git-ignored), embedded by Go at build time
 ├── scripts/          # Build + one-liner install scripts per platform
 ├── docs/             # User guides (English + Farsi)
 ├── README.md         # User-facing English documentation
@@ -439,15 +440,15 @@ traffic.
 
 ## Frontend (Svelte UI)
 
-The UI is a Vite + Svelte 5 single-page app under `frontend/`. The committed
-`ui/dist/` bundle is what `go build` embeds, so **a UI change is a two-step
-rebuild**: rebuild `ui/dist/`, then rebuild the Go binary.
+The UI is a Vite + Svelte 5 single-page app under `frontend/`. The (git-ignored)
+`ui/dist/` bundle on disk is what `go build` embeds, so **a UI change is a two-step
+rebuild**: rebuild `ui/dist/` with `npm run build`, then rebuild the Go binary.
 
 ```bash
 cd frontend
 npm install        # first time only
 npm run dev        # hot-reload dev server
-npm run build      # regenerates ../ui/dist — commit this with your change
+npm run build      # regenerates ../ui/dist (git-ignored) before go build
 cd ..
 go build -ldflags="-s -w -X 'main.Version=dev'" -o Cloudflare-Scanner .
 ```
