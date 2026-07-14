@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/ecdh"
 	"crypto/hmac"
 	"crypto/rand"
@@ -147,8 +148,9 @@ func newWarpProber(cfg *WarpConfig) (*warpProber, error) {
 // did not complete a handshake within timeout (unreachable, wrong protocol, or
 // wrong credentials). The initiation is retransmitted periodically within the
 // timeout window so a single dropped UDP datagram does not condemn an otherwise
-// reachable endpoint.
-func (p *warpProber) Probe(endpoint string, timeout time.Duration) (time.Duration, error) {
+// reachable endpoint. The read loop also returns promptly when ctx is cancelled,
+// so a user Stop doesn't wait out the full (up to 60s) timeout per in-flight probe.
+func (p *warpProber) Probe(ctx context.Context, endpoint string, timeout time.Duration) (time.Duration, error) {
 	ephPriv, err := p.curve.GenerateKey(rand.Reader)
 	if err != nil {
 		return 0, err
@@ -210,7 +212,10 @@ func (p *warpProber) Probe(endpoint string, timeout time.Duration) (time.Duratio
 	copy(msg[116:132], mac1[:])
 	// MAC2 stays zero (no cookie challenge outstanding).
 
-	conn, err := net.DialTimeout("udp", endpoint, timeout)
+	dialCtx, dialCancel := context.WithTimeout(ctx, timeout)
+	defer dialCancel()
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(dialCtx, "udp", endpoint)
 	if err != nil {
 		return 0, err
 	}
@@ -234,6 +239,11 @@ func (p *warpProber) Probe(endpoint string, timeout time.Duration) (time.Duratio
 
 	buf := make([]byte, 256)
 	for {
+		// Honor cancellation between retransmits so a user Stop unwinds in ≤retransmit
+		// (≤700ms) instead of waiting out the full timeout.
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
 		now := time.Now()
 		if !now.Before(deadline) {
 			return 0, fmt.Errorf("no handshake response within %v", timeout)
@@ -241,6 +251,9 @@ func (p *warpProber) Probe(endpoint string, timeout time.Duration) (time.Duratio
 		readUntil := now.Add(retransmit)
 		if readUntil.After(deadline) {
 			readUntil = deadline
+		}
+		if dl, ok := ctx.Deadline(); ok && readUntil.After(dl) {
+			readUntil = dl
 		}
 		conn.SetReadDeadline(readUntil)
 

@@ -139,7 +139,7 @@ func (s *Scanner) testEndpointOnce(ctx context.Context, endpoint string) ScanRes
 		}
 		prober = p
 	}
-	rtt, err := prober.Probe(endpoint, s.Timeout)
+	rtt, err := prober.Probe(ctx, endpoint, s.Timeout)
 	if err != nil {
 		return ScanResult{Endpoint: endpoint, Error: err.Error()}
 	}
