@@ -62,6 +62,13 @@ func (j *CleanIPJob) stop() {
 	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
+// releaseCleanJobInputs drops pure input slices that are no longer needed after
+// a job reaches a terminal status. Phase results stay until jobTTL cleanup so
+// the UI can still poll them. Caller must hold job.mu.
+func releaseCleanJobInputs(job *CleanIPJob) {
+	job.Endpoints = nil
+}
+
 func runCleanScan(job *CleanIPJob, xrayPath string) {
 	defer scheduleCleanJobCleanup(job.ID)
 
@@ -111,6 +118,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	case <-job.Cancel:
 		job.mu.Lock()
 		job.Status = "cancelled"
+		releaseCleanJobInputs(job)
 		job.mu.Unlock()
 		return
 	default:
@@ -225,6 +233,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	if job.SkipPhase2 {
 		job.mu.Lock()
 		job.Status = "done"
+		releaseCleanJobInputs(job)
 		job.mu.Unlock()
 		return
 	}
@@ -256,6 +265,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	if len(tcpResults) == 0 {
 		job.mu.Lock()
 		job.Status = "done"
+		releaseCleanJobInputs(job)
 		job.mu.Unlock()
 		return
 	}
@@ -266,6 +276,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	if job.Config == nil {
 		job.mu.Lock()
 		job.Status = "done"
+		releaseCleanJobInputs(job)
 		job.mu.Unlock()
 		return
 	}
@@ -366,6 +377,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		job.Phase2Results = phase2Results
 		job.Phase2Progress = len(phase2Results)
 		job.Status = "cancelled"
+		releaseCleanJobInputs(job)
 		job.mu.Unlock()
 		return
 	}
@@ -392,6 +404,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		if cancelledNearby {
 			job.mu.Lock()
 			job.Status = "cancelled"
+			releaseCleanJobInputs(job)
 			job.mu.Unlock()
 			return
 		}
@@ -402,6 +415,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	case <-job.Cancel:
 		job.mu.Lock()
 		job.Status = "cancelled"
+		releaseCleanJobInputs(job)
 		job.mu.Unlock()
 		return
 	default:
@@ -420,6 +434,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	job.NearbyPhase2Results = nearbyPhase2Results
 	job.Phase2Progress = len(phase2Results) + len(nearbyPhase2Results)
 	job.Status = "done"
+	releaseCleanJobInputs(job)
 	job.mu.Unlock()
 }
 

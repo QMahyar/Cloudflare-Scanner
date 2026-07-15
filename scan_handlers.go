@@ -40,6 +40,13 @@ func (j *ScanJob) stop() {
 	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
+// releaseScanJobInputs drops pure input slices that are no longer needed after
+// a job reaches a terminal status. Results stay until jobTTL cleanup so the UI
+// can still poll them. Caller must hold job.mu.
+func releaseScanJobInputs(job *ScanJob) {
+	job.Endpoints = nil
+}
+
 type scanRequest struct {
 	Noise       bool        `json:"noise"`
 	NoiseConfig NoiseConfig `json:"noiseConfig"`
@@ -287,6 +294,7 @@ func runScan(job *ScanJob, xrayPath string) {
 	} else {
 		job.Status = "done"
 	}
+	releaseScanJobInputs(job)
 	results := append([]ScanResult(nil), job.Results...)
 	job.mu.Unlock()
 
@@ -381,6 +389,7 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 	} else {
 		job.Status = "done"
 	}
+	releaseScanJobInputs(job)
 	results := append([]ScanResult(nil), job.Results...)
 	job.mu.Unlock()
 
