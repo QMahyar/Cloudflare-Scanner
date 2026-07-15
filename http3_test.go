@@ -57,6 +57,52 @@ func TestH3RoundTripLoopback(t *testing.T) {
 	}
 }
 
+func TestApplyH3(t *testing.T) {
+	results := []CleanIPResult{
+		{Endpoint: "1.1.1.1:443", Success: true},
+		{Endpoint: "1.0.0.1:443", Success: true},
+		{Endpoint: "[2606:4700::1]:443", Success: true},
+		{Endpoint: "8.8.8.8:443", Success: false},
+		{Endpoint: "not-a-hostport", Success: true}, // ipOnly returns ""
+	}
+	h3Map := map[string]bool{
+		"1.1.1.1":    true,
+		"2606:4700::1": true,
+		// 1.0.0.1 absent => stays false
+		// 8.8.8.8 true would still mark H3 even if Success=false
+		"8.8.8.8": true,
+	}
+
+	applyH3(results, h3Map)
+
+	if !results[0].H3 {
+		t.Errorf("1.1.1.1 should be H3")
+	}
+	if results[1].H3 {
+		t.Errorf("1.0.0.1 should not be H3 (absent from map)")
+	}
+	if !results[2].H3 {
+		t.Errorf("IPv6 2606:4700::1 should be H3")
+	}
+	if !results[3].H3 {
+		t.Errorf("8.8.8.8 is in map so H3 must be set regardless of Success")
+	}
+	if results[4].H3 {
+		t.Errorf("malformed endpoint must not match empty-key lookup")
+	}
+
+	// empty map is a no-op (does not clear existing flags either — it returns early)
+	pre := []CleanIPResult{{Endpoint: "9.9.9.9:443", H3: false}}
+	applyH3(pre, map[string]bool{})
+	if pre[0].H3 {
+		t.Errorf("empty h3Map must not set H3")
+	}
+	applyH3(pre, nil)
+	if pre[0].H3 {
+		t.Errorf("nil h3Map must not set H3")
+	}
+}
+
 func selfSignedTLS(t *testing.T) *tls.Config {
 	t.Helper()
 	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

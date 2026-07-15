@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"strings"
 	"testing"
 )
 
@@ -97,5 +98,76 @@ func TestValidateEndpointHostPort(t *testing.T) {
 		if err := validateEndpointHostPort(ep); err == nil {
 			t.Errorf("expected %q rejected, got nil", ep)
 		}
+	}
+}
+
+func TestValidateSubscriptionURL(t *testing.T) {
+	cases := []struct {
+		raw     string
+		wantOK  bool
+		wantHost string // checked only when wantOK
+	}{
+		{"", false, ""},
+		{"   ", false, ""},
+		{"ftp://example.com/sub", false, ""},
+		{"file:///etc/passwd", false, ""},
+		{"http://", false, ""},           // missing host
+		{"https://", false, ""},          // missing host
+		{"not-a-url", false, ""},
+		{"https://example.com/sub", true, "example.com"},
+		{"http://example.com/path?q=1", true, "example.com"},
+		{"  https://cdn.example.com/s  ", true, "cdn.example.com"}, // trim
+	}
+	for _, c := range cases {
+		u, err := validateSubscriptionURL(c.raw)
+		if c.wantOK {
+			if err != nil {
+				t.Errorf("validateSubscriptionURL(%q) unexpected err: %v", c.raw, err)
+				continue
+			}
+			if u.Host != c.wantHost {
+				t.Errorf("validateSubscriptionURL(%q).Host = %q, want %q", c.raw, u.Host, c.wantHost)
+			}
+			continue
+		}
+		if err == nil {
+			t.Errorf("validateSubscriptionURL(%q) = %v, want error", c.raw, u)
+			continue
+		}
+		if !strings.Contains(err.Error(), "http/https") {
+			t.Errorf("validateSubscriptionURL(%q) error %q missing expected substring", c.raw, err.Error())
+		}
+	}
+}
+
+func TestParseRawConfigs(t *testing.T) {
+	vless := "vless://uuid-1234@1.2.3.4:443?security=tls&sni=example.com"
+	trojan := "trojan://password123@5.6.7.8:8443?security=tls&sni=host.example"
+
+	// Mixed separators: comma, semicolon, pipe, whitespace; garbage ignored.
+	raw := "garbage," + vless + ";not-a-config|" + trojan + "\n  still-junk  "
+	got := ParseRawConfigs(raw)
+	if len(got) != 2 {
+		t.Fatalf("ParseRawConfigs len = %d, want 2; got %+v", len(got), got)
+	}
+	if got[0].Protocol != "vless" {
+		t.Errorf("first protocol = %q, want vless", got[0].Protocol)
+	}
+	if got[0].Address != "1.2.3.4" || got[0].Port != 443 {
+		t.Errorf("first addr = %s:%d, want 1.2.3.4:443", got[0].Address, got[0].Port)
+	}
+	if got[1].Protocol != "trojan" {
+		t.Errorf("second protocol = %q, want trojan", got[1].Protocol)
+	}
+	if got[1].UUID != "password123" {
+		t.Errorf("trojan password = %q, want password123", got[1].UUID)
+	}
+
+	// Empty / only garbage => empty slice, not nil panic.
+	if n := len(ParseRawConfigs("")); n != 0 {
+		t.Errorf("empty input len = %d, want 0", n)
+	}
+	if n := len(ParseRawConfigs("foo,bar;baz|qux")); n != 0 {
+		t.Errorf("garbage-only len = %d, want 0", n)
 	}
 }
