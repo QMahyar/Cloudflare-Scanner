@@ -118,8 +118,8 @@ You can also check/uncheck individual ports in the grid below the presets.
 
 | Option | What it scans |
 |--------|--------------|
-| IPv4 only (default) | Cloudflare IPv4 ranges (25 CIDRs) |
-| IPv6 only | Cloudflare IPv6 ranges (91 CIDRs) |
+| IPv4 only (default) | Cloudflare IPv4 ranges (15 CIDRs) |
+| IPv6 only | Cloudflare IPv6 ranges (7 CIDRs) |
 | IPv4 + IPv6 | Both, mixed |
 
 ### Step 7 — Enable Nearby Scan (optional)
@@ -149,11 +149,11 @@ Once the scan completes:
 
 ## IP Generation Details
 
-IPs are generated from **25 IPv4 CIDR ranges** and **91 IPv6 CIDR ranges** sourced from Cloudflare's official AS13335 ranges.
+IPs are generated from **15 IPv4 CIDR ranges** and **7 IPv6 CIDR ranges** sourced from Cloudflare's published official lists (cloudflare.com/ips).
 
 IPv4 uses **weighted random selection** — larger ranges (e.g. `/12`) get proportionally more hits than smaller ranges (e.g. `/24`). This ensures even coverage across Cloudflare's address space.
 
-IPv6 uses **uniform random selection** from all 91 CIDRs.
+IPv6 uses **uniform random selection** from all 7 CIDRs.
 
 Each generated IP is unique — duplicates are skipped.
 

@@ -99,7 +99,7 @@ After a scan, **Push to Replacer** sends all working `ip:port` pairs directly to
 
 ### How are IPs generated?
 
-From **25 IPv4 CIDR ranges** and **91 IPv6 CIDR ranges** covering Cloudflare's official AS13335 address space. IPv4 uses weighted random selection (larger ranges get proportionally more hits). IPv6 uses uniform random selection.
+From **15 IPv4 CIDR ranges** and **7 IPv6 CIDR ranges** (Cloudflare's published official compact lists at cloudflare.com/ips). IPv4 uses weighted random selection (larger ranges get proportionally more hits). IPv6 uses uniform random selection.
 
 ## IP Replacer
 

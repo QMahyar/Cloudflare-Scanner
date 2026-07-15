@@ -149,7 +149,10 @@ GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o Cloudflare-Scanner .
 ```
 Cloudflare-Scanner/
 ├── main.go           # نقطه ورودی — بررسی xray، شروع سرور، باز کردن مرورگر
-├── server.go         # هندلرهای HTTP، jobهای اسکن، API، توکار کردن UI (//go:embed all:ui/dist)
+├── httpserver.go     # mux، CSRF، SSE، job maps، UI توکار (//go:embed all:ui/dist)
+├── scan_handlers.go  # هندلرهای اسکن WARP + apply-endpoint
+├── cleanscan_handlers.go # هندلرهای Clean-IP + export
+├── replacer_handlers.go  # هندلرهای Replacer
 ├── about.go          # /api/version و /api/update-check (انتشارهای گیت‌هاب)
 ├── config.go         # پارسر کانفیگ WireGuard (استاندارد + Hogwarts)
 ├── endpoint.go       # تولیدکننده اندپوینت تصادفی WARP

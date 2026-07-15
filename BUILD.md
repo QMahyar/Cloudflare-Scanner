@@ -151,7 +151,10 @@ On PowerShell: `$env:GOOS="windows"; $env:GOARCH="amd64"; go build ...`
 ```
 Cloudflare-Scanner/
 ├── main.go           # Entry point — xray check, server start, browser open
-├── server.go         # HTTP handlers, scan jobs, API, embedded UI (//go:embed all:ui/dist)
+├── httpserver.go     # HTTP mux, CSRF, SSE, job maps, embedded UI (//go:embed all:ui/dist)
+├── scan_handlers.go  # WARP scan + apply-endpoint handlers
+├── cleanscan_handlers.go # Clean-IP scan handlers + export
+├── replacer_handlers.go  # Replacer API handlers
 ├── about.go          # /api/version + /api/update-check (GitHub releases)
 ├── config.go         # WireGuard .conf parser (standard + Hogwarts formats)
 ├── endpoint.go       # Random WARP endpoint generator (known CF prefixes/ports)
@@ -228,7 +231,7 @@ User uploads .conf  ──>  ParseWarpConfig() → extracted keys/addresses/rese
 ```
 User provides VLESS URL        CleanIPGenerator
        (optional)                  └─ GenerateIPs()
-                                      └─ 25 IPv4 CIDRs + 91 IPv6 CIDRs
+                                      └─ 15 IPv4 CIDRs + 7 IPv6 CIDRs (official compact CF lists)
                                       └─ Weighted random distribution
                                            │
                                     Phase 1: TCP probe
