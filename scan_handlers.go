@@ -40,11 +40,13 @@ func (j *ScanJob) stop() {
 	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
-// releaseScanJobInputs drops pure input slices that are no longer needed after
-// a job reaches a terminal status. Results stay until jobTTL cleanup so the UI
-// can still poll them. Caller must hold job.mu.
+// releaseScanJobInputs drops pure inputs (endpoint slices and WARP config
+// credentials) that are no longer needed after a job reaches a terminal status.
+// Results stay until jobTTL cleanup so the UI can still poll them. Caller must
+// hold job.mu.
 func releaseScanJobInputs(job *ScanJob) {
 	job.Endpoints = nil
+	job.Config = nil
 }
 
 type scanRequest struct {
