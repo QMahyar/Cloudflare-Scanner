@@ -62,3 +62,123 @@ func TestQualityScore(t *testing.T) {
 		t.Errorf("higher loss should lower score: a=%d b=%d", a, b)
 	}
 }
+
+func TestMedianDuration(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+
+	cases := []struct {
+		name string
+		in   []time.Duration
+		want time.Duration
+	}{
+		{"empty", nil, 0},
+		{"single", []time.Duration{ms(10)}, ms(10)},
+		{"odd", []time.Duration{ms(30), ms(10), ms(20)}, ms(20)},
+		// even: average of the two middle values after sort
+		{"even", []time.Duration{ms(40), ms(10), ms(20), ms(30)}, ms(25)},
+		// does not mutate the caller's slice
+		{"unsorted-odd", []time.Duration{ms(5), ms(1), ms(9)}, ms(5)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			orig := append([]time.Duration(nil), c.in...)
+			got := medianDuration(c.in)
+			if got != c.want {
+				t.Errorf("medianDuration(%v) = %v, want %v", c.in, got, c.want)
+			}
+			for i := range orig {
+				if c.in[i] != orig[i] {
+					t.Errorf("input mutated at %d: got %v want %v", i, c.in[i], orig[i])
+				}
+			}
+		})
+	}
+}
+
+func TestBestDuration(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+
+	if got := bestDuration(nil); got != 0 {
+		t.Errorf("bestDuration(nil) = %v, want 0", got)
+	}
+	if got := bestDuration([]time.Duration{}); got != 0 {
+		t.Errorf("bestDuration(empty) = %v, want 0", got)
+	}
+	in := []time.Duration{ms(50), ms(10), ms(30)}
+	if got := bestDuration(in); got != ms(10) {
+		t.Errorf("bestDuration = %v, want 10ms", got)
+	}
+	// single element
+	if got := bestDuration([]time.Duration{ms(7)}); got != ms(7) {
+		t.Errorf("bestDuration(single) = %v, want 7ms", got)
+	}
+}
+
+func TestJitterDuration(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+
+	if got := jitterDuration(nil); got != 0 {
+		t.Errorf("jitterDuration(nil) = %v, want 0", got)
+	}
+	if got := jitterDuration([]time.Duration{ms(5)}); got != 0 {
+		t.Errorf("jitterDuration(len=1) = %v, want 0", got)
+	}
+	// max - min after sort
+	in := []time.Duration{ms(40), ms(10), ms(25)}
+	orig := append([]time.Duration(nil), in...)
+	if got := jitterDuration(in); got != ms(30) {
+		t.Errorf("jitterDuration = %v, want 30ms", got)
+	}
+	for i := range orig {
+		if in[i] != orig[i] {
+			t.Errorf("input mutated at %d", i)
+		}
+	}
+}
+
+func TestSortScanResults(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+	results := []ScanResult{
+		{Endpoint: "fail-fast", Success: false, Latency: ms(5)},
+		{Endpoint: "ok-slow", Success: true, Latency: ms(50)},
+		{Endpoint: "fail-slow", Success: false, Latency: ms(100)},
+		{Endpoint: "ok-fast", Success: true, Latency: ms(10)},
+	}
+	sortScanResults(results)
+
+	wantOrder := []string{"ok-fast", "ok-slow", "fail-fast", "fail-slow"}
+	for i, want := range wantOrder {
+		if results[i].Endpoint != want {
+			t.Errorf("pos %d: got %q, want %q", i, results[i].Endpoint, want)
+		}
+	}
+	// successes before failures
+	for i := 0; i < 2; i++ {
+		if !results[i].Success {
+			t.Errorf("pos %d should be success", i)
+		}
+	}
+	for i := 2; i < 4; i++ {
+		if results[i].Success {
+			t.Errorf("pos %d should be failure", i)
+		}
+	}
+}
+
+func TestSortCleanIPResults(t *testing.T) {
+	ms := func(n int) time.Duration { return time.Duration(n) * time.Millisecond }
+	results := []CleanIPResult{
+		{Endpoint: "1.1.1.1:443", Success: false, Latency: ms(5)},
+		{Endpoint: "1.0.0.1:443", Success: true, Latency: ms(40)},
+		{Endpoint: "8.8.8.8:443", Success: false, Latency: ms(90)},
+		{Endpoint: "8.8.4.4:443", Success: true, Latency: ms(15)},
+	}
+	sortCleanIPResults(results)
+
+	wantOrder := []string{"8.8.4.4:443", "1.0.0.1:443", "1.1.1.1:443", "8.8.8.8:443"}
+	for i, want := range wantOrder {
+		if results[i].Endpoint != want {
+			t.Errorf("pos %d: got %q, want %q", i, results[i].Endpoint, want)
+		}
+	}
+}
