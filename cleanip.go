@@ -62,11 +62,13 @@ func (j *CleanIPJob) stop() {
 	j.cancelOnce.Do(func() { close(j.Cancel) })
 }
 
-// releaseCleanJobInputs drops pure input slices that are no longer needed after
-// a job reaches a terminal status. Phase results stay until jobTTL cleanup so
-// the UI can still poll them. Caller must hold job.mu.
+// releaseCleanJobInputs drops pure inputs (endpoint slices and proxy config
+// credentials) that are no longer needed after a job reaches a terminal status.
+// Phase results stay until jobTTL cleanup so the UI can still poll them. Caller
+// must hold job.mu.
 func releaseCleanJobInputs(job *CleanIPJob) {
 	job.Endpoints = nil
+	job.Config = nil
 }
 
 func runCleanScan(job *CleanIPJob, xrayPath string) {
