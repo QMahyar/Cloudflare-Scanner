@@ -26,3 +26,31 @@ func TestStopAllJobsEmpty(t *testing.T) {
 	cleanJobsMu.Unlock()
 	stopAllJobs() // must not panic
 }
+
+func TestReleaseScanJobInputsNilsEndpoints(t *testing.T) {
+	job := &ScanJob{
+		Endpoints: []string{"1.2.3.4:2408", "5.6.7.8:2408"},
+		Results:   []ScanResult{{Endpoint: "1.2.3.4:2408", Success: true}},
+	}
+	releaseScanJobInputs(job)
+	if job.Endpoints != nil {
+		t.Fatalf("Endpoints should be nil after release, got %v", job.Endpoints)
+	}
+	if len(job.Results) != 1 {
+		t.Fatalf("Results should be preserved, got %d", len(job.Results))
+	}
+}
+
+func TestReleaseCleanJobInputsNilsEndpoints(t *testing.T) {
+	job := &CleanIPJob{
+		Endpoints:     []string{"1.2.3.4:443"},
+		Phase1Results: []CleanIPResult{{Endpoint: "1.2.3.4:443", Success: true}},
+	}
+	releaseCleanJobInputs(job)
+	if job.Endpoints != nil {
+		t.Fatalf("Endpoints should be nil after release, got %v", job.Endpoints)
+	}
+	if len(job.Phase1Results) != 1 {
+		t.Fatalf("Phase1Results should be preserved, got %d", len(job.Phase1Results))
+	}
+}
