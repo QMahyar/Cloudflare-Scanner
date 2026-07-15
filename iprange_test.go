@@ -115,3 +115,18 @@ func TestGenerateFromRanges_IPv6Bracketed(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateFromRanges_CappedAfterPorts(t *testing.T) {
+	ranges, err := ParseIPRanges("104.16.0.0/24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ports := []int{443, 8443, 2053}
+	eps := GenerateFromRanges(ranges, 10, ports, newRangeRNG())
+	if len(eps) > 30 {
+		t.Fatalf("endpoint count %d exceeds ip*ports 30", len(eps))
+	}
+	if len(eps) > maxScanCount {
+		t.Fatalf("endpoint count %d exceeds maxScanCount %d", len(eps), maxScanCount)
+	}
+}

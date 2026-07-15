@@ -204,7 +204,7 @@ func GenerateFromRanges(ranges []IPRange, count int, ports []int, rng *rand.Rand
 			}
 		}
 	}
-	return endpoints
+	return capEndpoints(endpoints)
 }
 
 func enumerateAll(ranges []IPRange) []string {

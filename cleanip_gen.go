@@ -155,6 +155,16 @@ func (g *CleanIPGenerator) GenerateIPs(count int, useIPv4, useIPv6 bool, ports [
 			endpoints = append(endpoints, fmt.Sprintf("[%s]:%d", ip, p))
 		}
 	}
+	return capEndpoints(endpoints)
+}
+
+// capEndpoints truncates the endpoint list to maxScanCount so port
+// multiplication cannot exceed the allocation budget that maxScanCount
+// was meant to enforce. maxScanCount lives in httpserver.go (same package).
+func capEndpoints(endpoints []string) []string {
+	if len(endpoints) > maxScanCount {
+		return endpoints[:maxScanCount]
+	}
 	return endpoints
 }
 
