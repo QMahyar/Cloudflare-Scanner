@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -665,45 +668,116 @@ func TestHandleCleanScanStartRejectsBadCustomRangeLine(t *testing.T) {
 	}
 }
 
-// ─── handleApplyEndpoint path traversal ─────────────────────────────────────
+// ─── resolveApplyOutputDir / handleApplyEndpoint output paths ────────────
 
-func TestHandleApplyEndpoint_PathTraversal(t *testing.T) {
-	tmpExe, err := os.CreateTemp("", "scanner-*.exe")
-	if err != nil {
-		t.Fatal(err)
-	}
-	tmpExe.Close()
-	t.Cleanup(func() { os.Remove(tmpExe.Name()) })
-
-	exeDir := t.TempDir()
-
-	reject := func(outputDir string) bool {
-		if !filepath.IsAbs(outputDir) && (strings.HasPrefix(outputDir, "/") || strings.HasPrefix(outputDir, `\\`)) {
-			return true
-		}
-		outputDir = filepath.Clean(outputDir)
-		if !filepath.IsAbs(outputDir) {
-			outputDir = filepath.Join(exeDir, outputDir)
-		}
-		rel, err := filepath.Rel(exeDir, outputDir)
-		return err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator))
-	}
+func TestResolveApplyOutputDir(t *testing.T) {
+	exeDir := filepath.Clean(t.TempDir())
+	absOutside := filepath.Clean(t.TempDir())
 
 	cases := []struct {
-		dir    string
-		denied bool
+		name    string
+		raw     string
+		want    string
+		wantErr bool
 	}{
-		{filepath.Join(exeDir, "output"), false},
-		{exeDir, false},
-		{filepath.Join(exeDir, "..", "escape"), true},
-		{"/tmp/evil", true},
+		{name: "empty defaults to exeDir", raw: "", want: exeDir},
+		{name: "whitespace defaults to exeDir", raw: "   ", want: exeDir},
+		{name: "relative joins exeDir", raw: "subdir", want: filepath.Join(exeDir, "subdir")},
+		{name: "relative nested", raw: filepath.Join("a", "b"), want: filepath.Join(exeDir, "a", "b")},
+		{name: "absolute preserved", raw: absOutside, want: absOutside},
 	}
 
 	for _, tc := range cases {
-		got := reject(tc.dir)
-		if got != tc.denied {
-			t.Errorf("dir=%q: denied=%v, want %v", tc.dir, got, tc.denied)
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := resolveApplyOutputDir(exeDir, tc.raw)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got %q", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+
+	// Half-rooted forms (Clean leaves non-absolute on some OSes) must be rejected.
+	// On Windows a leading "/" is absolute (drive-relative), so only exercise this
+	// when Clean leaves the path non-absolute.
+	half := `/tmp/evil`
+	if cleaned := filepath.Clean(half); !filepath.IsAbs(cleaned) {
+		if _, err := resolveApplyOutputDir(exeDir, half); err == nil {
+			t.Errorf("half-rooted %q should be rejected", half)
 		}
+	}
+}
+
+func TestHandleApplyEndpoint_WritesToAbsoluteDir(t *testing.T) {
+	outDir := t.TempDir()
+	const endpoint = "1.2.3.4:2408"
+	const confName = "warp.conf"
+	confBody := "[Interface]\nPrivateKey = x\n\n[Peer]\nPublicKey = y\nEndpoint = old.example:1\n"
+
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	if err := w.WriteField("endpoint", endpoint); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.WriteField("output_dir", outDir); err != nil {
+		t.Fatal(err)
+	}
+	part, err := w.CreateFormFile("configs", confName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(part, confBody); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("POST", "/api/apply-endpoint", &body)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	rr := httptest.NewRecorder()
+	handleApplyEndpoint(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status %d, body %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Saved   int `json:"saved"`
+		Total   int `json:"total"`
+		Results []struct {
+			Name    string `json:"name"`
+			Path    string `json:"path"`
+			Content string `json:"content"`
+			Error   string `json:"error"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v\nbody: %s", err, rr.Body.String())
+	}
+	if resp.Saved < 1 || resp.Total != 1 {
+		t.Fatalf("saved=%d total=%d results=%+v", resp.Saved, resp.Total, resp.Results)
+	}
+
+	outPath := filepath.Join(outDir, confName)
+	data, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("read written file: %v", err)
+	}
+	wantLine := "Endpoint = " + endpoint
+	if !strings.Contains(string(data), wantLine) {
+		t.Fatalf("written file missing %q:\n%s", wantLine, data)
+	}
+	if resp.Results[0].Content != "" && !strings.Contains(resp.Results[0].Content, wantLine) {
+		t.Errorf("response content missing %q", wantLine)
 	}
 }
 

@@ -581,6 +581,29 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// resolveApplyOutputDir turns the user-supplied output_dir into an absolute
+// directory. Empty → exeDir. Relative → filepath.Join(exeDir, cleaned).
+// Absolute → cleaned absolute path (any drive/folder the OS allows).
+func resolveApplyOutputDir(exeDir, raw string) (string, error) {
+	if strings.TrimSpace(raw) == "" {
+		return exeDir, nil
+	}
+	out := filepath.Clean(raw)
+	if !filepath.IsAbs(out) {
+		// Reject half-rooted forms that Clean leaves non-absolute on some OSes.
+		if strings.HasPrefix(out, "/") || strings.HasPrefix(out, `\`) {
+			return "", fmt.Errorf("output_dir must be a relative path or an absolute path")
+		}
+		out = filepath.Join(exeDir, out)
+	}
+	// Final Clean after Join.
+	out = filepath.Clean(out)
+	if out == "" || out == "." {
+		return "", fmt.Errorf("invalid output_dir")
+	}
+	return out, nil
+}
+
 func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 10<<22)
 	if err := r.ParseMultipartForm(10 << 22); err != nil {
@@ -608,21 +631,9 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	exeDir := filepath.Dir(exePath)
 
-	outputDir := r.FormValue("output_dir")
-	if outputDir == "" {
-		outputDir = exeDir
-	}
-	outputDir = filepath.Clean(outputDir)
-	if !filepath.IsAbs(outputDir) && (strings.HasPrefix(outputDir, "/") || strings.HasPrefix(outputDir, `\\`)) {
-		jsonError(w, "output_dir must be relative to app directory or an absolute path inside it", 400)
-		return
-	}
-	if !filepath.IsAbs(outputDir) {
-		outputDir = filepath.Join(exeDir, outputDir)
-	}
-	rel, err := filepath.Rel(exeDir, outputDir)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		jsonError(w, "output_dir must stay inside the app directory", 400)
+	outputDir, err := resolveApplyOutputDir(exeDir, r.FormValue("output_dir"))
+	if err != nil {
+		jsonError(w, err.Error(), 400)
 		return
 	}
 
