@@ -62,23 +62,25 @@ Results appear **live** — successful endpoints show up in the table as they're
 
 You can click **Stop** at any time to cancel (partial results are kept), or **Reset** to clear everything.
 
-### Step 7 — Apply an Endpoint to Config Files
+### Step 7 — Apply a working endpoint
+
+Applying a WARP endpoint to `.conf` files happens on the **IP Replacer** tab (WireGuard / WARP mode), not on this tab.
 
 Once you have results:
 
-1. Click any endpoint in the results table to copy it to the **Endpoint to apply** field (or paste one manually)
-2. Click **Choose config(s)...** to select one or more `.conf` files to update
-3. Optionally set an **Output folder path** (leave empty to save next to the app)
-4. Click **Browse** to pick an output folder using a folder picker (if your browser supports it)
-5. Click **Generate Configs**
+1. Click a result to copy the endpoint (or use **Use** if present) — this can hand off to the **IP Replacer** tab.
+2. Open **IP Replacer**, switch to **WireGuard / WARP** mode.
+3. Confirm the endpoint field, then choose one or more `.conf` files.
+4. Optionally set an output folder (empty = next to the app) or **Browse** to pick any folder on your machine.
+5. Click **Generate Configs**.
 
-The app modifies the `Endpoint` line in each file's `[Peer]` section and saves the result. A status message shows how many files were saved and where.
+The app rewrites the `Endpoint` line in each file's `[Peer]` section and saves the modified copies. See [IP Replacer](ip-replacer.md) for full WireGuard apply details.
 
 ---
 
 ## Tips
 
 - **Rescan** re-runs with the same config and the same endpoint pool — useful if some endpoints were temporarily down
-- **Results to show** only affects display — all results are kept in memory; when you apply an endpoint the full list is still available
+- **Results to show** only affects display — all successful results stay available to copy or hand off to the Replacer
 - Scans run with multiple concurrent workers to balance speed and reliability
 - The app downloads links to online Warp config generators inside the **Getting Warp Configs** panel at the bottom of this tab

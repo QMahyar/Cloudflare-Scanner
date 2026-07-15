@@ -1,8 +1,11 @@
 # IP Replacer
 
-Takes VLESS/Trojan/VMess configs (from a subscription URL or pasted directly), deduplicates them by fingerprint (ignoring IP:port and remark), then generates every combination with a list of clean endpoints.
+Two modes on this tab:
 
-Perfect for refreshing a stale subscription with fresh IPs from the IP Scanner.
+1. **Proxy configs** — takes VLESS/Trojan/VMess configs (from a subscription URL or pasted directly), deduplicates them by fingerprint (ignoring IP:port and remark), then generates every combination with a list of clean endpoints.
+2. **WireGuard / WARP** — applies a working WARP endpoint to one or more `.conf` files and writes modified copies to a folder you choose.
+
+Proxy mode is perfect for refreshing a stale subscription with fresh IPs from the IP Scanner. WireGuard mode is the apply step after Endpoint Scanner.
 
 ---
 
@@ -62,6 +65,7 @@ vless://aaa...|trojan://bbb...
 After fetching or parsing, you see a list of unique config templates. Configs that differ only by IP:port or remark are grouped into one entry.
 
 Each entry shows:
+
 - Protocol (vless / trojan / vmess)
 - UUID / password
 - Original address and port
@@ -118,8 +122,24 @@ IP:port and remark are **not** part of the fingerprint, so a config pointing to 
 
 ---
 
+## WireGuard / WARP apply
+
+Switch the tab to **WireGuard / WARP** mode when you want to rewrite `.conf` files (not share URLs).
+
+1. Paste or receive a working endpoint (`host:port`). Endpoint Scanner can hand one off via **Use** / push.
+2. Click **Choose config(s)...** and select one or more WireGuard `.conf` files.
+3. Optionally set an **Output folder path**:
+   - Leave empty to save next to the app executable.
+   - Type any absolute path, or click **Browse** to pick any folder on your machine (not limited to the install directory).
+4. Click **Generate Configs**.
+
+For each file, the app finds the `Endpoint` line under `[Peer]`, replaces it with the chosen endpoint, and writes the modified copy into the output folder (filename only — upload paths are stripped). A status line reports how many files were saved.
+
+---
+
 ## Tips
 
-- **Use with IP Scanner:** Run a Clean IP scan, then click **Push to Replacer** — the working endpoints are sent directly to this tab's endpoints field
+- **Use with IP Scanner:** Run a Clean IP scan, then click **Push to Replacer** — the working endpoints are sent directly to this tab's endpoints field (proxy mode)
+- **Use with Endpoint Scanner:** After a WARP scan, send a result to this tab and switch to WireGuard / WARP mode to rewrite `.conf` files
 - **Large combinations:** If you have 5 configs and 100 endpoints, you get 500 URLs. The app handles this efficiently but your clipboard may have limits — use Download instead of Copy All for very large outputs
 - **Fetch timeout:** Subscription URLs have a 10 MB body limit and a generous HTTP timeout. If your subscription returns an error, check that the URL is accessible and not behind a login
