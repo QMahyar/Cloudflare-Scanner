@@ -161,6 +161,9 @@ Items originally listed as "not implemented" — current state:
 - **Auto-tuning** (detect CPU/network to suggest concurrency): not implemented.
 - **Persistent scan state** (resume after restart): not implemented.
 
+Non-binding product options from the post-v3.7.0 improve audit (CLI/headless,
+Clash export, auto-tune, resume) are captured in [`docs/roadmap-notes.md`](docs/roadmap-notes.md).
+
 ---
 
 **Original implementation date**: 2026-06-13  
