@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 // One xray process serves a whole Phase-2 batch, so its log interleaves every
@@ -274,5 +275,187 @@ func TestGenerateIPsBoundedByPorts(t *testing.T) {
 	eps := g.GenerateIPs(100, true, false, ports)
 	if len(eps) > 100*len(ports) {
 		t.Fatalf("endpoint count %d exceeds ipCount*ports %d", len(eps), 100*len(ports))
+	}
+}
+
+func TestSummarizeFailure(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{
+			"xray startup timeout",
+			"xray didn't come up in time (slow start or crash)",
+		},
+		{
+			"start xray: permission denied",
+			"xray failed to launch (check the xray binary / config)",
+		},
+		{
+			"xray config write failed",
+			"xray failed to launch (check the xray binary / config)",
+		},
+		{
+			"no uuid in config",
+			"incomplete config (UUID/address/port missing)",
+		},
+		{
+			"empty address field",
+			"incomplete config (UUID/address/port missing)",
+		},
+		{
+			"invalid port 0",
+			"incomplete config (UUID/address/port missing)",
+		},
+		{
+			"socks connect: dial tcp 127.0.0.1:1080",
+			"couldn't reach xray's local SOCKS port",
+		},
+		{
+			"socks5 auth failed",
+			"tunnel handshake failed (proxy refused the connection)",
+		},
+		{
+			"forcibly closed by the remote host",
+			"connection reset mid-handshake (likely ISP/DPI filtering or a dead origin)",
+		},
+		{
+			"connection reset by peer",
+			"connection reset mid-handshake (likely ISP/DPI filtering or a dead origin)",
+		},
+		{
+			"unexpected eof",
+			"connection reset mid-handshake (likely ISP/DPI filtering or a dead origin)",
+		},
+		{
+			"connection refused",
+			"origin refused the connection (dead endpoint or wrong port)",
+		},
+		{
+			"http write: broken pipe",
+			"no usable response through the tunnel (timeout / reset)",
+		},
+		{
+			"http read timeout",
+			"no usable response through the tunnel (timeout / reset)",
+		},
+		{
+			"http 403",
+			"http 403 (Cloudflare reached but didn't route — check SNI/Host)",
+		},
+		{
+			"cancelled",
+			"cancelled",
+		},
+		{
+			"some uncategorized error",
+			"some uncategorized error",
+		},
+	}
+	for _, c := range cases {
+		if got := summarizeFailure(c.in); got != c.want {
+			t.Errorf("summarizeFailure(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestIPOnly(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"1.2.3.4:443", "1.2.3.4"},
+		{"[2606:4700::1]:443", "2606:4700::1"},
+		{"nope", ""},
+		{"", ""},
+		{"1.2.3.4", ""}, // bare IP without port fails SplitHostPort
+	}
+	for _, c := range cases {
+		if got := ipOnly(c.in); got != c.want {
+			t.Errorf("ipOnly(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestApplyColo(t *testing.T) {
+	// Empty map is a no-op (no panic).
+	results := []CleanIPResult{
+		{Endpoint: "1.2.3.4:443"},
+		{Endpoint: "5.6.7.8:443"},
+	}
+	applyColo(results, nil)
+	applyColo(results, map[string][2]string{})
+	if results[0].Colo != "" || results[1].Colo != "" {
+		t.Fatalf("empty map should leave colo empty, got %+v", results)
+	}
+
+	applyColo(results, map[string][2]string{
+		"1.2.3.4": {"FRA", "DE"},
+	})
+	if results[0].Colo != "FRA" || results[0].Loc != "DE" {
+		t.Errorf("matching row: got colo=%q loc=%q", results[0].Colo, results[0].Loc)
+	}
+	if results[1].Colo != "" || results[1].Loc != "" {
+		t.Errorf("non-matching row should stay empty, got colo=%q loc=%q", results[1].Colo, results[1].Loc)
+	}
+}
+
+func TestApplyQuality(t *testing.T) {
+	// Empty map is a no-op.
+	results := []CleanIPResult{
+		{Endpoint: "1.2.3.4:443", Latency: 50 * time.Millisecond},
+		{Endpoint: "5.6.7.8:443", Latency: 80 * time.Millisecond, Jitter: 10 * time.Millisecond, Best: 70 * time.Millisecond},
+	}
+	applyQuality(results, nil)
+	applyQuality(results, map[string]qualitySample{})
+	if results[0].Loss != 0 || results[0].Score != 0 {
+		t.Fatalf("empty map should leave quality fields zero, got loss=%v score=%d", results[0].Loss, results[0].Score)
+	}
+
+	sample := qualitySample{
+		best:   40 * time.Millisecond,
+		median: 45 * time.Millisecond,
+		jitter: 5 * time.Millisecond,
+		loss:   25,
+	}
+	applyQuality(results, map[string]qualitySample{
+		"1.2.3.4": sample,
+	})
+
+	if results[0].Loss != 25 {
+		t.Errorf("loss = %v, want 25", results[0].Loss)
+	}
+	if results[0].Jitter != 5*time.Millisecond {
+		t.Errorf("jitter should fill when zero: got %v", results[0].Jitter)
+	}
+	if results[0].Best != 40*time.Millisecond {
+		t.Errorf("best should take sample.best when zero: got %v", results[0].Best)
+	}
+	wantScore := qualityScore(results[0].Latency, results[0].Jitter, results[0].Loss)
+	if results[0].Score != wantScore {
+		t.Errorf("score = %d, want %d", results[0].Score, wantScore)
+	}
+	// Non-matching row untouched.
+	if results[1].Loss != 0 || results[1].Jitter != 10*time.Millisecond {
+		t.Errorf("non-matching row mutated: %+v", results[1])
+	}
+
+	// Existing non-zero Jitter is preserved; Best only improves when sample is smaller.
+	results[1].Endpoint = "1.2.3.4:8443"
+	applyQuality(results[1:], map[string]qualitySample{
+		"1.2.3.4": {
+			best:   90 * time.Millisecond, // worse than existing Best=70ms
+			jitter: 99 * time.Millisecond,
+			loss:   10,
+		},
+	})
+	if results[1].Jitter != 10*time.Millisecond {
+		t.Errorf("existing jitter should be preserved, got %v", results[1].Jitter)
+	}
+	if results[1].Best != 70*time.Millisecond {
+		t.Errorf("best should not regress to a worse sample, got %v", results[1].Best)
+	}
+	if results[1].Loss != 10 {
+		t.Errorf("loss = %v, want 10", results[1].Loss)
 	}
 }
