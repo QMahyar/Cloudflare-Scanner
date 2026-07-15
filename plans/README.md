@@ -22,18 +22,18 @@ when done (unless a reviewer maintains the index).
 | 006  | Drop retained endpoint slices after jobs finish | P2 | S | — | DONE |
 | 007  | Split proxy.go along parse/share/xray seams | P3 | M | 002 | DONE |
 | 008  | Spike notes: CLI, Clash export, auto-tune (docs only) | P3 | S | — | DONE |
-| 009  | Fix Trojan/VMess xray outbound JSON shape | P1 | S | — | IN PROGRESS |
-| 010  | Cap clean-scan endpoints after port multiplication | P1 | S | — | IN PROGRESS |
-| 011  | Cap concurrent xray batches on WARP noise path | P1 | S | — | IN PROGRESS |
-| 012  | Clear job config secrets on terminal status | P1 | S | — | IN PROGRESS |
-| 013  | Cover remaining pure offline helpers | P1 | S | — | IN PROGRESS |
-| 014  | Refresh agent + user docs (module, file map, CIDRs) | P2 | S | — | IN PROGRESS |
-| 015  | Drop dual Phase-1 result ownership / job.mu churn | P2 | M | — | IN PROGRESS |
-| 016  | Shrink scan/clean results API payloads | P2 | S | — | IN PROGRESS |
-| 017  | httptest tests for status/stop/results + CSRF | P2 | M | — | IN PROGRESS |
-| 018  | xray-core pin policy / safe upgrade path | P3 | M | 009 | IN PROGRESS |
-| 019  | Frontend pure-lib unit tests (vitest) | P3 | M | — | IN PROGRESS |
-| 020  | Single-source CF CIDR presets for UI | P3 | S | — | IN PROGRESS |
+| 009  | Fix Trojan/VMess xray outbound JSON shape | P1 | S | — | DONE (branch `advisor/009-fix-trojan-vmess-xray-outbound` @ `1db0a63`, not merged) |
+| 010  | Cap clean-scan endpoints after port multiplication | P1 | S | — | DONE (branch `advisor/010-cap-endpoints-after-ports` @ `e2cb4cf`, not merged) |
+| 011  | Cap concurrent xray batches on WARP noise path | P1 | S | — | DONE (branch `advisor/011-cap-noise-xray-batches` @ `1b1c762`, not merged) |
+| 012  | Clear job config secrets on terminal status | P1 | S | — | DONE (branch `advisor/012-clear-job-secrets-on-terminal` @ `55780bb`, not merged) |
+| 013  | Cover remaining pure offline helpers | P1 | S | — | DONE (branch `advisor/013-pure-offline-helper-tests` @ `6af8163`, not merged) |
+| 014  | Refresh agent + user docs (module, file map, CIDRs) | P2 | S | — | BLOCKED (executor stalled; branch tip still master; re-run plan) |
+| 015  | Drop dual Phase-1 result ownership / job.mu churn | P2 | M | — | TODO (not dispatched — session subagent limit) |
+| 016  | Shrink scan/clean results API payloads | P2 | S | — | TODO (not dispatched — session subagent limit) |
+| 017  | httptest tests for status/stop/results + CSRF | P2 | M | — | TODO (not dispatched — session subagent limit) |
+| 018  | xray-core pin policy / safe upgrade path | P3 | M | 009 | TODO (not dispatched — session subagent limit) |
+| 019  | Frontend pure-lib unit tests (vitest) | P3 | M | — | TODO (not dispatched — session subagent limit) |
+| 020  | Single-source CF CIDR presets for UI | P3 | S | — | TODO (not dispatched — session subagent limit) |
 
 ## Recommended parallel waves
 
