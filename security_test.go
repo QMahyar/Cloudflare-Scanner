@@ -103,16 +103,16 @@ func TestValidateEndpointHostPort(t *testing.T) {
 
 func TestValidateSubscriptionURL(t *testing.T) {
 	cases := []struct {
-		raw     string
-		wantOK  bool
+		raw      string
+		wantOK   bool
 		wantHost string // checked only when wantOK
 	}{
 		{"", false, ""},
 		{"   ", false, ""},
 		{"ftp://example.com/sub", false, ""},
 		{"file:///etc/passwd", false, ""},
-		{"http://", false, ""},           // missing host
-		{"https://", false, ""},          // missing host
+		{"http://", false, ""},  // missing host
+		{"https://", false, ""}, // missing host
 		{"not-a-url", false, ""},
 		{"https://example.com/sub", true, "example.com"},
 		{"http://example.com/path?q=1", true, "example.com"},

@@ -66,7 +66,7 @@ func TestApplyH3(t *testing.T) {
 		{Endpoint: "not-a-hostport", Success: true}, // ipOnly returns ""
 	}
 	h3Map := map[string]bool{
-		"1.1.1.1":    true,
+		"1.1.1.1":      true,
 		"2606:4700::1": true,
 		// 1.0.0.1 absent => stays false
 		// 8.8.8.8 true would still mark H3 even if Success=false
