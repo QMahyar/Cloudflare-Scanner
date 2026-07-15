@@ -161,6 +161,30 @@ func TestHandleCleanScanStartRejectsOverCap(t *testing.T) {
 	}
 }
 
+func TestNoiseConcurrentBatches(t *testing.T) {
+	cases := []struct {
+		name                               string
+		concurrency, batchSize, maxBatches int
+		want                               int
+	}{
+		{"default concurrency 12", 12, 16, 8, 1},
+		{"exactly one batch", 16, 16, 8, 1},
+		{"just over one batch", 17, 16, 8, 2},
+		{"max concurrency clamps to 8", 2048, 16, 8, 8},
+		{"zero concurrency floors to 1", 0, 16, 8, 1},
+		{"invalid batch size falls back to 16", 17, 0, 8, 2},
+		{"maxBatches 0 means no cap", 2048, 16, 0, 128},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := noiseConcurrentBatches(tc.concurrency, tc.batchSize, tc.maxBatches); got != tc.want {
+				t.Fatalf("noiseConcurrentBatches(%d,%d,%d)=%d want %d",
+					tc.concurrency, tc.batchSize, tc.maxBatches, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestScanAndCleanCapsAreIndependent(t *testing.T) {
 	// Fill clean jobs to the cap; scan start must still succeed.
 	cleanJobsMu.Lock()

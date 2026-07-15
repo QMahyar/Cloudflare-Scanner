@@ -308,6 +308,23 @@ func runScan(job *ScanJob, xrayPath string) {
 	job.mu.Unlock()
 }
 
+// noiseConcurrentBatches returns how many xray batch processes to run at once
+// for a WARP noise scan: ceil(concurrency/batchSize), floored at 1 and capped
+// at maxBatches when maxBatches > 0.
+func noiseConcurrentBatches(concurrency, batchSize, maxBatches int) int {
+	if batchSize < 1 {
+		batchSize = 16
+	}
+	n := (concurrency + batchSize - 1) / batchSize
+	if n < 1 {
+		n = 1
+	}
+	if maxBatches > 0 && n > maxBatches {
+		n = maxBatches
+	}
+	return n
+}
+
 // runScanNoiseBatched validates WARP endpoints through pooled xray processes (one
 // process per batch) instead of one process per endpoint. It is used only for the
 // noise/AmneziaWG fallback; the native-handshake and TCP-only paths are
@@ -315,10 +332,7 @@ func runScan(job *ScanJob, xrayPath string) {
 // each batch's failures once, and keeps partial results on cancel.
 func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 	const batchSize = 16
-	concurrentBatches := (scanner.Concurrency + batchSize - 1) / batchSize
-	if concurrentBatches < 1 {
-		concurrentBatches = 1
-	}
+	concurrentBatches := noiseConcurrentBatches(scanner.Concurrency, batchSize, maxNoiseConcurrentBatches)
 
 	allocPortBase := func() int {
 		// Non-overlapping port windows in the WARP band (+10800), clear of the
