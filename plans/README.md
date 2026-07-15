@@ -11,14 +11,14 @@ when done (unless a reviewer maintains the index).
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |------|-------|----------|--------|------------|--------|
-| 001  | Fix apply-endpoint output paths + handler tests | P1 | S | — | TODO |
-| 002  | Cover pure offline helpers with unit tests | P1 | S | — | TODO |
-| 003  | Cap concurrent scan/clean jobs | P1 | S | — | TODO |
-| 004  | Align apply docs/i18n with Replacer + free paths | P2 | S | 001 | TODO |
-| 005  | Pin frontend CI Node to 20 | P2 | S | — | TODO |
-| 006  | Drop retained endpoint slices after jobs finish | P2 | S | — | TODO |
-| 007  | Split proxy.go along parse/share/xray seams | P3 | M | 002 | TODO |
-| 008  | Spike notes: CLI, Clash export, auto-tune (docs only) | P3 | S | — | TODO |
+| 001  | Fix apply-endpoint output paths + handler tests | P1 | S | — | DONE |
+| 002  | Cover pure offline helpers with unit tests | P1 | S | — | DONE |
+| 003  | Cap concurrent scan/clean jobs | P1 | S | — | DONE |
+| 004  | Align apply docs/i18n with Replacer + free paths | P2 | S | 001 | DONE |
+| 005  | Pin frontend CI Node to 20 | P2 | S | — | DONE |
+| 006  | Drop retained endpoint slices after jobs finish | P2 | S | — | DONE |
+| 007  | Split proxy.go along parse/share/xray seams | P3 | M | 002 | DONE |
+| 008  | Spike notes: CLI, Clash export, auto-tune (docs only) | P3 | S | — | DONE |
 
 ## Dependency notes
 
