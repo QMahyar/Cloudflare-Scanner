@@ -459,3 +459,40 @@ func TestApplyQuality(t *testing.T) {
 		t.Errorf("loss = %v, want 10", results[1].Loss)
 	}
 }
+
+func TestCapEndpoints(t *testing.T) {
+	cases := []struct {
+		name string
+		n    int
+		want int
+	}{
+		{"under", maxScanCount - 1, maxScanCount - 1},
+		{"exact", maxScanCount, maxScanCount},
+		{"over", maxScanCount + 10, maxScanCount},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := make([]string, tc.n)
+			for i := range in {
+				in[i] = fmt.Sprintf("1.2.3.%d:443", i%250)
+			}
+			got := capEndpoints(in)
+			if len(got) != tc.want {
+				t.Fatalf("len(capEndpoints(%d)) = %d, want %d", tc.n, len(got), tc.want)
+			}
+		})
+	}
+}
+
+// TestGenerateIPsCappedAfterPorts ensures port multiplication cannot exceed maxScanCount.
+func TestGenerateIPsCappedAfterPorts(t *testing.T) {
+	g := NewCleanIPGenerator()
+	ports := []int{443, 8443, 2053}
+	eps := g.GenerateIPs(10, true, false, ports)
+	if len(eps) > 30 {
+		t.Fatalf("endpoint count %d exceeds ip*ports 30", len(eps))
+	}
+	if len(eps) > maxScanCount {
+		t.Fatalf("endpoint count %d exceeds maxScanCount %d", len(eps), maxScanCount)
+	}
+}
