@@ -121,13 +121,7 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 			endpoints = gen.GenerateIPs(req.Count, req.IPv4, req.IPv6, scanPorts)
 		}
 
-		cleanJobsMu.Lock()
-		cleanJobCounter++
-		jobID := fmt.Sprintf("clean_%d", cleanJobCounter)
-		cleanJobsMu.Unlock()
-
 		job := &CleanIPJob{
-			ID:              jobID,
 			Status:          "pending",
 			Total:           len(endpoints),
 			Config:          cfg,
@@ -146,6 +140,14 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 		}
 
 		cleanJobsMu.Lock()
+		if countActiveCleanJobsLocked() >= maxConcurrentJobs {
+			cleanJobsMu.Unlock()
+			jsonError(w, "too many concurrent scans (max 2)", http.StatusTooManyRequests)
+			return
+		}
+		cleanJobCounter++
+		jobID := fmt.Sprintf("clean_%d", cleanJobCounter)
+		job.ID = jobID
 		cleanJobs[jobID] = job
 		cleanJobsMu.Unlock()
 
