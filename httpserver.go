@@ -44,6 +44,11 @@ const maxReplacerOutputs = 50000
 // one clean-scan input that wasn't clamped — could blow up allocation. 64 is far
 // above the official CF CDN port set while keeping maxScanPorts*maxScanCount sane.
 const maxScanPorts = 64
+
+// maxConcurrentJobs caps in-flight jobs per map (scan and clean are
+// independent). Terminal jobs (done/cancelled) stay mapped for TTL result
+// polling and do not count. 2 covers one multi-tab retry without unbounded pile-up.
+const maxConcurrentJobs = 2
 const csrfCookieName = "cfscanner_token"
 const csrfHeaderName = "X-CSRF-Token"
 
@@ -61,6 +66,55 @@ var (
 	// running at once can't allocate the same window.
 	warpSocksPortBase atomic.Int32
 )
+
+// isActiveJobStatus reports whether a job status still holds resources / runs
+// work. Empty and any non-terminal string count as active so a half-initialized
+// job cannot slip past the concurrent-job cap.
+func isActiveJobStatus(status string) bool {
+	return status != "done" && status != "cancelled"
+}
+
+// activeJobCount counts non-terminal statuses. Pure helper for tests and for
+// building a snapshot without holding job mutexes.
+func activeJobCount(statuses []string) int {
+	n := 0
+	for _, s := range statuses {
+		if isActiveJobStatus(s) {
+			n++
+		}
+	}
+	return n
+}
+
+// countActiveScanJobsLocked returns how many scan jobs are non-terminal.
+// Caller must hold scanJobsMu.
+func countActiveScanJobsLocked() int {
+	n := 0
+	for _, j := range scanJobs {
+		j.mu.Lock()
+		st := j.Status
+		j.mu.Unlock()
+		if isActiveJobStatus(st) {
+			n++
+		}
+	}
+	return n
+}
+
+// countActiveCleanJobsLocked returns how many clean jobs are non-terminal.
+// Caller must hold cleanJobsMu.
+func countActiveCleanJobsLocked() int {
+	n := 0
+	for _, j := range cleanJobs {
+		j.mu.Lock()
+		st := j.Status
+		j.mu.Unlock()
+		if isActiveJobStatus(st) {
+			n++
+		}
+	}
+	return n
+}
 
 func scheduleScanJobCleanup(id string) {
 	time.AfterFunc(jobTTL, func() {
