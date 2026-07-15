@@ -36,6 +36,11 @@ const maxScanCount = 100000
 const maxEndpointConcurrency = 2048
 const maxCleanPhase1Probes = 4096
 const maxCleanPhase2Probes = 256
+
+// maxNoiseConcurrentBatches caps simultaneous xray processes for WARP noise
+// scans. concurrentBatches = ceil(concurrency/16); without a cap,
+// maxEndpointConcurrency (2048) allows 128 processes.
+const maxNoiseConcurrentBatches = 8
 const maxOutCount = 10000
 const maxReplacerOutputs = 50000
 
