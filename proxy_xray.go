@@ -23,7 +23,7 @@ type VLessUser struct {
 	Flow       string `json:"flow,omitempty"`
 }
 
-type TrojanOutboundSettings struct {
+type TrojanServer struct {
 	Address  string `json:"address"`
 	Port     int    `json:"port"`
 	Password string `json:"password"`
@@ -31,13 +31,25 @@ type TrojanOutboundSettings struct {
 	Level    int    `json:"level,omitempty"`
 }
 
+type TrojanOutboundSettings struct {
+	Servers []TrojanServer `json:"servers"`
+}
+
+type VMessUser struct {
+	ID       string `json:"id"`
+	Security string `json:"security"`
+	AlterId  int    `json:"alterId"`
+	Level    int    `json:"level,omitempty"`
+}
+
+type VMessServer struct {
+	Address string      `json:"address"`
+	Port    int         `json:"port"`
+	Users   []VMessUser `json:"users"`
+}
+
 type VMessOutboundSettings struct {
-	Address     string `json:"address"`
-	Port        int    `json:"port"`
-	ID          string `json:"id"`
-	Security    string `json:"security"`
-	Level       int    `json:"level,omitempty"`
-	Experiments string `json:"experiments,omitempty"`
+	VNext []VMessServer `json:"vnext"`
 }
 
 type StreamSettings struct {
@@ -120,9 +132,11 @@ func (c *ProxyConfig) buildOutboundSettings() json.RawMessage {
 		return settings
 	case "trojan":
 		settings, _ := json.Marshal(TrojanOutboundSettings{
-			Address:  c.Address,
-			Port:     c.Port,
-			Password: c.UUID,
+			Servers: []TrojanServer{{
+				Address:  c.Address,
+				Port:     c.Port,
+				Password: c.UUID,
+			}},
 		})
 		return settings
 	case "vmess":
@@ -131,10 +145,15 @@ func (c *ProxyConfig) buildOutboundSettings() json.RawMessage {
 			sec = "auto"
 		}
 		settings, _ := json.Marshal(VMessOutboundSettings{
-			Address:  c.Address,
-			Port:     c.Port,
-			ID:       c.UUID,
-			Security: sec,
+			VNext: []VMessServer{{
+				Address: c.Address,
+				Port:    c.Port,
+				Users: []VMessUser{{
+					ID:       c.UUID,
+					Security: sec,
+					AlterId:  0,
+				}},
+			}},
 		})
 		return settings
 	default:

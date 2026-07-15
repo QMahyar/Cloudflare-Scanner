@@ -170,3 +170,108 @@ func TestBatchConfigProxy(t *testing.T) {
 		t.Error("expected error for empty UUID")
 	}
 }
+
+// TestBatchConfigProxyTrojan asserts Trojan outbound settings use the nested
+// xray-core shape: settings.servers[0].{address,port,password}.
+func TestBatchConfigProxyTrojan(t *testing.T) {
+	cfg := &ProxyConfig{
+		Protocol: "trojan",
+		UUID:     "trojan-password-xyz",
+		Address:  "example.com",
+		Port:     443,
+		Security: "tls",
+		SNI:      "example.com",
+		Network:  "tcp",
+	}
+	endpoints := []string{"1.2.3.4:443"}
+	basePort := 20901
+
+	configPath, ports, err := cfg.BuildXrayJSONBatch(endpoints, basePort)
+	if err != nil {
+		t.Fatalf("BuildXrayJSONBatch: %v", err)
+	}
+	xc := readBatchConfig(t, configPath)
+	assertBatchShape(t, xc, endpoints, ports, basePort)
+
+	ob := xc.Outbounds[0]
+	if ob.Protocol != "trojan" {
+		t.Fatalf("protocol %q, want trojan", ob.Protocol)
+	}
+	var settings TrojanOutboundSettings
+	if err := json.Unmarshal(ob.Settings, &settings); err != nil {
+		t.Fatalf("unmarshal trojan settings: %v\nraw: %s", err, string(ob.Settings))
+	}
+	if len(settings.Servers) != 1 {
+		t.Fatalf("want 1 server, got %d (raw %s)", len(settings.Servers), string(ob.Settings))
+	}
+	s := settings.Servers[0]
+	// BuildXrayJSONBatch repoints the outbound at the endpoint IP/port.
+	if s.Address != "1.2.3.4" {
+		t.Errorf("address %q, want 1.2.3.4", s.Address)
+	}
+	if s.Port != 443 {
+		t.Errorf("port %d, want 443", s.Port)
+	}
+	if s.Password != "trojan-password-xyz" {
+		t.Errorf("password %q, want trojan-password-xyz", s.Password)
+	}
+}
+
+// TestBatchConfigProxyVMess asserts VMess outbound settings use the nested
+// xray-core shape: settings.vnext[0].users[0].{id,security,alterId}, with empty
+// encryption defaulting to "auto".
+func TestBatchConfigProxyVMess(t *testing.T) {
+	cfg := &ProxyConfig{
+		Protocol:   "vmess",
+		UUID:       "vmess-uuid-abcd",
+		Address:    "example.com",
+		Port:       443,
+		Encryption: "", // should default to "auto"
+		Security:   "tls",
+		SNI:        "example.com",
+		Network:    "ws",
+		Path:       "/vmess",
+		Host:       "example.com",
+	}
+	endpoints := []string{"5.6.7.8:2053"}
+	basePort := 20911
+
+	configPath, ports, err := cfg.BuildXrayJSONBatch(endpoints, basePort)
+	if err != nil {
+		t.Fatalf("BuildXrayJSONBatch: %v", err)
+	}
+	xc := readBatchConfig(t, configPath)
+	assertBatchShape(t, xc, endpoints, ports, basePort)
+
+	ob := xc.Outbounds[0]
+	if ob.Protocol != "vmess" {
+		t.Fatalf("protocol %q, want vmess", ob.Protocol)
+	}
+	var settings VMessOutboundSettings
+	if err := json.Unmarshal(ob.Settings, &settings); err != nil {
+		t.Fatalf("unmarshal vmess settings: %v\nraw: %s", err, string(ob.Settings))
+	}
+	if len(settings.VNext) != 1 {
+		t.Fatalf("want 1 vnext, got %d (raw %s)", len(settings.VNext), string(ob.Settings))
+	}
+	srv := settings.VNext[0]
+	if srv.Address != "5.6.7.8" {
+		t.Errorf("address %q, want 5.6.7.8", srv.Address)
+	}
+	if srv.Port != 2053 {
+		t.Errorf("port %d, want 2053", srv.Port)
+	}
+	if len(srv.Users) != 1 {
+		t.Fatalf("want 1 user, got %d", len(srv.Users))
+	}
+	u := srv.Users[0]
+	if u.ID != "vmess-uuid-abcd" {
+		t.Errorf("id %q, want vmess-uuid-abcd", u.ID)
+	}
+	if u.Security != "auto" {
+		t.Errorf("security %q, want auto", u.Security)
+	}
+	if u.AlterId != 0 {
+		t.Errorf("alterId %d, want 0", u.AlterId)
+	}
+}
