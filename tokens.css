@@ -1,0 +1,71 @@
+/* Hallmark · pre-emit critique: P5 H5 E4 S5 R5 V4 */
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · design-system: design.md · designed-as-app
+ * nav: N3 side rail / mobile dock · footer: none · enrichment: none · contrast: pass (40–41)
+ */
+:root {
+  --color-paper: oklch(13% 0.012 55);
+  --color-paper-2: oklch(16% 0.014 55);
+  --color-paper-3: oklch(20% 0.014 55);
+  --color-paper-4: oklch(24% 0.014 55);
+  --color-ink: oklch(94% 0.008 75);
+  --color-ink-2: oklch(77% 0.012 70);
+  --color-ink-3: oklch(61% 0.012 65);
+  --color-rule: oklch(29% 0.014 55);
+  --color-rule-strong: oklch(39% 0.016 55);
+  --color-accent: oklch(70% 0.19 50);
+  --color-accent-hover: oklch(76% 0.17 55);
+  --color-accent-ink: oklch(16% 0.025 50);
+  --color-focus: oklch(80% 0.16 60);
+  --color-success: oklch(72% 0.16 145);
+  --color-warning: oklch(78% 0.15 85);
+  --color-danger: oklch(68% 0.19 25);
+  --color-overlay: oklch(8% 0.01 55 / 0.82);
+  --color-accent-soft: oklch(70% 0.19 50 / 0.12);
+  --color-accent-soft-strong: oklch(70% 0.19 50 / 0.2);
+  --color-success-soft: oklch(72% 0.16 145 / 0.12);
+  --color-warning-soft: oklch(78% 0.15 85 / 0.12);
+  --color-danger-soft: oklch(68% 0.19 25 / 0.12);
+
+  --font-display: "Bahnschrift", "Aptos Display", "Segoe UI Variable Display", ui-sans-serif, sans-serif;
+  --font-body: "Aptos", "Segoe UI Variable Text", "Noto Sans", ui-sans-serif, sans-serif;
+  --font-mono: "Cascadia Mono", "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
+  --font-fa: Tahoma, "Noto Sans Arabic", sans-serif;
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.125rem;
+  --text-lg: 1.375rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.25rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+
+  --rule-thin: 1px;
+  --radius-control: 0.375rem;
+  --radius-card: 0.5rem;
+  --radius-panel: 0.75rem;
+  --radius-pill: 999px;
+
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 400;
+  --z-toast: 500;
+}

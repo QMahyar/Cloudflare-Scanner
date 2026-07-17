@@ -1,0 +1,14 @@
+{
+  "date": "2026-07-17",
+  "framework": "Svelte 5 + Vite 6",
+  "font_stack": "local system sans + local mono + Persian fallback",
+  "palette": "dark warm charcoal with Cloudflare orange",
+  "motion": "CSS-only, reduced-motion supported",
+  "spacing": "4px base scale",
+  "preserve": [
+    "Cloudflare orange identity",
+    "bilingual LTR/RTL behavior",
+    "persistent mounted tab panels",
+    "API, SSE, persistence, export, and handoff workflows"
+  ]
+}

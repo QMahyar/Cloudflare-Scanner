@@ -114,29 +114,31 @@
 {/if}
 
 <style>
+  /* Hallmark · component: result charts · genre: modern-minimal · theme: design.md */
   .charts {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-sm);
-    margin: var(--space-sm) 0 var(--space-md);
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-xs);
+    margin: var(--space-md) 0 var(--space-lg);
   }
   @media (min-width: 720px) {
-    .charts { grid-template-columns: 1.3fr 0.7fr 1fr; }
+    .charts { grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr) minmax(0, 1fr); }
   }
   .chart-card {
-    background: var(--bg-input);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
+    background: var(--color-paper-3);
+    border: var(--rule-thin) solid var(--color-rule);
+    border-radius: var(--radius-control);
+    padding: var(--space-sm);
     min-width: 0;
   }
   .chart-title {
-    font-size: 0.625rem;
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     font-weight: 700;
-    color: var(--text-tertiary);
-    margin-bottom: 8px;
+    color: var(--color-ink-2);
+    margin-bottom: var(--space-xs);
   }
   /* Latency histogram */
   .hist { display: flex; align-items: flex-end; gap: 4px; height: 92px; }
@@ -144,27 +146,27 @@
   .hist-bar-wrap { width: 100%; height: 64px; display: flex; align-items: flex-end; }
   .hist-bar {
     width: 100%;
-    border-radius: 3px 3px 0 0;
-    background: linear-gradient(180deg, var(--accent-2), var(--accent));
-    box-shadow: 0 0 8px var(--accent-glow);
-    transition: height 0.3s var(--ease);
+    border-radius: 2px 2px 0 0;
+    background: var(--color-accent);
+    box-shadow: none;
+    transition: opacity var(--dur-short) var(--ease-out);
   }
-  .hist-n { font-size: 0.625rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; height: 12px; }
-  .hist-x { font-size: 0.5rem; color: var(--text-tertiary); white-space: nowrap; transform: scale(0.92); }
+  .hist-n { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-ink-2); font-variant-numeric: tabular-nums; height: 14px; }
+  .hist-x { font-family: var(--font-mono); font-size: 0.625rem; color: var(--color-ink-3); white-space: nowrap; }
   /* Quality mix bar */
-  .qbar { display: flex; height: 16px; border-radius: var(--radius-full); overflow: hidden; background: rgba(255,255,255,0.05); }
+  .qbar { display: flex; height: 16px; border-radius: var(--radius-pill); overflow: hidden; background: var(--color-paper-4); }
   .qseg { height: 100%; }
-  .q-good { background: var(--success); }
-  .q-ok { background: var(--warning); }
-  .q-poor { background: var(--danger); }
-  .qlegend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; font-size: 0.625rem; color: var(--text-secondary); }
+  .q-good { background: var(--color-success); }
+  .q-ok { background: var(--color-warning); }
+  .q-poor { background: var(--color-danger); }
+  .qlegend { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); font-size: 0.6875rem; color: var(--color-ink-2); }
   .qlegend span { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   /* Colo distribution */
   .colo-rows { display: flex; flex-direction: column; gap: 5px; }
   .colo-row { display: grid; grid-template-columns: 34px 1fr 22px; align-items: center; gap: 6px; }
-  .colo-name { font-family: var(--font-mono); font-size: 0.625rem; font-weight: 700; color: var(--accent-2); }
-  .colo-track { height: 7px; border-radius: var(--radius-full); background: rgba(255,255,255,0.06); overflow: hidden; }
-  .colo-fill { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
-  .colo-n { font-size: 0.625rem; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
+  .colo-name { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 700; color: var(--color-accent-hover); }
+  .colo-track { height: 7px; border-radius: var(--radius-pill); background: var(--color-paper-4); overflow: hidden; }
+  .colo-fill { display: block; height: 100%; border-radius: inherit; background: var(--color-accent); }
+  .colo-n { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-ink-2); text-align: right; font-variant-numeric: tabular-nums; }
 </style>

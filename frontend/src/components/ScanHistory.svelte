@@ -38,20 +38,23 @@
 {/if}
 
 <style>
-  .hist-actions { display: flex; justify-content: flex-end; margin: 4px 0 8px; }
-  .hist-list { display: flex; flex-direction: column; gap: 6px; }
+  /* Hallmark · component: scan history · genre: modern-minimal · theme: design.md */
+  .hist-actions { display: flex; justify-content: flex-end; margin: var(--space-2xs) 0 var(--space-xs); }
+  .hist-list { display: flex; flex-direction: column; gap: var(--space-2xs); }
   .hist-row {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 8px;
-    padding: 7px 10px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    font-size: 0.75rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2xs);
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--color-paper-3);
+    border-block-start: var(--rule-thin) solid var(--color-rule);
+    font-size: var(--text-xs);
   }
-  .hist-label { font-weight: 600; color: var(--text-heading); }
-  .hist-meta { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-  .hist-time { margin-inline-start: auto; color: var(--text-tertiary); font-size: 0.6875rem; white-space: nowrap; }
+  .hist-label { font-family: var(--font-display); font-weight: 700; color: var(--color-ink); }
+  .hist-meta { color: var(--color-ink-2); font-variant-numeric: tabular-nums; }
+  .hist-time { color: var(--color-ink-3); font-family: var(--font-mono); font-size: 0.6875rem; white-space: nowrap; }
+  @media (min-width: 40rem) {
+    .hist-row { grid-template-columns: minmax(7rem, auto) minmax(0, 1fr) auto; align-items: baseline; gap: var(--space-sm); }
+    .hist-time { margin-inline-start: auto; }
+  }
 </style>

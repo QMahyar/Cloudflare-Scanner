@@ -16,7 +16,7 @@
 </script>
 
 {#if status !== 'idle'}
-  <div class="progress-wrap active">
+  <div class="progress-wrap active" aria-live="polite">
     <div class="scan-status">
       <span class="scan-pill" class:running={status === 'running'} class:done={status === 'done'} class:cancelled={status === 'cancelled'}>
         <span class="scan-pill-dot"></span>
@@ -24,7 +24,7 @@
       </span>
       <span class="progress-pct">{progressPct}%</span>
     </div>
-    <div class="progress-bar"><div class="progress-fill" class:cancelled={status === 'cancelled'} style="width:{progressPct}%"></div></div>
+    <div class="progress-bar" role="progressbar" aria-label={runningLabel || $_('scan.scanning')} aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(progressPct)}><div class="progress-fill" class:cancelled={status === 'cancelled'} style="width:{progressPct}%"></div></div>
     <div class="progress-text">{progressText}</div>
   </div>
 {/if}

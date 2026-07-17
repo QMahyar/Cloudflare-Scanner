@@ -1,0 +1,11 @@
+[
+  {
+    "date": "2026-07-17",
+    "scope": "app",
+    "macrostructure": "Workbench",
+    "theme": "custom",
+    "theme_axes": "dark / technical-sans / warm",
+    "enrichment": "none",
+    "brief": "Cloudflare Scanner full app redesign"
+  }
+]
