@@ -75,7 +75,7 @@
       </div>
     {/if}
   </div>
-  <p class="muted-inline" style="margin-top:var(--space-sm);display:block">{$_('about.privacy')}</p>
+  <p class="muted-inline muted-block">{$_('about.privacy')}</p>
 </div>
 
 <div class="card">
@@ -100,5 +100,5 @@
     </div>
   {/each}
 
-  <p class="muted-inline" style="margin-top:var(--space-sm);display:block">{$_('about.credits')}</p>
+  <p class="muted-inline muted-block">{$_('about.credits')}</p>
 </div>

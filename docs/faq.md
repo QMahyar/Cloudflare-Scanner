@@ -16,7 +16,7 @@ Windows (Intel and ARM), Linux (Intel and ARM), macOS (Intel and Apple Silicon),
 
 ### Do I need to install anything else?
 
-No. The app bundles xray-core v1.8.24. Everything is self-contained in the archive.
+No. The app bundles xray-core v26.6.27. Everything is self-contained in the archive.
 
 ### Does it work on phones?
 

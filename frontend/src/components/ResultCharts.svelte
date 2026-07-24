@@ -46,6 +46,7 @@
   })
 
   // Quality mix: how the result set splits into good / ok / poor by score.
+  // Thresholds match scoreClass (75/50) so the chart legend and table colors agree.
   const quality = $derived.by(() => {
     let good = 0, ok = 0, poor = 0, scored = 0
     for (const e of entries) {

@@ -55,6 +55,21 @@ func TestQualityScore(t *testing.T) {
 		t.Errorf("a 20ms/3ms/0%% IP should score high, got %d", good)
 	}
 
+	// High-latency but clean paths (common on restricted networks) must still
+	// score usefully and differentiate — a 250ms lossless IP should beat a
+	// 900ms one, and neither should collapse into the same mid-band.
+	mid := qualityScore(ms(250), ms(10), 0)
+	slow := qualityScore(ms(900), ms(20), 0)
+	if mid <= slow {
+		t.Errorf("expected mid-latency(%d) > slow(%d)", mid, slow)
+	}
+	if slow < 40 {
+		t.Errorf("a lossless 900ms path should still score reasonably, got %d", slow)
+	}
+	if mid < 70 {
+		t.Errorf("a lossless 250ms path should score high, got %d", mid)
+	}
+
 	// Loss must dominate: same latency, more loss => strictly lower score.
 	a := qualityScore(ms(50), ms(5), 0)
 	b := qualityScore(ms(50), ms(5), 40)

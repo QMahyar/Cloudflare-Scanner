@@ -69,7 +69,7 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 ## CI & Releases
 
 - **CI** (`.github/workflows/ci.yml`): matrix of 3 OS × 2 arch, each runs `go vet ./...` → `go build`. `go test ./...` runs on the **linux/amd64** cell only.
-- **Release** (`.github/workflows/release.yml`): auto-triggered on `v*` tag. Builds 7 platforms, bundles matching xray-core v1.8.24, uploads `.tar.gz` to GitHub Release.
+- **Release** (`.github/workflows/release.yml`): auto-triggered on `v*` tag. Builds 7 platforms, bundles matching xray-core v26.6.27, uploads `.tar.gz` to GitHub Release.
 - Tag: `git tag vX.Y.Z && git push origin vX.Y.Z`
 
 ## UI (Vite + Svelte 5)

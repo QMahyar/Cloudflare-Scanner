@@ -267,10 +267,14 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 	nearbyPhase2Results := append([]CleanIPResult(nil), job.NearbyPhase2Results...)
 	phase1Progress := job.Phase1Progress
 	phase1Total := job.Phase1Total
+	phase2Total := job.Phase2Total
 	skipPhase2 := job.SkipPhase2
 	job.mu.Unlock()
 
-	showPhase2 := (status == "done" || status == "cancelled" || status == "running-phase2") && !skipPhase2
+	// Phase 2 must have actually STARTED (phase2Total set) before its view takes
+	// over: a job cancelled during phase 1 is terminal with skipPhase2=false, and
+	// showing the (empty) phase-2 list would hide every phase-1 hit found so far.
+	showPhase2 := (status == "running-phase2" || ((status == "done" || status == "cancelled") && phase2Total > 0)) && !skipPhase2
 
 	type resultEntry struct {
 		Endpoint string  `json:"endpoint"`

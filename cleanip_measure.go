@@ -55,6 +55,7 @@ func dialReachable(ctx context.Context, endpoint string, timeout time.Duration, 
 
 func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Duration, cancel chan struct{}, job *CleanIPJob, concurrency int, stopAfter int) []CleanIPResult {
 	var mu sync.Mutex
+	var lastPub time.Time
 	if concurrency <= 0 {
 		concurrency = 500
 	}
@@ -146,12 +147,24 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 				mu.Lock()
 				results = append(results, result)
 				n := len(results)
+				// Throttled live publish: avoid dual-append of every hit under
+				// job.mu (old path copied each success into Phase1Results too).
+				// Time-based so the first/sparse responders show up immediately
+				// instead of waiting for a count bucket to fill.
+				publish := job != nil && (time.Since(lastPub) >= 250*time.Millisecond || (stopAfter > 0 && n >= stopAfter))
+				var snapshot []CleanIPResult
+				if publish {
+					lastPub = time.Now()
+					snapshot = append([]CleanIPResult(nil), results...)
+				}
 				mu.Unlock()
 
 				if job != nil {
 					job.mu.Lock()
-					job.Phase1Results = append(job.Phase1Results, result)
 					job.Phase1Progress++
+					if publish {
+						job.Phase1Results = snapshot
+					}
 					job.mu.Unlock()
 				}
 

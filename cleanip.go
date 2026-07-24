@@ -116,6 +116,13 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 
 	phase1Results := runCleanPhase1TCP(ctx, job.Endpoints, phase1Timeout, job.Cancel, job, p1Probes, job.StopAfter)
 
+	// Publish the full phase-1 set BEFORE the cancel check: the live path only
+	// publishes throttled snapshots, so a cancel here must not strand the tail —
+	// partial results are kept on cancel.
+	job.mu.Lock()
+	job.Phase1Results = phase1Results
+	job.mu.Unlock()
+
 	select {
 	case <-job.Cancel:
 		job.mu.Lock()
@@ -125,10 +132,6 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		return
 	default:
 	}
-
-	job.mu.Lock()
-	job.Phase1Results = phase1Results
-	job.mu.Unlock()
 
 	// Enrich the fastest responders with their Cloudflare colo/country in a
 	// bounded, concurrent pass — kept off the Phase-1 dial loop. Covers at least

@@ -15,7 +15,7 @@ go test -run TestParseProxyURL ./.  # single test
 
 Cross-compile via `GOOS`/`GOARCH` (windows/linux/darwin × amd64/arm64). On PowerShell use `$env:GOOS="..."`.
 
-CI (`.github/workflows/ci.yml`) vets + builds all 6 platform combos and runs `go test` **only on linux/amd64**. Releases trigger on `v*` tags (`.github/workflows/release.yml`), bundling xray-core v1.8.24.
+CI (`.github/workflows/ci.yml`) vets + builds all 6 platform combos and runs `go test` **only on linux/amd64**. Releases trigger on `v*` tags (`.github/workflows/release.yml`), bundling xray-core v26.6.27.
 
 ## Runtime model
 

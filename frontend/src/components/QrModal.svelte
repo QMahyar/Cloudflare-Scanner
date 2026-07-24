@@ -29,7 +29,7 @@
       {#if dataUrl}
         <img src={dataUrl} alt="QR code" width="220" height="220" />
       {:else if $qrText !== null}
-        <textarea class="apply-config-content-box" readonly style="min-height:160px">{$qrText}</textarea>
+        <textarea class="apply-config-content-box qr-text" readonly>{$qrText}</textarea>
       {/if}
     </div>
     <p class="mono-break">{$qrText ?? ''}</p>

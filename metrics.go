@@ -78,8 +78,10 @@ func lossPercent(passes, attempts int) float64 {
 // (higher is better) so results can be ordered by overall quality, not latency
 // alone — the way a best-in-class scanner picks an IP. Weights: latency 50,
 // jitter 15, loss 35. Each term degrades to 0 past a "clearly bad" ceiling
-// (400ms latency, 150ms jitter, 100% loss). A speed term can be added later
-// (the user deferred the throughput test) by reweighting without touching callers.
+// (1000ms latency, 200ms jitter, 100% loss). The latency ceiling is intentionally
+// generous: typical WARP/CF paths from restricted networks land in the
+// 200–900ms band, and a 400ms ceiling crushed every result into a narrow mid
+// band. A speed term can be added later by reweighting without touching callers.
 //
 // median <= 0 means we have no usable measurement → 0 (unknown), never a free 100.
 func qualityScore(median, jitter time.Duration, lossPct float64) int {
@@ -98,8 +100,11 @@ func qualityScore(median, jitter time.Duration, lossPct float64) int {
 		lossPct = 100
 	}
 
-	latScore := 50 * (1 - clampFloat(medMs/400, 0, 1))
-	jitScore := 15 * (1 - clampFloat(jitMs/150, 0, 1))
+	// Linear over a 1000ms ceiling: 0ms → full 50pts, 500ms → 25, 1000ms+ → 0.
+	// Keeps sub-200ms near the top while still differentiating 500–900ms paths
+	// common on restricted networks (the old 400ms ceiling flattened them all).
+	latScore := 50 * (1 - clampFloat(medMs/1000, 0, 1))
+	jitScore := 15 * (1 - clampFloat(jitMs/200, 0, 1))
 	lossScore := 35 * (1 - lossPct/100)
 
 	return clampInt(int(latScore+jitScore+lossScore+0.5), 0, 100)

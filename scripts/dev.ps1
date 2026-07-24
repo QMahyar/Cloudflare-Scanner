@@ -35,7 +35,7 @@
   .\scripts\dev.ps1 -Platform linux-amd64   # cross-build (no -Run)
 
 .NOTES
-  Env overrides: $env:XRAY_VERSION (default v1.8.24), $env:VERSION.
+  Env overrides: $env:XRAY_VERSION (default v26.6.27), $env:VERSION.
 #>
 [CmdletBinding()]
 param(
@@ -48,7 +48,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$XrayVersion = if ($env:XRAY_VERSION) { $env:XRAY_VERSION } else { 'v1.8.24' }
+$XrayVersion = if ($env:XRAY_VERSION) { $env:XRAY_VERSION } else { 'v26.6.27' }
 $App = 'Cloudflare-Scanner'
 
 # Resolve repo root from this script's own location, independent of CWD.

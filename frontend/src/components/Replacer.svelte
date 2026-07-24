@@ -8,6 +8,9 @@
   import { showQR } from '../lib/modal.js'
   import { replacerGenerated } from '../lib/stores.js'
   import { pendingWarpEndpoint, pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
+  import VirtualTable from './VirtualTable.svelte'
+  import SegmentedBar from './ui/SegmentedBar.svelte'
+  import FileDrop from './ui/FileDrop.svelte'
 
   // ─── Config type (proxy share-URLs vs WireGuard .conf) ───
   let ctype = $state('proxy')
@@ -31,7 +34,9 @@
   let cfgSort = $state({ field: 'num', dir: 'asc' })
 
   let endpointsText = $state('')
-  let nameTemplate = $state('')
+  // Default keeps the original remark and appends the edge IP so generated
+  // configs stay distinguishable in a client list.
+  let nameTemplate = $state('{remark}-{ip}')
   let generating = $state(false)
   let genStatus = $state(null)
   let genCount = $state(0)
@@ -232,10 +237,51 @@
   }
 </script>
 
-<div class="input-method-bar" style="margin-bottom:var(--space-md)">
-  <button class="method-btn" class:active={ctype === 'proxy'} onclick={() => (ctype = 'proxy')} title={$_('replacer.typeProxyTitle')}>{$_('replacer.typeProxy')}</button>
-  <button class="method-btn" class:active={ctype === 'warp'} onclick={() => (ctype = 'warp')} title={$_('replacer.typeWarpTitle')}>{$_('replacer.typeWarp')}</button>
-</div>
+{#snippet cfgHeader()}
+  <tr>
+    <th class="checkbox-cell"><input type="checkbox" checked={cfgSelected.size === configs.length} onchange={(e) => cfgSelectAll(e.currentTarget.checked)} /></th>
+    <th class="sortable" onclick={() => onCfgSort('num')}>{$_('results.tableNum')}{#if cfgSort.field === 'num'}<span class="sort-icon">{cfgArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onCfgSort('address')}>{$_('results.tableEndpoint')}{#if cfgSort.field === 'address'}<span class="sort-icon">{cfgArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onCfgSort('port')}>{$_('replacer.tablePort')}{#if cfgSort.field === 'port'}<span class="sort-icon">{cfgArrow()}</span>{/if}</th>
+    <th class="sortable" onclick={() => onCfgSort('remark')}>{$_('replacer.tableConfig')}{#if cfgSort.field === 'remark'}<span class="sort-icon">{cfgArrow()}</span>{/if}</th>
+  </tr>
+{/snippet}
+
+{#snippet cfgRow(c, i, measure)}
+  {@const idx = configs.indexOf(c)}
+  <tr data-index={i} use:measure>
+    <td class="checkbox-cell"><input type="checkbox" checked={cfgSelected.has(idx)} onchange={(e) => toggleCfg(idx, e.currentTarget.checked)} /></td>
+    <td class="num">{i + 1}</td>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }}>{c.address}</span></td>
+    <td>{c.port}</td>
+    <td><span class="replacer-config-remark" title={c.remark || ''}>{c.remark || c.protocol + '://' + (c.uuid || '').substring(0, 8) + '…'}</span></td>
+  </tr>
+{/snippet}
+
+{#snippet genHeader()}
+  <tr><th>#</th><th>{$_('replacer.tableConfig')}</th><th></th></tr>
+{/snippet}
+
+{#snippet genRow(u, i, measure)}
+  <tr data-index={i} use:measure>
+    <td class="num">{i + 1}</td>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <td class="mono-break"><span class="tag" role="button" tabindex="0" onclick={() => copyRow(u)} use:activateKey={() => copyRow(u)} title={$_('replacer.copyAllTitle')}>{u.length > 100 ? u.substring(0, 100) + '…' : u}</span></td>
+    <td class="actions-cell">
+      <button class="btn btn-secondary btn-sm" onclick={() => copyRow(u)} title={$_('replacer.copyAllTitle')}>{$_('buttons.copy')}</button>
+      <button class="btn btn-secondary btn-sm" onclick={() => rowQR(u)}>QR</button>
+    </td>
+  </tr>
+{/snippet}
+
+<SegmentedBar
+  bind:value={ctype}
+  options={[
+    { value: 'proxy', label: $_('replacer.typeProxy'), title: $_('replacer.typeProxyTitle') },
+    { value: 'warp', label: $_('replacer.typeWarp'), title: $_('replacer.typeWarpTitle') },
+  ]}
+/>
 
 {#if ctype === 'proxy'}
   <div class="card">
@@ -244,18 +290,21 @@
       <span>{$_('replacer.header')}</span>
     </h2>
     <p class="desc">{$_('replacer.desc')}</p>
-    <div class="input-method-bar">
-      <button class="method-btn" class:active={method === 'url'} onclick={() => (method = 'url')}>{$_('replacer.methodURL')}</button>
-      <button class="method-btn" class:active={method === 'paste'} onclick={() => (method = 'paste')}>{$_('replacer.methodPaste')}</button>
-    </div>
+    <SegmentedBar
+      bind:value={method}
+      options={[
+        { value: 'url', label: $_('replacer.methodURL') },
+        { value: 'paste', label: $_('replacer.methodPaste') },
+      ]}
+    />
 
     {#if method === 'url'}
       <div class="row">
-        <div class="col" style="flex:3">
+        <div class="col col-grow">
           <label for="replacerURL" title={$_('replacer.urlTitle')}>{$_('replacer.subLabel')}</label>
           <input type="text" id="replacerURL" bind:value={subURL} placeholder={$_('replacer.subPlaceholder')} title={$_('replacer.urlTitle')} onkeydown={(e) => e.key === 'Enter' && doFetch()} />
         </div>
-        <div class="col" style="flex:none;min-width:auto">
+        <div class="col col-auto">
           <div class="field-label" aria-hidden="true">&nbsp;</div>
           <button class="btn btn-primary" onclick={doFetch} disabled={fetching} title={$_('replacer.fetchTitle')}>{fetching ? $_('replacer.fetching') : $_('replacer.fetch')}</button>
         </div>
@@ -278,32 +327,7 @@
         <span class="count-chip">{configs.length}</span>
       </h2>
       <p class="desc">{$_('replacer.configCount', { values: { n: configs.length } })}</p>
-      <div class="results-table-wrap scrollable-list">
-        <table class="results-table">
-          <thead>
-            <tr>
-              <th class="checkbox-cell"><input type="checkbox" checked={cfgSelected.size === configs.length} onchange={(e) => cfgSelectAll(e.currentTarget.checked)} /></th>
-              <th class="sortable" onclick={() => onCfgSort('num')}>{$_('results.tableNum')}{#if cfgSort.field === 'num'}<span class="sort-icon">{cfgArrow()}</span>{/if}</th>
-              <th class="sortable" onclick={() => onCfgSort('address')}>{$_('results.tableEndpoint')}{#if cfgSort.field === 'address'}<span class="sort-icon">{cfgArrow()}</span>{/if}</th>
-              <th class="sortable" onclick={() => onCfgSort('port')}>{$_('replacer.tablePort')}{#if cfgSort.field === 'port'}<span class="sort-icon">{cfgArrow()}</span>{/if}</th>
-              <th class="sortable" onclick={() => onCfgSort('remark')}>{$_('replacer.tableConfig')}{#if cfgSort.field === 'remark'}<span class="sort-icon">{cfgArrow()}</span>{/if}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each cfgPool as c, i (c.fingerprint || i)}
-              {@const idx = configs.indexOf(c)}
-              <tr>
-                <td class="checkbox-cell"><input type="checkbox" checked={cfgSelected.has(idx)} onchange={(e) => toggleCfg(idx, e.currentTarget.checked)} /></td>
-                <td class="num">{i + 1}</td>
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }}>{c.address}</span></td>
-                <td>{c.port}</td>
-                <td><span class="replacer-config-remark" title={c.remark || ''}>{c.remark || c.protocol + '://' + (c.uuid || '').substring(0, 8) + '…'}</span></td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <VirtualTable items={cfgPool} getKey={(c, i) => c.fingerprint || i} colspan={5} header={cfgHeader} row={cfgRow} maxHeight="25rem" />
       <div class="status-slot">
         <button class="btn btn-secondary btn-sm" onclick={() => cfgSelectAll(true)} title={$_('replacer.configsSelectTitle')}>{$_('clean.selectAll')}</button>
         <button class="btn btn-secondary btn-sm" onclick={() => cfgSelectAll(false)} title={$_('replacer.configsSelectTitle')}>{$_('clean.deselectAll')}</button>
@@ -318,12 +342,12 @@
     </h2>
     <p class="desc">{$_('replacer.endpointsDesc')}</p>
     <textarea bind:value={endpointsText} rows="4" placeholder={$_('replacer.endpointsPlaceholder')} title={$_('replacer.endpointsTitle')}></textarea>
-    {#if epHint}<div class="muted-inline status-slot" style="display:block"><span style="color:{epHint.warn ? 'var(--warning)' : 'var(--success)'}">{epHint.msg}</span></div>{/if}
-    <div class="row" style="margin-top:var(--space-sm)">
+    {#if epHint}<div class="muted-inline muted-block status-slot"><span class={epHint.warn ? 'hint-warn' : 'hint-ok'}>{epHint.msg}</span></div>{/if}
+    <div class="row status-slot">
       <div class="col">
         <label for="replacerNameTemplate" title={$_('replacer.nameTplTitle')}>{$_('replacer.nameTpl')}</label>
         <input type="text" id="replacerNameTemplate" bind:value={nameTemplate} placeholder={$_('replacer.nameTplPh')} title={$_('replacer.nameTplTitle')} />
-        <div class="muted-inline status-slot" style="display:block">{$_('replacer.nameTplHelp')}</div>
+        <div class="muted-inline muted-block status-slot">{$_('replacer.nameTplHelp')}</div>
       </div>
     </div>
     <div class="status-slot">
@@ -340,24 +364,7 @@
         <span class="count-chip">{generated.length}</span>
       </h2>
       <p class="desc">{$_('replacer.resultsCount', { values: { n: generated.length, c: genCount, e: genCountEp } })}</p>
-      <div class="results-table-wrap scrollable-list">
-        <table class="results-table">
-          <thead><tr><th>#</th><th>{$_('replacer.tableConfig')}</th><th></th></tr></thead>
-          <tbody>
-            {#each generated as u, i (i)}
-              <tr>
-                <td class="num">{i + 1}</td>
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <td class="mono-break"><span class="tag" role="button" tabindex="0" onclick={() => copyRow(u)} use:activateKey={() => copyRow(u)} title={$_('replacer.copyAllTitle')}>{u.length > 100 ? u.substring(0, 100) + '…' : u}</span></td>
-                <td style="white-space:nowrap">
-                  <button class="btn btn-secondary btn-sm" onclick={() => copyRow(u)} title={$_('replacer.copyAllTitle')}>{$_('buttons.copy')}</button>
-                  <button class="btn btn-secondary btn-sm" onclick={() => rowQR(u)}>QR</button>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <VirtualTable items={generated} getKey={(_u, i) => i} colspan={3} header={genHeader} row={genRow} maxHeight="25rem" />
       <div class="results-actions status-slot">
         <button class="btn btn-secondary btn-sm" onclick={copyAllUrls} title={$_('replacer.copyAllTitle')}>{$_('replacer.copyAll')}</button>
         <button class="btn btn-secondary btn-sm" onclick={copySub} title={$_('replacer.copySubTitle')}>{$_('replacer.copySub')}</button>
@@ -383,12 +390,15 @@
     <div class="row">
       <div class="col">
         <label for="applyConfigs" title={$_('apply.configsTitle')}>{$_('apply.configsLabel')}</label>
-        <label class="file-input-wrap" for="applyConfigs" title={$_('apply.configsTitle')}>
-          <input type="file" id="applyConfigs" accept=".conf,.txt" multiple bind:files={applyFiles} />
-          <div class="file-label" class:selected={applyFileCount > 0}>
-            {applyFileCount > 0 ? $_('apply.nConfigs', { values: { n: applyFileCount } }) : $_('apply.chooseConfigs')}
-          </div>
-        </label>
+        <FileDrop
+          id="applyConfigs"
+          accept=".conf,.txt"
+          multiple
+          bind:files={applyFiles}
+          label={$_('apply.chooseConfigs')}
+          selectedLabel={applyFileCount > 0 ? $_('apply.nConfigs', { values: { n: applyFileCount } }) : ''}
+          title={$_('apply.configsTitle')}
+        />
       </div>
     </div>
     <div class="row">
@@ -404,7 +414,7 @@
     {#if applyStatus}
       <div class="status-slot">
         <div class={applyStatus.ok ? 'success-msg' : 'error-msg'}>{applyStatus.msg}</div>
-        {#each failedResults as r}<div class="error-msg" style="margin-top:4px">{r.name}: {r.error}</div>{/each}
+        {#each failedResults as r}<div class="error-msg apply-error">{r.name}: {r.error}</div>{/each}
       </div>
     {/if}
     {#if goodResults.length > 0}
@@ -414,7 +424,7 @@
             <div class="apply-config-item-header">
               <span class="apply-config-item-name">{r.name}</span>
               <div class="apply-config-item-actions">
-                {#if r.path}<span style="font-size:0.625rem;color:var(--text-secondary)">{r.path}</span>{/if}
+                {#if r.path}<span class="apply-path">{r.path}</span>{/if}
                 <button class="btn btn-secondary btn-sm" onclick={() => copyApply(r)} title={$_('results.tableEndpoint')}>{$_('results.copyAll')}</button>
                 <button class="btn btn-secondary btn-sm" onclick={() => applyQR(r)} title="QR">QR</button>
               </div>
@@ -434,7 +444,7 @@
 <div class="card">
   <details class="help-panel">
     <summary>{$_('repHelp.header')}</summary>
-    <p class="desc" style="margin-top:8px">{$_('repHelp.intro')}</p>
+    <p class="desc help-intro">{$_('repHelp.intro')}</p>
     <div class="help-list">
       <div>{@html $_('repHelp.p1')}</div>
       <div>{@html $_('repHelp.p2')}</div>

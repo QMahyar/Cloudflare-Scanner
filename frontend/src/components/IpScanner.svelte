@@ -18,6 +18,10 @@
   import ResultCharts from './ResultCharts.svelte'
   import ResultsActions from './ResultsActions.svelte'
   import ScanHistory from './ScanHistory.svelte'
+  import Toggle from './ui/Toggle.svelte'
+  import SegmentedBar from './ui/SegmentedBar.svelte'
+  import Disclosure from './ui/Disclosure.svelte'
+  import FilterInput from './ui/FilterInput.svelte'
 
   // Official published Cloudflare ranges (cloudflare.com/ips).
   const CF_V4_RANGES = ['173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22']
@@ -46,11 +50,12 @@
   let advOpen = $state(getSetting('cleanAdv', false))
   let phase1Probes = $state(getSetting('phase1Probes', '500'))
   let phase2Probes = $state(getSetting('phase2Probes', '12'))
-  let phase2Count = $state(getSetting('cleanPhase2', '20'))
+  // Validate a few more Phase-1 hits so the best edge isn't missed on sparse pools.
+  let phase2Count = $state(getSetting('cleanPhase2', '30'))
   let ports = $state(getSetting('cleanPorts', [443]))
   let nearby = $state(getSetting('nearbyScan', false))
-  let timeout1 = $state(getSetting('cleanTimeout', '3000'))
-  let timeout2 = $state(getSetting('cleanPhase2Timeout', '5000'))
+  let timeout1 = $state(getSetting('cleanTimeout', '2500'))
+  let timeout2 = $state(getSetting('cleanPhase2Timeout', '6000'))
   let stopAfter = $state(getSetting('cleanStopAfter', '0'))
   let notify = $state(getSetting('notifyClean', false))
 
@@ -467,13 +472,7 @@
     </h2>
     <div class="row">
       <div class="col">
-        <div class="toggle-wrap" style="padding-top:0">
-          <label class="toggle" title={$_('clean.useConfigTitle')} aria-label="Toggle config usage">
-            <input type="checkbox" bind:checked={useConfig} />
-            <span class="slider"></span>
-          </label>
-          <span class="toggle-label">{$_('clean.useConfig')}</span>
-        </div>
+        <Toggle bind:checked={useConfig} label={$_('clean.useConfig')} title={$_('clean.useConfigTitle')} ariaLabel={$_('clean.useConfig')} />
         <div class:config-fields-disabled={!useConfig}>
           <label for="vlessURL" title={$_('clean.vlessTitle')}>{$_('clean.vlessLabel')}</label>
           <input type="text" id="vlessURL" bind:value={vlessURL} disabled={!useConfig} placeholder={$_('clean.vlessPlaceholder')} title={$_('clean.vlessTitle')} />
@@ -489,31 +488,34 @@
     </h2>
 
     <div class="field-label" title={$_('clean.sourceTitle')}>{$_('clean.sourceLabel')}</div>
-    <div class="input-method-bar" style="margin-bottom:var(--space-md)">
-      <button class:active={source === 'pool'} onclick={() => (source = 'pool')} title={$_('clean.sourceTitle')}>{$_('clean.sourcePool')}</button>
-      <button class:active={source === 'custom'} onclick={() => (source = 'custom')} title={$_('clean.sourceTitle')}>{$_('clean.sourceCustom')}</button>
-    </div>
+    <SegmentedBar
+      bind:value={source}
+      options={[
+        { value: 'pool', label: $_('clean.sourcePool'), title: $_('clean.sourceTitle') },
+        { value: 'custom', label: $_('clean.sourceCustom'), title: $_('clean.sourceTitle') },
+      ]}
+    />
 
     {#if source === 'custom'}
-      <div style="margin-bottom:var(--space-md)">
-        <div class="preset-bar" style="margin-bottom:8px">
+      <div class="ranges-block">
+        <div class="preset-bar">
           {#each RANGE_PRESETS as r}
-            <button class="preset-btn" onclick={() => addRangePreset(r)}>{r}</button>
+            <button type="button" class="preset-btn" onclick={() => addRangePreset(r)}>{r}</button>
           {/each}
-          <button class="preset-btn" onclick={() => addRangePreset('__cf_v4__')}>{$_('clean.presetAllV4')}</button>
-          <button class="preset-btn" onclick={() => addRangePreset('__cf_v6__')}>{$_('clean.presetAllV6')}</button>
+          <button type="button" class="preset-btn" onclick={() => addRangePreset('__cf_v4__')}>{$_('clean.presetAllV4')}</button>
+          <button type="button" class="preset-btn" onclick={() => addRangePreset('__cf_v6__')}>{$_('clean.presetAllV6')}</button>
         </div>
         <textarea rows="4" bind:value={customRanges} placeholder={$_('clean.customPlaceholder')}></textarea>
-        <label class="file-input-wrap" for="cleanRangesFile" style="margin-top:8px">
+        <label class="file-input-wrap" for="cleanRangesFile">
           <input type="file" id="cleanRangesFile" accept=".txt,.csv,.list,text/plain" onchange={onRangesFile} />
           <div class="file-label" class:selected={!!rangesFileName}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:16px;height:16px;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <span>{rangesFileName || $_('clean.rangesFile')}</span>
           </div>
         </label>
-        <details class="scan-desc" style="margin-top:8px">
-          <summary style="cursor:pointer">{$_('clean.rangesHelpSummary')}</summary>
-          <div style="margin-top:6px">{$_('clean.rangesHelp')}</div>
+        <details class="scan-desc scan-desc-block">
+          <summary>{$_('clean.rangesHelpSummary')}</summary>
+          <div class="scan-desc-body">{$_('clean.rangesHelp')}</div>
         </details>
       </div>
     {/if}
@@ -523,7 +525,7 @@
         <div class="field-label" title={$_('clean.depthTitle')}>{$_('settings.scanDepth')}</div>
         <div class="preset-bar">
           {#each DEPTHS as d}
-            <button class="preset-btn" class:active={scanDepth === d.v} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
+            <button type="button" class="preset-btn" class:active={scanDepth === d.v} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
           {/each}
         </div>
         {#if scanDepth === '0'}
@@ -542,8 +544,7 @@
       </div>
     </div>
 
-    <details class="adv-settings" bind:open={advOpen}>
-      <summary>{$_('settings.advanced')}</summary>
+    <Disclosure bind:open={advOpen} summary={$_('settings.advanced')}>
       <div class="row">
         <div class="col">
           <label for="phase1Probes" title={$_('clean.probesTitle')}>{$_('clean.probesLabel')}</label>
@@ -567,14 +568,14 @@
         {/if}
       </div>
 
-      <div style="margin:var(--space-sm) 0">
-        <div class="field-label" style="margin-bottom:6px">{$_('settings.portMode')}</div>
-        <div class="preset-bar" style="margin-bottom:10px">
-          <button class="preset-btn" onclick={() => portPreset('443')}>{$_('settings.portPreset443')}</button>
-          <button class="preset-btn" onclick={() => portPreset('https')}>{$_('settings.portPresetHttps')}</button>
-          <button class="preset-btn" onclick={() => portPreset('http')}>{$_('settings.portPresetHttp')}</button>
-          <button class="preset-btn" onclick={() => portPreset('all')}>{$_('settings.portPresetAll')}</button>
-          <button class="preset-btn" onclick={() => portPreset('config')}>{$_('settings.portPresetConfig')}</button>
+      <div class="port-block">
+        <div class="field-label">{$_('settings.portMode')}</div>
+        <div class="preset-bar">
+          <button type="button" class="preset-btn" onclick={() => portPreset('443')}>{$_('settings.portPreset443')}</button>
+          <button type="button" class="preset-btn" onclick={() => portPreset('https')}>{$_('settings.portPresetHttps')}</button>
+          <button type="button" class="preset-btn" onclick={() => portPreset('http')}>{$_('settings.portPresetHttp')}</button>
+          <button type="button" class="preset-btn" onclick={() => portPreset('all')}>{$_('settings.portPresetAll')}</button>
+          <button type="button" class="preset-btn" onclick={() => portPreset('config')}>{$_('settings.portPresetConfig')}</button>
         </div>
         <div class="port-section-label">{$_('settings.portHttps')}</div>
         <div class="port-grid">
@@ -592,13 +593,7 @@
 
       <div class="row">
         <div class="col">
-          <div class="toggle-wrap">
-            <label class="toggle" title={$_('clean.nearbyTitle')} aria-label="Toggle nearby scan">
-              <input type="checkbox" bind:checked={nearby} />
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label" title={$_('clean.nearbyTitle')}>{$_('clean.nearby')}</span>
-          </div>
+          <Toggle bind:checked={nearby} label={$_('clean.nearby')} title={$_('clean.nearbyTitle')} ariaLabel={$_('clean.nearby')} />
         </div>
         <div class="col">
           <label for="cleanTimeout" title={$_('clean.timeoutTitle')}>{$_('clean.timeout1Label')}</label>
@@ -617,16 +612,10 @@
           <input id="cleanStopAfter" type="text" bind:value={stopAfter} inputmode="numeric" title={$_('clean.stopAfterTitle')} />
         </div>
         <div class="col">
-          <div class="toggle-wrap" style="padding-top:22px">
-            <label class="toggle" title={$_('settings.notifyTitle')} aria-label="Toggle completion notification">
-              <input type="checkbox" bind:checked={notify} />
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label" title={$_('settings.notifyTitle')}>{$_('settings.notify')}</span>
-          </div>
+          <Toggle bind:checked={notify} label={$_('settings.notify')} title={$_('settings.notifyTitle')} ariaLabel={$_('settings.notify')} align="field" />
         </div>
       </div>
-    </details>
+    </Disclosure>
     <div class="scan-desc">{scanDesc}</div>
   </div>
 
@@ -650,29 +639,20 @@
         <span>{$_('results.header')}</span>
         {#if hasResults}<span class="count-chip">{activePool.length}</span>{/if}
       </h2>
-      <div style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap">
-        <div class="compact-control">
-          <label for="cleanColoFilter" title={$_('clean.coloFilterTitle')}>{$_('clean.coloFilter')}</label>
-          <input class="compact-input" id="cleanColoFilter" type="text" bind:value={coloFilter} style="width:84px;text-align:left;font-family:var(--font-sans)" placeholder={$_('clean.coloFilterPh')} title={$_('clean.coloFilterTitle')} />
-        </div>
-        <div class="compact-control">
-          <label for="cleanMaxLatency" title={$_('results.maxLatTitle')}>{$_('results.maxLat')}</label>
-          <input class="compact-input" id="cleanMaxLatency" type="text" bind:value={maxLatency} title={$_('results.maxLatTitle')} inputmode="numeric" />
-        </div>
-        <div class="compact-control">
-          <label for="cleanOutCount" title={$_('settings.outCountTitle')}>{$_('settings.outCount')}</label>
-          <input class="compact-input" id="cleanOutCount" type="text" bind:value={outCount} title={$_('settings.outCountTitle')} inputmode="numeric" />
-        </div>
+      <div class="section-header-actions">
+        <FilterInput id="cleanColoFilter" label={$_('clean.coloFilter')} title={$_('clean.coloFilterTitle')} bind:value={coloFilter} placeholder={$_('clean.coloFilterPh')} width="colo" />
+        <FilterInput id="cleanMaxLatency" label={$_('results.maxLat')} title={$_('results.maxLatTitle')} bind:value={maxLatency} inputmode="numeric" />
+        <FilterInput id="cleanOutCount" label={$_('settings.outCount')} title={$_('settings.outCountTitle')} bind:value={outCount} inputmode="numeric" />
       </div>
     </div>
 
     <ScanProgress {status} {progressPct} {progressText} {summary} runningLabel={$_('clean.scanning')} />
 
     {#if nearbyAll.length > 0}
-      <div class="btn-bar" style="margin-top:10px;margin-bottom:4px">
-        <button class="btn btn-sm method-btn" class:active={list === 'direct'} onclick={() => (list = 'direct')}>{$_('clean.listDirect')}</button>
-        <button class="btn btn-sm method-btn" class:active={list === 'nearby'} onclick={() => (list = 'nearby')}>
-          {$_('clean.listNearby')} <span style="color:var(--text-secondary);font-size:0.625rem">({nearbyAll.length})</span>
+      <div class="btn-bar list-toggle-bar">
+        <button type="button" class="btn btn-sm method-btn" class:active={list === 'direct'} onclick={() => (list = 'direct')}>{$_('clean.listDirect')}</button>
+        <button type="button" class="btn btn-sm method-btn" class:active={list === 'nearby'} onclick={() => (list = 'nearby')}>
+          {$_('clean.listNearby')} <span class="list-count">({nearbyAll.length})</span>
         </button>
       </div>
     {/if}
@@ -697,7 +677,7 @@
       </ResultsActions>
 
       {#if status === 'done' || status === 'cancelled'}
-        <div class={status === 'cancelled' ? 'error-msg' : 'success-msg'} style="margin-bottom:6px">
+        <div class="{status === 'cancelled' ? 'error-msg' : 'success-msg'} status-msg-tight">
           {#if status === 'cancelled'}{$_('clean.progressCancelled')}
           {:else if list === 'nearby'}{isPhase2 ? $_('clean.foundNearbyPhase2', { values: { n: nearbyPool.length } }) : $_('clean.foundNearby', { values: { n: nearbyPool.length } })}
           {:else if isPhase2}{$_('clean.foundPhase2', { values: { n: data?.total, s: data?.scanned } })}
@@ -750,7 +730,7 @@
   <div class="card">
     <details class="help-panel">
       <summary>{$_('cleanHelp.header')}</summary>
-      <p class="desc" style="margin-top:8px">{$_('cleanHelp.intro')}</p>
+      <p class="desc help-intro">{$_('cleanHelp.intro')}</p>
       <div class="help-list">
         <div>{@html $_('cleanHelp.p1')}</div>
         <div>{@html $_('cleanHelp.p2')}</div>

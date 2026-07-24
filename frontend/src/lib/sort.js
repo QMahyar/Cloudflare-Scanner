@@ -38,19 +38,21 @@ export function sortEntries(entries, field, dir) {
 }
 
 // latClass maps a latency to the fast/medium/slow color class.
+// Thresholds are tuned for real WARP/CF paths from restricted networks
+// (often 150–900ms), not LAN-style <100ms targets.
 export function latClass(ms) {
   const v = parseLatency(ms)
   if (v === Infinity) return ''
-  return v < 100 ? 'latency-fast' : v < 200 ? 'latency-medium' : 'latency-slow'
+  return v < 200 ? 'latency-fast' : v < 450 ? 'latency-medium' : 'latency-slow'
 }
 
 // latBar maps a latency to a 0–100 width for the in-cell latency meter. A sqrt
-// curve over a fixed ~1200ms reference keeps the busy sub-200ms range visually
+// curve over a fixed ~1500ms reference keeps the busy sub-300ms range visually
 // distinct while staying stable — bars don't reflow as new results stream in.
 export function latBar(ms) {
   const v = parseLatency(ms)
   if (!isFinite(v) || v <= 0) return 0
-  return Math.max(6, Math.min(100, Math.round(Math.sqrt(v / 1200) * 100)))
+  return Math.max(6, Math.min(100, Math.round(Math.sqrt(v / 1500) * 100)))
 }
 
 // toggleSort returns the next {field, dir} given a clicked column. Score defaults

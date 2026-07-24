@@ -95,7 +95,7 @@ matching xray-core sidecar, and produce a release-identical archive.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VERSION` | `git describe --tags` | Version string baked into the binary |
-| `XRAY_VERSION` | `v1.8.24` | xray-core release to bundle |
+| `XRAY_VERSION` | `v26.6.27` | xray-core release to bundle |
 | `NO_XRAY=1` | — | Skip xray download (binary only) |
 | `NO_ARCHIVE=1` | — | Leave loose files in `dist/<platform>/` instead of archiving |
 | `GO_VERSION` | `1.26.2` | Go version to auto-install if Go is absent or too old |
@@ -116,6 +116,34 @@ dist/
 ```
 
 Artifacts are structurally identical to GitHub Release downloads.
+
+### xray-core pin policy
+
+The bundled xray-core version is pinned so releases are reproducible. The pin
+lives in **`.github/workflows/release.yml`** (`env.XRAY_VERSION`) and is mirrored
+in `scripts/build.sh`, `scripts/build.ps1`, and `scripts/dev.ps1`. Current pin:
+**`v26.6.27`** — known-good with the WireGuard-noise, VLESS, Trojan, and VMess
+config builders.
+
+**To bump the pin** (all sites must move together):
+
+1. Confirm the new tag's release still ships the asset zip names in the
+   `release.yml` build matrix (`Xray-windows-64.zip`, `Xray-linux-64.zip`, …).
+   If any name changed, **stop** and reconcile the matrix first.
+2. Update `XRAY_VERSION` in `release.yml` + the three scripts, and the version
+   strings in the docs (`AGENTS.md`, `CLAUDE.md`, `docs/faq.md`, `docs/getting-started.md`,
+   and their `.fa` mirrors).
+3. Download that xray into place and run the config-shape validation:
+   `XRAY_VALIDATE=1 XRAY_BIN=/path/to/xray go test -run TestXrayConfigValid ./.`
+   — this runs `xray run -test -c` on every generated outbound/transport shape
+   (WireGuard+noise, VLESS/tls/ws/reality, Trojan, VMess, gRPC, mKCP, HTTPUpgrade,
+   raw-http). All must pass.
+4. `go test ./...` must still pass.
+
+If xray rejects any generated config, **revert the pin** and note the failure —
+do not leave a half-bumped workflow. Historical schema note: xray-core removed
+the TLS `allowInsecure` option in v26.2.6; the Phase-2 probe builder no longer
+emits it (see `proxy_xray.go`).
 
 ## Cross-Platform Builds
 
@@ -518,7 +546,7 @@ steps:
 ### Release (`release.yml`)
 
 Triggered by `git tag v*` or manually via GitHub UI. Builds 7 targets,
-downloads matching xray-core v1.8.24, creates `.zip`/`.tar.gz` archives,
+downloads matching xray-core v26.6.27, creates `.zip`/`.tar.gz` archives,
 generates checksums, and publishes to GitHub Releases.
 
 ---

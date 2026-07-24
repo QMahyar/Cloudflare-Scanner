@@ -114,10 +114,15 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		if req.Count > maxScanCount {
 			req.Count = maxScanCount
 		}
-		if req.OutCount <= 0 {
-			req.OutCount = 10
+		// 0 = unlimited (return every success). The UI filter also defaults to 0.
+		// Positive values cap the display window only; `raw` always carries the
+		// full success list.
+		if req.OutCount < 0 {
+			req.OutCount = 0
 		}
-		req.OutCount = clampInt(req.OutCount, 1, maxOutCount)
+		if req.OutCount > maxOutCount {
+			req.OutCount = maxOutCount
+		}
 		if req.Concurrency > maxEndpointConcurrency {
 			req.Concurrency = maxEndpointConcurrency
 		}
@@ -534,27 +539,9 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 		Score    int     `json:"score"`
 	}
 
-	entries := make([]resultEntry, 0, showN)
-	for _, r := range results {
-		if !r.Success {
-			continue
-		}
-		entries = append(entries, resultEntry{
-			Endpoint: r.Endpoint,
-			Latency:  r.Latency.Round(time.Millisecond).String(),
-			Success:  true,
-			Attempts: r.Attempts,
-			Passes:   r.Passes,
-			Best:     r.Best.Round(time.Millisecond).String(),
-			Jitter:   r.Jitter.Round(time.Millisecond).String(),
-			Loss:     r.Loss,
-			Score:    r.Score,
-		})
-		if len(entries) >= showN {
-			break
-		}
-	}
-
+	// Build the full success list once (raw), then slice the display window
+	// (entries) from it — avoids a second full scan of job results for a
+	// near-identical DTO. Both JSON keys stay for frontend compatibility.
 	type rawEntry struct {
 		Endpoint string  `json:"endpoint"`
 		Latency  string  `json:"latency"`
@@ -568,18 +555,38 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 
 	raw := make([]rawEntry, 0)
 	for _, r := range results {
-		if r.Success {
-			raw = append(raw, rawEntry{
-				Endpoint: r.Endpoint,
-				Latency:  r.Latency.Round(time.Millisecond).String(),
-				Attempts: r.Attempts,
-				Passes:   r.Passes,
-				Best:     r.Best.Round(time.Millisecond).String(),
-				Jitter:   r.Jitter.Round(time.Millisecond).String(),
-				Loss:     r.Loss,
-				Score:    r.Score,
-			})
+		if !r.Success {
+			continue
 		}
+		raw = append(raw, rawEntry{
+			Endpoint: r.Endpoint,
+			Latency:  r.Latency.Round(time.Millisecond).String(),
+			Attempts: r.Attempts,
+			Passes:   r.Passes,
+			Best:     r.Best.Round(time.Millisecond).String(),
+			Jitter:   r.Jitter.Round(time.Millisecond).String(),
+			Loss:     r.Loss,
+			Score:    r.Score,
+		})
+	}
+	entries := raw
+	if len(entries) > showN {
+		entries = raw[:showN]
+	}
+	// Map the display window into the legacy shape (includes Success).
+	display := make([]resultEntry, 0, len(entries))
+	for _, e := range entries {
+		display = append(display, resultEntry{
+			Endpoint: e.Endpoint,
+			Latency:  e.Latency,
+			Success:  true,
+			Attempts: e.Attempts,
+			Passes:   e.Passes,
+			Best:     e.Best,
+			Jitter:   e.Jitter,
+			Loss:     e.Loss,
+			Score:    e.Score,
+		})
 	}
 
 	failures := make([]failEntry, 0)
@@ -597,12 +604,12 @@ func handleScanResults(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"entries":      entries,
+		"entries":      display,
 		"raw":          raw,
 		"failures":     failures,
 		"fail_reasons": reasons,
 		"failed_count": failedCount,
-		"total":        len(entries),
+		"total":        len(display),
 		"scanned":      len(results),
 		"status":       status,
 	})

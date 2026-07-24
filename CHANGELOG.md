@@ -9,6 +9,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.8.0] — 2026-07-24
+
+xray-core v26.6.27 pin, full frontend redesign finish, and scan UX fixes from
+end-to-end validation against real WARP/VLESS configs.
+
+### Fixed
+- WARP `.conf` parser now adds a CIDR suffix for bare addresses (`172.16.0.2` →
+  `/32`, bare IPv6 → `/128`). Official WARP exports often omit the prefix; xray
+  WireGuard expects CIDR form.
+- Quality score latency ceiling raised from 400ms to 1000ms so typical
+  restricted-network WARP/CF paths (200–900ms) stay differentiated instead of
+  collapsing into a flat mid-band (~50).
+- Endpoint scan `outCount: 0` no longer coerces to a server-side cap of 10;
+  `0` means unlimited (matches the UI filter default).
+- Phase-2 xray probe configs no longer emit TLS `allowInsecure` (removed in
+  xray-core v26.2.6); share URLs still carry the flag for clients.
+
+### Changed
+- Bundled xray-core pin: **v1.8.24 → v26.6.27** (release workflow, build scripts,
+  docs). Opt-in `XRAY_VALIDATE=1` config-shape tests added.
+- Endpoint Scanner default: native handshake with noise **off** (faster; noise
+  remains opt-in for DPI-blocked WireGuard). Timeout default 5s.
+- IP Scanner defaults: Phase-2 top-N 30, Phase-1 timeout 2.5s, Phase-2 timeout 6s.
+- Replacer default name template `{remark}-{ip}`.
+- Latency color thresholds retuned for high-RTT paths: green <200ms, amber
+  <450ms (was 100/200).
+
+### Frontend
+- Full redesign completion: single OKLCH token system, optional light theme,
+  reusable UI primitives, legacy CSS layer removed, Replacer tables virtualized.
+
+---
+
 ## [v3.7.0] — 2026-07-14
 
 Advisor-plan implementation batch (16 plans, `plans/`): correctness/security

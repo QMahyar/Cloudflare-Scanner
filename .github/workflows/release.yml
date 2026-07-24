@@ -15,7 +15,7 @@ on:
         default: ""
 
 env:
-  XRAY_VERSION: v1.8.24
+  XRAY_VERSION: v26.6.27
 
 permissions:
   contents: write

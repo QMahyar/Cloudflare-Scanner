@@ -45,7 +45,7 @@ The app intentionally uses local font stacks so the embedded, local-only interfa
 
 ## Spacing
 
-Use the 4-point named scale in `tokens.css`. Controls use named tokens; raw spacing values are reserved for one-pixel optical corrections only.
+Use the 4-point named scale in `frontend/src/styles/tokens.css`. Controls use named tokens; raw spacing values are reserved for one-pixel optical corrections only.
 
 ## Motion
 
@@ -91,4 +91,4 @@ Use the 4-point named scale in `tokens.css`. Controls use named tokens; raw spac
 
 ## Exports
 
-The canonical CSS export is `tokens.css` at the project root.
+The canonical CSS export is `frontend/src/styles/tokens.css`. Dark is the default; a light theme is opt-in via `[data-theme="light"]` on `<html>`, toggled from the header and persisted to `localStorage` (`cfscanner_theme`).

@@ -21,7 +21,7 @@
   Environment overrides:
     $env:VERSION       override the version baked into the binary
                        (default: the repo-root VERSION file, with a -dev suffix off-tag)
-    $env:XRAY_VERSION  xray-core release tag to bundle (default: v1.8.24)
+    $env:XRAY_VERSION  xray-core release tag to bundle (default: v26.6.27)
     $env:NO_XRAY=1     skip downloading xray (build the binary only)
     $env:NO_ARCHIVE=1  leave loose files in dist\<platform>\, skip .zip/.tar.gz
     $env:GO_VERSION    Go version to auto-install if Go is missing (default: 1.26.2)
@@ -32,7 +32,7 @@ param([Parameter(ValueFromRemainingArguments = $true)] [string[]] $Targets)
 $ErrorActionPreference = 'Stop'
 
 # ── Config ──────────────────────────────────────────────────────────────────
-$XrayVersion = if ($env:XRAY_VERSION) { $env:XRAY_VERSION } else { 'v1.8.24' }
+$XrayVersion = if ($env:XRAY_VERSION) { $env:XRAY_VERSION } else { 'v26.6.27' }
 $GoVersion   = if ($env:GO_VERSION)   { $env:GO_VERSION }   else { '1.26.2' }
 $App         = 'Cloudflare-Scanner'
 

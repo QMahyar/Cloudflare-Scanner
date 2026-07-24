@@ -222,7 +222,10 @@ func generateNearbyIPs(working []CleanIPResult, countPerIP int, ports []int) []s
 		if ip4 := ip.To4(); ip4 != nil {
 			// /24 subnet: x.y.z.0
 			base := uint32(ip4[0])<<24 | uint32(ip4[1])<<16 | uint32(ip4[2])<<8
-			for attempts := 0; len(result) < maxResults && attempts < countPerIP*50; attempts++ {
+			// Cap at countPerIP unique IPs per seed, or the first responder's /24
+			// would eat the whole budget and starve every other working IP.
+			added := 0
+			for attempts := 0; added < countPerIP && len(result) < maxResults && attempts < countPerIP*50; attempts++ {
 				offset := uint32(rng.Intn(254) + 1) // skip .0 (network) and .255 (broadcast)
 				ipU32 := base | offset
 				s := fmt.Sprintf("%d.%d.%d.%d", byte(ipU32>>24), byte(ipU32>>16), byte(ipU32>>8), byte(ipU32))
@@ -230,6 +233,7 @@ func generateNearbyIPs(working []CleanIPResult, countPerIP int, ports []int) []s
 					continue
 				}
 				seen[s] = true
+				added++
 				for _, p := range ports {
 					result = append(result, fmt.Sprintf("%s:%d", s, p))
 				}
@@ -239,7 +243,8 @@ func generateNearbyIPs(working []CleanIPResult, countPerIP int, ports []int) []s
 			}
 		} else {
 			// IPv6 /64 subnet: randomize last 64 bits
-			for attempts := 0; len(result) < maxResults && attempts < countPerIP*50; attempts++ {
+			added := 0
+			for attempts := 0; added < countPerIP && len(result) < maxResults && attempts < countPerIP*50; attempts++ {
 				out := make(net.IP, 16)
 				copy(out, ip)
 				// randomize bytes 8-15 (last 64 bits)
@@ -251,6 +256,7 @@ func generateNearbyIPs(working []CleanIPResult, countPerIP int, ports []int) []s
 					continue
 				}
 				seen[s] = true
+				added++
 				for _, p := range ports {
 					result = append(result, fmt.Sprintf("[%s]:%d", s, p))
 				}

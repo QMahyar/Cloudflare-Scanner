@@ -57,8 +57,15 @@ func ParseWarpConfig(path string) (*WarpConfig, error) {
 				for _, a := range strings.Split(val, ",") {
 					a = strings.TrimSpace(a)
 					if a != "" {
-						if !strings.Contains(a, "/") && strings.Contains(a, ":") {
-							a += "/128"
+						// WireGuard/xray expect CIDR. Many client exports
+						// (including official WARP .confs) omit the prefix —
+						// bare IPv4 → /32, bare IPv6 → /128.
+						if !strings.Contains(a, "/") {
+							if strings.Contains(a, ":") {
+								a += "/128"
+							} else {
+								a += "/32"
+							}
 						}
 						cfg.Addresses = append(cfg.Addresses, a)
 					}

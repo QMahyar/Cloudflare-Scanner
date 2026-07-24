@@ -65,10 +65,9 @@ type StreamSettings struct {
 }
 
 type TLSSettings struct {
-	ServerName    string   `json:"serverName"`
-	Fingerprint   string   `json:"fingerprint,omitempty"`
-	AllowInsecure bool     `json:"allowInsecure"`
-	ALPN          []string `json:"alpn,omitempty"`
+	ServerName  string   `json:"serverName"`
+	Fingerprint string   `json:"fingerprint,omitempty"`
+	ALPN        []string `json:"alpn,omitempty"`
 }
 
 type RealitySettings struct {
@@ -187,16 +186,29 @@ func (c *ProxyConfig) buildStreamSettings() json.RawMessage {
 		return nil
 	}
 
+	// xray-core v26 rejects an empty transport network ("unknown transport
+	// protocol: ") where older versions silently defaulted to tcp. Whenever we
+	// emit streamSettings (security/network/raw-header present) the network must
+	// be a concrete value, so default empty -> "tcp" (the universal default, and
+	// still accepted alongside the newer "raw" alias).
+	network := c.Network
+	if network == "" {
+		network = "tcp"
+	}
+
 	ss := StreamSettings{
-		Network:  c.Network,
+		Network:  network,
 		Security: c.Security,
 	}
 
 	if c.Security == "tls" || c.Security == "xtls" {
+		// NOTE: allowInsecure was removed from xray-core's TLS config in v26.2.6.
+		// It is intentionally NOT emitted here — the Phase-2 probe validates real
+		// Cloudflare edges (valid certs), so it was never needed. The user-facing
+		// share URLs still carry allowInsecure via proxy_share.go.
 		tlsCfg := TLSSettings{
-			ServerName:    c.SNI,
-			Fingerprint:   c.Fingerprint,
-			AllowInsecure: c.AllowInsecure,
+			ServerName:  c.SNI,
+			Fingerprint: c.Fingerprint,
 		}
 		if c.Fingerprint == "" {
 			tlsCfg.Fingerprint = "random"

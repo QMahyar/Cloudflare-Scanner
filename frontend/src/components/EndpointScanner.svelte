@@ -19,6 +19,10 @@
   import ResultCharts from './ResultCharts.svelte'
   import ResultsActions from './ResultsActions.svelte'
   import ScanHistory from './ScanHistory.svelte'
+  import Toggle from './ui/Toggle.svelte'
+  import Disclosure from './ui/Disclosure.svelte'
+  import FilterInput from './ui/FilterInput.svelte'
+  import FileDrop from './ui/FileDrop.svelte'
 
   const DEPTHS = [
     { v: '100', k: 'settings.depth.quick' },
@@ -35,8 +39,10 @@
   let customCount = $state(getSetting('customCount', ''))
   let ipVersion = $state(getSetting('ipVersion', '4'))
   let advOpen = $state(getSetting('endpointAdv', false))
-  let noise = $state(getSetting('noiseToggle', true))
-  let timeoutMs = $state(getSetting('endpointTimeout', '6000'))
+  // Native handshake is the default: faster and doesn't spawn xray. Noise
+  // (AmneziaWG via xray) is opt-in for networks that drop plain WireGuard.
+  let noise = $state(getSetting('noiseToggle', false))
+  let timeoutMs = $state(getSetting('endpointTimeout', '5000'))
   let concurrency = $state(getSetting('endpointConcurrency', '0'))
   let stopAfter = $state(getSetting('stopAfter', '0'))
   let notify = $state(getSetting('notifyEndpoint', false))
@@ -344,21 +350,18 @@
     </h2>
     <div class="row">
       <div class="col">
-        <div class="toggle-wrap" style="padding-top:0">
-          <label class="toggle" title={$_('endpoint.useConfigTitle')} aria-label="Toggle config usage">
-            <input type="checkbox" bind:checked={useConfig} />
-            <span class="slider"></span>
-          </label>
-          <span class="toggle-label">{$_('endpoint.useConfig')}</span>
-        </div>
+        <Toggle bind:checked={useConfig} label={$_('endpoint.useConfig')} title={$_('endpoint.useConfigTitle')} ariaLabel={$_('endpoint.useConfig')} />
         <div class:config-fields-disabled={!useConfig}>
           <label for="configFile" title={$_('config.fileTitle')}>{$_('config.fileLabel')}</label>
-          <label class="file-input-wrap" for="configFile">
-            <input type="file" id="configFile" accept=".conf,.txt" disabled={!useConfig} bind:files />
-            <div class="file-label" class:selected={hasFile} title={$_('config.chooseTitle')}>
-              {hasFile ? fileName : $_('config.choose')}
-            </div>
-          </label>
+          <FileDrop
+            id="configFile"
+            accept=".conf,.txt"
+            disabled={!useConfig}
+            bind:files
+            label={$_('config.choose')}
+            selectedLabel={fileName}
+            title={$_('config.chooseTitle')}
+          />
         </div>
       </div>
     </div>
@@ -374,7 +377,7 @@
         <div class="field-label" title={$_('settings.depthTitle')}>{$_('settings.scanDepth')}</div>
         <div class="preset-bar">
           {#each DEPTHS as d}
-            <button class="preset-btn" class:active={scanDepth === d.v} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
+            <button type="button" class="preset-btn" class:active={scanDepth === d.v} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
           {/each}
         </div>
         {#if scanDepth === '0'}
@@ -392,17 +395,10 @@
         </select>
       </div>
     </div>
-    <details class="adv-settings" bind:open={advOpen}>
-      <summary>{$_('settings.advanced')}</summary>
+    <Disclosure bind:open={advOpen} summary={$_('settings.advanced')}>
       <div class="row">
         <div class="col">
-          <div class="toggle-wrap">
-            <label class="toggle" title={$_('settings.noiseTitle')} aria-label="Toggle UDP noise">
-              <input type="checkbox" bind:checked={noise} />
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label" title={$_('settings.noiseTitle')}>{$_('settings.noise')}</span>
-          </div>
+          <Toggle bind:checked={noise} label={$_('settings.noise')} title={$_('settings.noiseTitle')} ariaLabel={$_('settings.noise')} />
         </div>
         <div class="col"></div>
       </div>
@@ -422,16 +418,10 @@
           <input id="stopAfter" type="text" bind:value={stopAfter} inputmode="numeric" title={$_('settings.stopAfterTitle')} />
         </div>
         <div class="col">
-          <div class="toggle-wrap" style="padding-top:22px">
-            <label class="toggle" title={$_('settings.notifyTitle')} aria-label="Toggle completion notification">
-              <input type="checkbox" bind:checked={notify} />
-              <span class="slider"></span>
-            </label>
-            <span class="toggle-label" title={$_('settings.notifyTitle')}>{$_('settings.notify')}</span>
-          </div>
+          <Toggle bind:checked={notify} label={$_('settings.notify')} title={$_('settings.notifyTitle')} ariaLabel={$_('settings.notify')} align="field" />
         </div>
       </div>
-    </details>
+    </Disclosure>
     <div class="scan-desc">{scanDesc}</div>
   </div>
 
@@ -455,15 +445,9 @@
         <span>{$_('results.header')}</span>
         {#if hasResults}<span class="count-chip">{pool.length}</span>{/if}
       </h2>
-      <div style="display:flex;gap:var(--space-md);align-items:center;flex-wrap:wrap">
-        <div class="compact-control">
-          <label for="maxLatency" title={$_('results.maxLatTitle')}>{$_('results.maxLat')}</label>
-          <input class="compact-input" id="maxLatency" type="text" bind:value={maxLatency} title={$_('results.maxLatTitle')} inputmode="numeric" />
-        </div>
-        <div class="compact-control">
-          <label for="outCount" title={$_('settings.outCountTitle')}>{$_('settings.outCount')}</label>
-          <input class="compact-input" id="outCount" type="text" bind:value={outCount} title={$_('settings.outCountTitle')} inputmode="numeric" />
-        </div>
+      <div class="section-header-actions">
+        <FilterInput id="maxLatency" label={$_('results.maxLat')} title={$_('results.maxLatTitle')} bind:value={maxLatency} inputmode="numeric" />
+        <FilterInput id="outCount" label={$_('settings.outCount')} title={$_('settings.outCountTitle')} bind:value={outCount} inputmode="numeric" />
       </div>
     </div>
 

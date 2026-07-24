@@ -52,7 +52,7 @@ Scroll down on the **Endpoint Scanner** tab. The app includes a collapsible **Ge
 | File | Description |
 |------|-------------|
 | `Cloudflare-Scanner` (or `.exe`) | The main app — web server + scanning engine |
-| `xray` (or `xray.exe`) | xray-core v1.8.24 — Warp validation + proxy connections |
+| `xray` (or `xray.exe`) | xray-core v26.6.27 — Warp validation + proxy connections |
 
 Both files are required. Keep them in the same folder.
 

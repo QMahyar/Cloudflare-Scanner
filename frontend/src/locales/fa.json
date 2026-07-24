@@ -342,5 +342,6 @@
   "results.deselectAll": "لغو انتخاب",
   "clean.pushToReplacer": "ارسال به جایگزین",
   "clean.pushedToReplacer": "{n} اندپوینت به جایگزین آی‌پی ارسال شد",
-  "langBtn": "English"
+  "langBtn": "English",
+  "themeToggle": "تغییر پوسته روشن / تیره"
 }

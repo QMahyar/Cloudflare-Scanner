@@ -50,6 +50,39 @@ Endpoint   = 162.159.192.1:2408
 	}
 }
 
+// Official WARP exports often omit the CIDR prefix on Address. Bare IPv4 must
+// become /32 and bare IPv6 /128 so xray WireGuard accepts the config.
+func TestParseWarpConfig_BareAddressesGetCIDR(t *testing.T) {
+	conf := `
+[Interface]
+PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+Address = 172.16.0.2, 2606:4700:110:8967:b0b3:7c63:f36b:517f
+DNS = 1.1.1.1
+MTU = 1280
+S1 = 0
+S2 = 0
+
+[Peer]
+PublicKey = BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
+AllowedIPs = 0.0.0.0/0, ::/0
+Endpoint = 8.6.112.156:3476
+`
+	f := writeTempConf(t, conf)
+	cfg, err := ParseWarpConfig(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cfg.Addresses) != 2 {
+		t.Fatalf("expected 2 addresses, got %v", cfg.Addresses)
+	}
+	if cfg.Addresses[0] != "172.16.0.2/32" {
+		t.Errorf("bare IPv4 should become /32, got %q", cfg.Addresses[0])
+	}
+	if cfg.Addresses[1] != "2606:4700:110:8967:b0b3:7c63:f36b:517f/128" {
+		t.Errorf("bare IPv6 should become /128, got %q", cfg.Addresses[1])
+	}
+}
+
 func TestParseSubscription_URLSafeBase64(t *testing.T) {
 	plain := "vless://uuid@1.2.3.4:443?security=tls#one\n"
 	encoded := base64.RawURLEncoding.EncodeToString([]byte(plain))

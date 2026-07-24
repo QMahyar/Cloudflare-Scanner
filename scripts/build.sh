@@ -17,7 +17,7 @@
 # Environment overrides:
 #   VERSION=v3.0.1     # override the version baked into the binary
 #                      # (default: the repo-root VERSION file, with a -dev suffix off-tag)
-#   XRAY_VERSION=...   # xray-core release tag to bundle (default: v1.8.24)
+#   XRAY_VERSION=...   # xray-core release tag to bundle (default: v26.6.27)
 #   NO_XRAY=1          # skip downloading xray (build the binary only)
 #   NO_ARCHIVE=1       # leave loose files in dist/<platform>/, skip .zip/.tar.gz
 #   GO_VERSION=1.26.2  # Go version to auto-install if Go is missing
@@ -25,7 +25,7 @@
 set -eu
 
 # ── Config ──────────────────────────────────────────────────────────────────
-XRAY_VERSION="${XRAY_VERSION:-v1.8.24}"
+XRAY_VERSION="${XRAY_VERSION:-v26.6.27}"
 GO_VERSION="${GO_VERSION:-1.26.2}"
 APP="Cloudflare-Scanner"
 
