@@ -347,9 +347,20 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		phase1Entries := make([]resultEntry, 0, len(phase1Results))
+		for _, r := range phase1Results {
+			if r.Success {
+				phase1Entries = append(phase1Entries, cleanEntry(r))
+			}
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
+			// Keep entries as the current/validated view for old clients. New
+			// clients can show both phases without losing the fast TCP hits.
 			"entries":         entries,
+			"phase1_entries":  phase1Entries,
+			"phase2_entries":  entries,
 			"total":           len(entries),
 			"scanned":         len(phase2Results),
 			"phase2_failures": phase2Failures,
@@ -381,6 +392,8 @@ func handleCleanScanResults(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"entries":        entries,
+		"phase1_entries": entries,
+		"phase2_entries": []resultEntry{},
 		"total":          len(entries),
 		"scanned":        phase1Progress,
 		"phase1_total":   phase1Total,

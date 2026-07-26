@@ -9,6 +9,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.9.0] — 2026-07-26
+
+Improved scan result visibility, live-update reliability, and local frontend testing.
+
+### Fixed
+- Clean-IP Phase-1 results remain visible when Phase 2 starts.
+- SSE streams no longer inherit server read/write deadlines that can terminate long scans.
+- Expired scan jobs stop polling and reconnecting instead of retrying forever.
+- Transient result snapshots no longer erase rows already displayed.
+
+### Added
+- All / Phase 1 / Phase 2 result views with live counts.
+- Vitest frontend test suite for result merging, sorting, latency parsing, and metrics.
+
+---
+
 ## [v3.8.0] — 2026-07-24
 
 xray-core v26.6.27 pin, full frontend redesign finish, and scan UX fixes from

@@ -384,6 +384,7 @@ func streamSSE(w http.ResponseWriter, r *http.Request, snapshot func() (map[stri
 	// this one response so the stream lives as long as the scan does; the
 	// ctx.Done() select below still tears it down when the client disconnects.
 	if rc := http.NewResponseController(w); rc != nil {
+		_ = rc.SetReadDeadline(time.Time{})
 		_ = rc.SetWriteDeadline(time.Time{})
 	}
 	w.Header().Set("Content-Type", "text/event-stream")

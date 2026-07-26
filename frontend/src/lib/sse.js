@@ -1,68 +1,73 @@
-// Subscribe to a scan job's status with Server-Sent Events, falling back to
-// interval polling when EventSource is unavailable or the stream can't be
-// established. Only the status/progress channel uses this — results stay on
-// their own poll so the sort/filter pipeline is untouched.
-//
-//   stop = subscribeStatus(sseUrl, pollUrl, { onStatus, isDone, interval })
-//
-// onStatus(data) is called with each status snapshot (same JSON shape the
-// polling endpoint returns). isDone(data) decides when the job is finished;
-// once true the subscription tears itself down. Call the returned stop() to
-// cancel early (e.g. on reset/unmount); it is idempotent.
-export function subscribeStatus(sseUrl, pollUrl, { onStatus, isDone, interval = 300 }) {
+// Subscribe to status with SSE and fall back to bounded polling. EventSource's
+// built-in retry is deliberately avoided: an expired job otherwise reconnects
+// forever after the server's TTL removes it.
+export function subscribeStatus(sseUrl, pollUrl, {
+  onStatus,
+  isDone,
+  interval = 500,
+  maxErrors = 12,
+  onConnectionChange = () => {},
+}) {
   let stopped = false
   let es = null
   let timer = null
+  let errors = 0
 
   function stop() {
+    if (stopped) return
     stopped = true
     if (es) { es.close(); es = null }
-    if (timer) { clearInterval(timer); timer = null }
+    if (timer) { clearTimeout(timer); timer = null }
   }
 
   function deliver(data) {
+    errors = 0
+    onConnectionChange('connected')
     onStatus(data)
     if (isDone(data)) stop()
   }
 
-  function startPolling() {
+  function schedulePoll(delay = interval) {
     if (stopped || timer) return
-    timer = setInterval(async () => {
-      try {
-        const res = await fetch(pollUrl)
-        if (!res.ok) throw new Error('status ' + res.status)
-        deliver(await res.json())
-      } catch {
-        // Transient status errors: keep polling until done or stopped.
-      }
-    }, interval)
+    timer = setTimeout(poll, delay)
+  }
+
+  async function poll() {
+    timer = null
+    if (stopped) return
+    try {
+      const res = await fetch(pollUrl)
+      if (res.status === 404) { onConnectionChange('expired'); stop(); return }
+      if (!res.ok) throw new Error('status ' + res.status)
+      deliver(await res.json())
+    } catch {
+      errors++
+      onConnectionChange('reconnecting')
+      if (errors >= maxErrors) { onConnectionChange('failed'); stop(); return }
+    }
+    if (!stopped) schedulePoll(Math.min(interval * 2 ** Math.min(errors, 4), 5000))
   }
 
   if (typeof EventSource === 'undefined') {
-    startPolling()
+    schedulePoll(0)
     return stop
   }
 
   try {
     es = new EventSource(sseUrl)
-    let got = false
-    es.onmessage = (e) => {
-      got = true
+    es.onmessage = (event) => {
       let data
-      try { data = JSON.parse(e.data) } catch { return }
+      try { data = JSON.parse(event.data) } catch { return }
       deliver(data)
     }
     es.onerror = () => {
-      // Never received a frame → the endpoint is unavailable (e.g. older
-      // build, proxy stripping the stream). Drop SSE and poll instead. If we
-      // had already received frames, leave EventSource to auto-reconnect.
-      if (!got && !stopped) {
-        es.close(); es = null
-        startPolling()
-      }
+      if (stopped) return
+      es.close(); es = null
+      onConnectionChange('reconnecting')
+      schedulePoll(0)
     }
   } catch {
-    startPolling()
+    schedulePoll(0)
   }
 
   return stop

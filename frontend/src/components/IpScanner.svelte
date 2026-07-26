@@ -11,6 +11,7 @@
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
   import { subscribeStatus } from '../lib/sse.js'
+  import { mergeCleanResults } from '../lib/results.js'
   import { cleanData, activeTab, getSetting, setSetting, recordScan, cleanScanning } from '../lib/stores.js'
   import { pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
   import VirtualTable from './VirtualTable.svelte'
@@ -85,6 +86,7 @@
   let outCount = $state('0')
   let sort = $state({ field: 'score', dir: 'desc' }) // rank by overall quality by default
   let list = $state('direct') // direct | nearby
+  let phaseView = $state('all') // all | phase1 | phase2
   let selected = $state(new Set())
 
   // ─── Scan state ───
@@ -105,8 +107,10 @@
   let rangesFileName = $state('')
 
   const data = $derived($cleanData)
+  const phase1Entries = $derived(data?.phase1_entries || (data?.phase === 'phase1' ? data?.entries : []))
+  const phase2Entries = $derived(data?.phase2_entries || (data?.phase === 'phase2' ? data?.entries : []))
   const scanDesc = $derived(useConfig ? $_('clean.descTwoPhase') : $_('clean.descOnePhase'))
-  const hasResults = $derived((data?.entries?.length || 0) > 0 || (data?.nearby_entries?.length || 0) > 0)
+  const hasResults = $derived((phase1Entries.length || phase2Entries.length || data?.nearby_entries?.length || 0) > 0)
   const startDisabled = $derived(status === 'running' || (useConfig && !vlessURL.trim()) || (source === 'custom' && !customRanges.trim()))
 
   const matchFilter = (e) => {
@@ -122,7 +126,11 @@
     if (oc > 0 && p.length > oc) p = p.slice(0, oc)
     return p
   }
-  const directPool = $derived(limitPool(data?.entries || []))
+  const allDirect = $derived.by(() => {
+    const validated = new Map(phase2Entries.map((e) => [e.endpoint, e]))
+    return [...phase1Entries.filter((e) => !validated.has(e.endpoint)), ...phase2Entries]
+  })
+  const directPool = $derived(limitPool(phaseView === 'phase1' ? phase1Entries : phaseView === 'phase2' ? phase2Entries : allDirect))
   const nearbyPool = $derived(limitPool(data?.nearby_entries || []))
   const nearbyAll = $derived(data?.nearby_entries || [])
   const activePool = $derived(list === 'nearby' ? nearbyPool : directPool)
@@ -200,6 +208,7 @@
     progressText = $_('clean.progressPhase1', { values: { p: 0, t: 0 } })
     selected = new Set()
     list = 'direct'
+    phaseView = 'all'
     recorded = false
     lastFetch = 0
     cleanData.set(null)
@@ -277,7 +286,7 @@
   async function fetchResultsNow(id) {
     try {
       const d = await apiJSON('/api/clean-results/' + id)
-      cleanData.set(d)
+      cleanData.update((previous) => mergeCleanResults(previous, d))
       if (d.status === 'done' || d.status === 'cancelled') {
         status = d.status
         recordRun(d)
@@ -334,6 +343,7 @@
     progressText = ''
     selected = new Set()
     list = 'direct'
+    phaseView = 'all'
     recorded = false
     cleanData.set(null)
   }
@@ -352,7 +362,8 @@
 
   // ─── Result actions ───
   function curEntries() {
-    return (list === 'nearby' ? data?.nearby_entries : data?.entries) || []
+    if (list === 'nearby') return data?.nearby_entries || []
+    return phaseView === 'phase1' ? phase1Entries : phaseView === 'phase2' ? phase2Entries : allDirect
   }
   async function copyAll() {
     let entries = curEntries()
@@ -647,6 +658,14 @@
     </div>
 
     <ScanProgress {status} {progressPct} {progressText} {summary} runningLabel={$_('clean.scanning')} />
+
+    {#if phase1Entries.length > 0 || phase2Entries.length > 0}
+      <div class="btn-bar list-toggle-bar">
+        <button type="button" class="btn btn-sm method-btn" class:active={phaseView === 'all'} onclick={() => (phaseView = 'all')}>All ({allDirect.length})</button>
+        <button type="button" class="btn btn-sm method-btn" class:active={phaseView === 'phase1'} onclick={() => (phaseView = 'phase1')}>Phase 1 ({phase1Entries.length})</button>
+        <button type="button" class="btn btn-sm method-btn" class:active={phaseView === 'phase2'} onclick={() => (phaseView = 'phase2')}>Phase 2 ({phase2Entries.length})</button>
+      </div>
+    {/if}
 
     {#if nearbyAll.length > 0}
       <div class="btn-bar list-toggle-bar">
