@@ -33,6 +33,27 @@
 - مک: `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-macos.sh | sh`
 - Termux: `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh`
 
+### نام‌های دستور نصب‌شده و مدیریت برنامه
+
+پس از نصب، هر سه دستور زیر معادل‌اند و برنامه را اجرا می‌کنند:
+
+```sh
+Cloudflare-Scanner
+cloudflare-scanner
+scan
+```
+
+هرکدام فرمان‌های `help`، `update`، `restart` و `uninstall` را می‌پذیرند؛ برای نمونه:
+
+```sh
+scan help
+scan update
+scan restart
+scan uninstall
+```
+
+در ویندوز بعد از نصب، یک پنجره PowerShell جدید باز کنید تا PATH جدید در دسترس باشد.
+
 ### مرورگر به صورت خودکار باز نشد
 
 خروجی ترمینال را نگاه کنید. بنری شبیه این می‌بینید:

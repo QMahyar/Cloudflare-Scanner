@@ -53,6 +53,8 @@ Use the one-liner for your OS, or download and extract the archive manually.
 Cloudflare-Scanner
 ```
 
+`Cloudflare-Scanner`, `cloudflare-scanner`, and `scan` all launch the app. Each also accepts `help`, `update`, `restart`, and `uninstall` — for example, `scan update`.
+
 Run this in **PowerShell**, not Git Bash/WSL. Manual install: extract the `.zip`, keep `Cloudflare-Scanner.exe` and `xray.exe` together, then double-click `Cloudflare-Scanner.exe`.
 
 *Troubleshooting:* Antivirus may flag `xray.exe` — add an exclusion for the extracted folder.
@@ -63,8 +65,10 @@ Run this in **PowerShell**, not Git Bash/WSL. Manual install: extract the `.zip`
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-linux.sh | sh
-cloudflare-scanner
+Cloudflare-Scanner
 ```
+
+`Cloudflare-Scanner`, `cloudflare-scanner`, and `scan` are equivalent. Use `scan help` to list commands; `scan update`, `scan restart`, and `scan uninstall` manage the installed app.
 
 Manual install:
 
@@ -82,8 +86,10 @@ ARM64: use the `*-linux-arm64.tar.gz` archive. Do not use this installer in Git 
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-macos.sh | sh
-cloudflare-scanner
+Cloudflare-Scanner
 ```
+
+`Cloudflare-Scanner`, `cloudflare-scanner`, and `scan` are equivalent. Use `scan help` to list commands; `scan update`, `scan restart`, and `scan uninstall` manage the installed app.
 
 Manual install:
 
@@ -105,7 +111,7 @@ curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/s
 scan
 ```
 
-*Update:* re-run the same one-liner. *Remove:* `rm -rf ~/.local/share/cloudflare-scanner && rm $PREFIX/bin/scan`
+`Cloudflare-Scanner`, `cloudflare-scanner`, and `scan` are equivalent. Use `scan help` to list commands; `scan update`, `scan restart`, and `scan uninstall` manage the installed app.
 </details>
 
 ### 3. Use the App

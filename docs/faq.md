@@ -33,6 +33,27 @@ Use the installer for the shell you are actually in:
 - macOS: run `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-macos.sh | sh`
 - Termux: run `curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/termux-setup.sh | sh`
 
+### Installed command aliases and management
+
+After installing, these commands are equivalent and launch the app:
+
+```sh
+Cloudflare-Scanner
+cloudflare-scanner
+scan
+```
+
+Each supports `help`, `update`, `restart`, and `uninstall`; for example:
+
+```sh
+scan help
+scan update
+scan restart
+scan uninstall
+```
+
+On Windows, open a new PowerShell window after installing so the updated user PATH is available.
+
 ### The browser doesn't open automatically
 
 Look at the terminal output. You'll see a banner like:

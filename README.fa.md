@@ -53,6 +53,8 @@
 Cloudflare-Scanner
 ```
 
+هر سه دستور `Cloudflare-Scanner`، `cloudflare-scanner` و `scan` برنامه را اجرا می‌کنند. هرکدام فرمان‌های `help`، `update`، `restart` و `uninstall` را هم می‌پذیرند؛ مانند `scan update`.
+
 این دستور را در **PowerShell** اجرا کنید، نه Git Bash/WSL. نصب دستی: فایل `.zip` را استخراج کنید، `Cloudflare-Scanner.exe` و `xray.exe` را کنار هم نگه دارید، سپس `Cloudflare-Scanner.exe` را اجرا کنید.
 
 *عیب‌یابی:* آنتی‌ویروس ممکن است `xray.exe` را بلاک کند — برای پوشه استثنا تعریف کنید.
@@ -63,8 +65,10 @@ Cloudflare-Scanner
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-linux.sh | sh
-cloudflare-scanner
+Cloudflare-Scanner
 ```
+
+`Cloudflare-Scanner`، `cloudflare-scanner` و `scan` معادل‌اند. برای فهرست فرمان‌ها `scan help` و برای مدیریت برنامه از `scan update`، `scan restart` و `scan uninstall` استفاده کنید.
 
 نصب دستی:
 
@@ -82,8 +86,10 @@ ARM64: از آرشیو `*-linux-arm64.tar.gz` استفاده کنید. این ن
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/scripts/install-macos.sh | sh
-cloudflare-scanner
+Cloudflare-Scanner
 ```
+
+`Cloudflare-Scanner`، `cloudflare-scanner` و `scan` معادل‌اند. برای فهرست فرمان‌ها `scan help` و برای مدیریت برنامه از `scan update`، `scan restart` و `scan uninstall` استفاده کنید.
 
 نصب دستی:
 
@@ -105,7 +111,7 @@ curl -fsSL https://raw.githubusercontent.com/QMahyar/Cloudflare-Scanner/master/s
 scan
 ```
 
-*بروزرسانی:* همان دستور را دوباره اجرا کنید. *حذف:* `rm -rf ~/.local/share/cloudflare-scanner && rm $PREFIX/bin/scan`
+`Cloudflare-Scanner`، `cloudflare-scanner` و `scan` معادل‌اند. برای فهرست فرمان‌ها `scan help` و برای مدیریت برنامه از `scan update`، `scan restart` و `scan uninstall` استفاده کنید.
 </details>
 
 ### ۳. استفاده از برنامه
