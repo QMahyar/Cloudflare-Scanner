@@ -105,11 +105,11 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		}
 	}()
 
-	phase1Timeout := 3 * time.Second
+	phase1Timeout := 200 * time.Millisecond
 	// Phase-2 needs headroom for TLS + WS upgrade + VLESS handshake + the 204
 	// probe. 5s was tight on high-latency links and produced false negatives
 	// ("connection reset" / "http read timeout") even when the edge was fine.
-	phase2Timeout := 8 * time.Second
+	phase2Timeout := 500 * time.Millisecond
 	// User-configurable per-probe TCP dial timeout for phase 1 (the reachability
 	// probe). 0 keeps the default. Validated/clamped server-side.
 	if job.TimeoutMs > 0 {
@@ -165,8 +165,10 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	// Enrich the fastest responders with their Cloudflare colo/country in a
 	// bounded, concurrent pass — kept off the Phase-1 dial loop. Covers at least
 	// the Phase-2 candidates plus a display buffer, and is reused for Phase 2.
+	// Phase2Count 0 means "validate all" but enrichment stays capped so colo/H3
+	// work cannot explode with large Phase-1 hit lists.
 	coloCap := job.Phase2Count
-	if coloCap < 150 {
+	if coloCap <= 0 || coloCap < 150 {
 		coloCap = 150
 	}
 	// Use the config's SNI for the direct edge trace — it's a CF-proxied hostname
@@ -277,7 +279,8 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	job.mu.Unlock()
 
 	tcpResults := phase1Results
-	if len(tcpResults) > topN {
+	// topN <= 0 means validate every Phase-1 success.
+	if topN > 0 && len(tcpResults) > topN {
 		tcpResults = tcpResults[:topN]
 	}
 
@@ -285,7 +288,7 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	var nearbyTcpResults []CleanIPResult
 	if len(nearbyPhase1Results) > 0 {
 		nearbyTcpResults = nearbyPhase1Results
-		if len(nearbyTcpResults) > topN {
+		if topN > 0 && len(nearbyTcpResults) > topN {
 			nearbyTcpResults = nearbyTcpResults[:topN]
 		}
 	}

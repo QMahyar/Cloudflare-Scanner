@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Help / resources side panes no longer render as empty titles only — content is always visible (removed broken closed-`<details>` pane pattern).
+- WARP config paste: `wg://` / `wireguard://` query decoding keeps base64 `+` intact (`PathUnescape`) and rejects placeholder keys.
+
+### Changed
+- Scanner defaults are more aggressive: Endpoint 200ms / 25 concurrency / 1 attempt; Clean Phase-1 100 probes, Phase-2 10 slots, 200ms/500ms timeouts, Phase-2 count **All**.
+- Clean-IP `phase2_count: 0` now means validate every Phase-1 success (was forced to 30).
+- Endpoint, IP Scanner, and Replacer use a workbench **main + sticky resources pane**: Endpoint is a dual-column setup card; IP Scanner is a stacked proxy/source/depth flow; shared CTA bar for start/stop.
+- Removed recent-scan history (`ScanHistory`, `cfscanner_history` store).
+- Replacer pane lists curated Cloudflare Worker projects (BPB Panel, edgetunnel, related forks).
+
+### Note
+- Existing `localStorage` settings keys are not migrated — clear advanced fields or reset to pick up the new defaults.
+
 ---
 
 ## [v3.10.0] — 2026-07-26

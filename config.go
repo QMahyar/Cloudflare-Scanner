@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"os"
@@ -70,9 +71,12 @@ func ParseWarpConfigText(text string) (*WarpConfig, error) {
 }
 
 func parseWarpURI(raw string) (*WarpConfig, error) {
-	// url.Parse handles both wg:// and wireguard://. Percent-decoding is
-	// automatic for query values (PrivateKey/PublicKey often arrive URL-encoded
-	// because base64's "+" and "=" are reserved in query strings).
+	// Throne / v2rayN share links often leave base64 keys only partially URL-encoded
+	// (literal "+" and "/" in public_key). Go's url.Query() treats "+" as space
+	// (application/x-www-form-urlencoded), which corrupts WireGuard keys into
+	// "bmXOC F1…" and later fails the native handshake with "invalid public key".
+	// Parse host with url.Parse, then decode the query with PathUnescape so "+"
+	// stays "+" while %3D / %2B still decode correctly.
 	u, err := url.Parse(raw)
 	if err != nil {
 		return nil, fmt.Errorf("parse warp URI: %w", err)
@@ -82,12 +86,16 @@ func parseWarpURI(raw string) (*WarpConfig, error) {
 		return nil, fmt.Errorf("unsupported warp URI scheme: %s", u.Scheme)
 	}
 
+	q, err := parseQueryKeepPlus(u.RawQuery)
+	if err != nil {
+		return nil, fmt.Errorf("parse warp URI query: %w", err)
+	}
+
 	cfg := &WarpConfig{
 		Reserved: []int{0, 0, 0},
 		MTU:      1280,
 	}
 
-	q := u.Query()
 	// Accept both snake_case (Throne / sing-box style) and the camelCase some
 	// exporters use.
 	cfg.PrivateKey = firstQuery(q, "private_key", "privateKey", "secretKey", "secret_key")
@@ -138,7 +146,73 @@ func parseWarpURI(raw string) (*WarpConfig, error) {
 		cfg.Reserved = append(cfg.Reserved, 0)
 	}
 	cfg.Reserved = cfg.Reserved[:3]
+
+	if err := cfg.validateKeys(); err != nil {
+		return nil, err
+	}
 	return cfg, nil
+}
+
+// parseQueryKeepPlus is like url.ParseQuery but uses PathUnescape so a literal
+// "+" in base64 keys is preserved (QueryUnescape turns "+" into a space).
+func parseQueryKeepPlus(rawQuery string) (url.Values, error) {
+	q := make(url.Values)
+	if rawQuery == "" {
+		return q, nil
+	}
+	for _, pair := range strings.Split(rawQuery, "&") {
+		if pair == "" {
+			continue
+		}
+		key, val, _ := strings.Cut(pair, "=")
+		k, err := url.PathUnescape(key)
+		if err != nil {
+			return nil, err
+		}
+		v, err := url.PathUnescape(val)
+		if err != nil {
+			return nil, err
+		}
+		q.Add(k, v)
+	}
+	return q, nil
+}
+
+// validateKeys checks WireGuard Curve25519 keys are 32-byte base64 (standard or
+// raw). Rejects sample placeholders like "<your-private-key>" with a clear hint.
+func (cfg *WarpConfig) validateKeys() error {
+	if err := validateWGKey("private key", cfg.PrivateKey); err != nil {
+		return err
+	}
+	if err := validateWGKey("public key", cfg.PublicKey); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateWGKey(label, b64 string) error {
+	b64 = strings.TrimSpace(b64)
+	if b64 == "" {
+		return fmt.Errorf("missing %s", label)
+	}
+	low := strings.ToLower(b64)
+	if strings.Contains(b64, "<") || strings.Contains(b64, ">") ||
+		strings.Contains(low, "your-private") || strings.Contains(low, "your-public") ||
+		strings.Contains(low, "paste") || strings.Contains(low, "placeholder") {
+		return fmt.Errorf("%s looks like a placeholder — replace it with a real base64 WireGuard key (44 characters, often ending in =)", label)
+	}
+	// StdEncoding first (padded "…="); RawStdEncoding for unpadded exports.
+	raw, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		raw, err = base64.RawStdEncoding.DecodeString(strings.TrimRight(b64, "="))
+		if err != nil {
+			return fmt.Errorf("invalid %s (not base64): check that + and / were not corrupted when copying the link", label)
+		}
+	}
+	if len(raw) != 32 {
+		return fmt.Errorf("invalid %s: decoded %d bytes, WireGuard keys must be 32", label, len(raw))
+	}
+	return nil
 }
 
 func parseWarpINI(text string) (*WarpConfig, error) {
@@ -246,6 +320,10 @@ func parseWarpINI(text string) (*WarpConfig, error) {
 		cfg.Reserved = append(cfg.Reserved, 0)
 	}
 	cfg.Reserved = cfg.Reserved[:3]
+
+	if err := cfg.validateKeys(); err != nil {
+		return nil, err
+	}
 	return cfg, nil
 }
 

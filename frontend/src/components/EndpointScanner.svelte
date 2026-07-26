@@ -11,7 +11,7 @@
   import { showQR } from '../lib/modal.js'
   import { notifyDone, scanRateText } from '../lib/notify.js'
   import { subscribeStatus } from '../lib/sse.js'
-  import { endpointRaw, activeTab, getSetting, setSetting, recordScan, endpointScanning } from '../lib/stores.js'
+  import { endpointRaw, activeTab, getSetting, setSetting, endpointScanning } from '../lib/stores.js'
   import {
     SCAN_DEPTHS,
     ENDPOINT_DEFAULTS as D,
@@ -24,7 +24,6 @@
   import ScanProgress from './ScanProgress.svelte'
   import ResultCharts from './ResultCharts.svelte'
   import ResultsActions from './ResultsActions.svelte'
-  import ScanHistory from './ScanHistory.svelte'
   import Toggle from './ui/Toggle.svelte'
   import Disclosure from './ui/Disclosure.svelte'
   import FilterInput from './ui/FilterInput.svelte'
@@ -92,7 +91,6 @@
   let statusStop = null
   let lastFetch = 0
   let fetchTimer = null
-  let recorded = false
   let selected = $state(new Set())
   // $state.raw: fail snapshot is always reassigned wholesale from the API.
   let failInfo = $state.raw(null) // { reasons, examples, scanned }
@@ -136,7 +134,6 @@
     liveCountN = 0
     selected = new Set()
     failInfo = null
-    recorded = false
 
     let count = parseInt(scanDepth)
     if (scanDepth === '0') { count = parseInt(customCount) || 100; if (count < 1) count = 100 }
@@ -147,7 +144,7 @@
       count,
       outCount: parseInt(outCount) || 0,
       concurrency: parseInt(concurrency) || 0,
-      attempts: parseInt(attempts) || 2,
+      attempts: parseInt(attempts) || 1,
       timeoutMs: parseInt(timeoutMs) || 0,
       stop_after: parseInt(stopAfter) || 0,
     }
@@ -223,32 +220,12 @@
         endpointRaw.set(data.raw || [])
         liveCountN = 0
         failInfo = { reasons: data.fail_reasons || {}, examples: data.failures || [], scanned: data.scanned || 0 }
-        recordRun(data)
         return
       } catch {
         await sleep(250)
       }
     }
     liveCountN = 0
-  }
-
-  function recordRun(data) {
-    if (recorded) return
-    recorded = true
-    const entries = data.raw || []
-    let best = Infinity, topScore = 0
-    for (const e of entries) {
-      best = Math.min(best, parseLatency(e.latency))
-      topScore = Math.max(topScore, Number(e.score) || 0)
-    }
-    recordScan({
-      tab: 'endpoint',
-      label: useConfig ? (noise ? 'WARP scan · noise' : 'WARP scan') : 'WARP scan · TCP',
-      found: entries.length,
-      scanned: data.scanned || total || 0,
-      best: isFinite(best) ? Math.round(best) : null,
-      topScore,
-    })
   }
 
   async function stopScan() {
@@ -265,7 +242,6 @@
     liveCountN = 0
     selected = new Set()
     failInfo = null
-    recorded = false
     endpointRaw.set([])
   }
 
@@ -352,188 +328,180 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div onkeydown={onKeydown}>
-  <div class="card">
-    <h2>
-      <span class="step-num">1</span>
-      <span>{$_('config.header')}</span>
-    </h2>
-    <div class="row">
-      <div class="col">
-        <Toggle bind:checked={useConfig} label={$_('endpoint.useConfig')} title={$_('endpoint.useConfigTitle')} ariaLabel={$_('endpoint.useConfig')} />
-        <div class={{ 'config-fields-disabled': !useConfig }}>
-          <label for="configFile" title={$_('config.fileTitle')}>{$_('config.fileLabel')}</label>
-          <FileDrop
-            id="configFile"
-            accept=".conf,.txt"
-            disabled={!useConfig}
-            bind:files
-            label={$_('config.choose')}
-            selectedLabel={fileName}
-            title={$_('config.chooseTitle')}
-          />
-          <label for="configText" title={$_('config.pasteTitle')}>{$_('config.pasteLabel')}</label>
-          <textarea
-            id="configText"
-            rows="5"
-            bind:value={configText}
-            disabled={!useConfig}
-            placeholder={$_('config.pastePlaceholder')}
-            title={$_('config.pasteTitle')}
-            spellcheck="false"
-          ></textarea>
-          <p class="scan-desc">{$_('config.pasteHint')}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>
-      <span class="step-num">2</span>
-      <span>{$_('settings.header')}</span>
-    </h2>
-    <div class="row">
-      <div class="col">
-        <div class="field-label" title={$_('settings.depthTitle')}>{$_('settings.scanDepth')}</div>
-        <div class="preset-bar">
-          {#each SCAN_DEPTHS as d (d.v)}
-            <button type="button" class={['preset-btn', { active: scanDepth === d.v }]} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
-          {/each}
-        </div>
-        {#if scanDepth === '0'}
-          <div class="status-slot">
-            <input type="text" bind:value={customCount} placeholder={$_('settings.customPlaceholder')} title={$_('settings.customTitle')} inputmode="numeric" />
+<div class="workbench" onkeydown={onKeydown}>
+  <div class="workbench-main endpoint-main">
+    <div class="card card-setup">
+      <h2>
+        <span class="step-num">1</span>
+        <span>{$_('endpoint.setupHeader')}</span>
+      </h2>
+      <div class="setup-grid setup-split">
+        <div class="setup-block">
+          <p class="setup-block-title">{$_('config.header')}</p>
+          <Toggle bind:checked={useConfig} label={$_('endpoint.useConfig')} title={$_('endpoint.useConfigTitle')} ariaLabel={$_('endpoint.useConfig')} />
+          <div class={{ 'config-fields-disabled': !useConfig }}>
+            <label for="configFile" title={$_('config.fileTitle')}>{$_('config.fileLabel')}</label>
+            <FileDrop
+              id="configFile"
+              accept=".conf,.txt"
+              disabled={!useConfig}
+              bind:files
+              label={$_('config.choose')}
+              selectedLabel={fileName}
+              title={$_('config.chooseTitle')}
+            />
+            <label for="configText" title={$_('config.pasteTitle')}>{$_('config.pasteLabel')}</label>
+            <textarea
+              id="configText"
+              rows="6"
+              bind:value={configText}
+              disabled={!useConfig}
+              placeholder={$_('config.pastePlaceholder')}
+              title={$_('config.pasteTitle')}
+              spellcheck="false"
+            ></textarea>
+            <p class="scan-desc">{$_('config.pasteHint')}</p>
           </div>
-        {/if}
-      </div>
-      <div class="col">
-        <label for="ipVersion" title={$_('settings.ipTitle')}>{$_('settings.ipVersion')}</label>
-        <select id="ipVersion" bind:value={ipVersion} title={$_('settings.ipTitle')}>
-          <option value="4">{$_('settings.ipv4')}</option>
-          <option value="6">{$_('settings.ipv6')}</option>
-          <option value="46">{$_('settings.ipv46')}</option>
-        </select>
+        </div>
+        <div class="setup-block">
+          <p class="setup-block-title">{$_('settings.header')}</p>
+          <div class="field-label" title={$_('settings.depthTitle')}>{$_('settings.scanDepth')}</div>
+          <div class="preset-bar">
+            {#each SCAN_DEPTHS as d (d.v)}
+              <button type="button" class={['preset-btn', { active: scanDepth === d.v }]} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
+            {/each}
+          </div>
+          {#if scanDepth === '0'}
+            <div class="status-slot">
+              <input type="text" bind:value={customCount} placeholder={$_('settings.customPlaceholder')} title={$_('settings.customTitle')} inputmode="numeric" />
+            </div>
+          {/if}
+          <label for="ipVersion" title={$_('settings.ipTitle')}>{$_('settings.ipVersion')}</label>
+          <select id="ipVersion" bind:value={ipVersion} title={$_('settings.ipTitle')}>
+            <option value="4">{$_('settings.ipv4')}</option>
+            <option value="6">{$_('settings.ipv6')}</option>
+            <option value="46">{$_('settings.ipv46')}</option>
+          </select>
+          <Disclosure bind:open={advOpen} summary={$_('settings.advanced')}>
+            <div class="row">
+              <div class="col">
+                <Toggle bind:checked={noise} label={$_('settings.noise')} title={$_('settings.noiseTitle')} ariaLabel={$_('settings.noise')} />
+              </div>
+              <div class="col">
+                <label for="endpointAttempts" title={$_('settings.attemptsTitle')}>{$_('settings.attemptsLabel')}</label>
+                <select id="endpointAttempts" bind:value={attempts} title={$_('settings.attemptsTitle')}>
+                  {#each ENDPOINT_ATTEMPTS_OPTIONS as v (v)}<option value={v}>{v}</option>{/each}
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <label for="endpointTimeout" title={$_('settings.timeoutTitle')}>{$_('settings.timeoutLabel')}</label>
+                <input id="endpointTimeout" type="text" bind:value={timeoutMs} inputmode="numeric" title={$_('settings.timeoutTitle')} placeholder={D.timeoutMs} />
+              </div>
+              <div class="col">
+                <label for="endpointConcurrency" title={$_('settings.concurrencyTitle')}>{$_('settings.concurrencyLabel')}</label>
+                <select id="endpointConcurrency" bind:value={concurrency} title={$_('settings.concurrencyTitle')}>
+                  {#each ENDPOINT_CONCURRENCY_OPTIONS as o (o.v)}
+                    <option value={o.v}>{o.v === '0' ? $_('settings.concurrencyAuto') : o.label}</option>
+                  {/each}
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <label for="stopAfter" title={$_('settings.stopAfterTitle')}>{$_('settings.stopAfter')}</label>
+                <input id="stopAfter" type="text" bind:value={stopAfter} inputmode="numeric" title={$_('settings.stopAfterTitle')} placeholder="0" />
+              </div>
+              <div class="col">
+                <Toggle bind:checked={notify} label={$_('settings.notify')} title={$_('settings.notifyTitle')} ariaLabel={$_('settings.notify')} align="field" />
+              </div>
+            </div>
+          </Disclosure>
+        </div>
       </div>
     </div>
-    <Disclosure bind:open={advOpen} summary={$_('settings.advanced')}>
-      <div class="row">
-        <div class="col">
-          <Toggle bind:checked={noise} label={$_('settings.noise')} title={$_('settings.noiseTitle')} ariaLabel={$_('settings.noise')} />
-        </div>
-        <div class="col">
-          <label for="endpointAttempts" title={$_('settings.attemptsTitle')}>{$_('settings.attemptsLabel')}</label>
-          <select id="endpointAttempts" bind:value={attempts} title={$_('settings.attemptsTitle')}>
-            {#each ENDPOINT_ATTEMPTS_OPTIONS as v (v)}<option value={v}>{v}</option>{/each}
-          </select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <label for="endpointTimeout" title={$_('settings.timeoutTitle')}>{$_('settings.timeoutLabel')}</label>
-          <input id="endpointTimeout" type="text" bind:value={timeoutMs} inputmode="numeric" title={$_('settings.timeoutTitle')} placeholder={D.timeoutMs} />
-        </div>
-        <div class="col">
-          <label for="endpointConcurrency" title={$_('settings.concurrencyTitle')}>{$_('settings.concurrencyLabel')}</label>
-          <select id="endpointConcurrency" bind:value={concurrency} title={$_('settings.concurrencyTitle')}>
-            {#each ENDPOINT_CONCURRENCY_OPTIONS as o (o.v)}
-              <option value={o.v}>{o.v === '0' ? $_('settings.concurrencyAuto') : o.label}</option>
-            {/each}
-          </select>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col">
-          <label for="stopAfter" title={$_('settings.stopAfterTitle')}>{$_('settings.stopAfter')}</label>
-          <input id="stopAfter" type="text" bind:value={stopAfter} inputmode="numeric" title={$_('settings.stopAfterTitle')} placeholder="0" />
-        </div>
-        <div class="col">
-          <Toggle bind:checked={notify} label={$_('settings.notify')} title={$_('settings.notifyTitle')} ariaLabel={$_('settings.notify')} align="field" />
-        </div>
-      </div>
-    </Disclosure>
-    <div class="scan-desc">{scanDesc}</div>
-  </div>
 
-  <div class="action-bar">
-    <button class="btn btn-primary action-primary" onclick={startScan} disabled={startDisabled} title={$_('buttons.startTitle')}>
-      {status === 'running' ? $_('scan.scanning') : $_('buttons.start')}
-    </button>
-    {#if status === 'running'}
-      <button class="btn btn-danger" onclick={stopScan} title={$_('buttons.stopTitle')}>{$_('buttons.stop')}</button>
-    {/if}
-    <div class="action-bar-rest">
+    <div class="scan-cta-row">
+      <button class="btn btn-primary action-primary" onclick={startScan} disabled={startDisabled} title={$_('buttons.startTitle')}>
+        {status === 'running' ? $_('scan.scanning') : $_('buttons.start')}
+      </button>
+      {#if status === 'running'}
+        <button class="btn btn-danger" onclick={stopScan} title={$_('buttons.stopTitle')}>{$_('buttons.stop')}</button>
+      {/if}
       <button class="btn btn-secondary btn-sm" onclick={startScan} disabled={status === 'running' || !hasResults} title={$_('buttons.rescanTitle')}>{$_('buttons.rescan')}</button>
       <button class="btn btn-ghost btn-sm" onclick={resetAll} title={$_('buttons.resetTitle')}>{$_('buttons.reset')}</button>
-    </div>
-  </div>
-
-  <div class="card" id="resultsCard">
-    <div class="section-header">
-      <h2>
-        <span class="step-num">3</span>
-        <span>{$_('results.header')}</span>
-        {#if hasResults}<span class="count-chip">{pool.length}</span>{/if}
-      </h2>
-      <div class="section-header-actions">
-        <FilterInput id="maxLatency" label={$_('results.maxLat')} title={$_('results.maxLatTitle')} bind:value={maxLatency} inputmode="numeric" />
-        <FilterInput id="outCount" label={$_('settings.outCount')} title={$_('settings.outCountTitle')} bind:value={outCount} inputmode="numeric" />
-      </div>
+      <p class="scan-cta-meta">{scanDesc}</p>
     </div>
 
-    <ScanProgress {status} {progressPct} {progressText} {summary} runningLabel={$_('scan.scanning')} />
-
-    {#if !hasResults}
-      <div class="empty-state">
-        {#if status === 'done' || status === 'cancelled'}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
-          <p>{$_('results.notFound')}{#if failInfo?.scanned > 0} ({failInfo.scanned} {$_('results.testedAllFailed')}){/if}</p>
-        {:else}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-          <p>{$_('results.empty')}</p>
-        {/if}
+    <div class="card card-results" id="resultsCard">
+      <div class="section-header">
+        <h2>
+          <span class="step-num">2</span>
+          <span>{$_('results.header')}</span>
+          {#if hasResults}<span class="count-chip">{pool.length}</span>{/if}
+        </h2>
+        <div class="section-header-actions">
+          <FilterInput id="maxLatency" label={$_('results.maxLat')} title={$_('results.maxLatTitle')} bind:value={maxLatency} inputmode="numeric" />
+          <FilterInput id="outCount" label={$_('settings.outCount')} title={$_('settings.outCountTitle')} bind:value={outCount} inputmode="numeric" />
+        </div>
       </div>
-      {#if (status === 'done' || status === 'cancelled') && failReasons.length > 0}
-        <div class="fail-panel">
-          <div class="fail-title">{$_('results.whyFailed')}</div>
-          <ul class="fail-list">
-            {#each failReasons as r (r.k)}<li><span class="fail-count">{r.n}×</span> {r.k}</li>{/each}
-          </ul>
-          {#if failExamples.length > 0}
-            <details class="fail-examples">
-              <summary>{$_('clean.failExamples')}</summary>
-              <div class="fail-ex-wrap">
-                {#each failExamples as f (f.endpoint + '|' + (f.error || ''))}
-                  <div class="fail-ex"><span class="tag">{f.endpoint}</span> <span class="fail-ex-err">{f.error || ''}</span></div>
-                {/each}
-              </div>
-            </details>
+
+      <ScanProgress {status} {progressPct} {progressText} {summary} runningLabel={$_('scan.scanning')} />
+
+      {#if !hasResults}
+        <div class="empty-state">
+          {#if status === 'done' || status === 'cancelled'}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
+            <p>{$_('results.notFound')}{#if failInfo?.scanned > 0} ({failInfo.scanned} {$_('results.testedAllFailed')}){/if}</p>
+          {:else}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <p>{$_('results.empty')}</p>
           {/if}
         </div>
+        {#if (status === 'done' || status === 'cancelled') && failReasons.length > 0}
+          <div class="fail-panel">
+            <div class="fail-title">{$_('results.whyFailed')}</div>
+            <ul class="fail-list">
+              {#each failReasons as r (r.k)}<li><span class="fail-count">{r.n}×</span> {r.k}</li>{/each}
+            </ul>
+            {#if failExamples.length > 0}
+              <details class="fail-examples">
+                <summary>{$_('clean.failExamples')}</summary>
+                <div class="fail-ex-wrap">
+                  {#each failExamples as f (f.endpoint + '|' + (f.error || ''))}
+                    <div class="fail-ex"><span class="tag">{f.endpoint}</span> <span class="fail-ex-err">{f.error || ''}</span></div>
+                  {/each}
+                </div>
+              </details>
+            {/if}
+          </div>
+        {/if}
+      {:else}
+        <ResultsActions
+          onCopyAll={copyAll}
+          onDownload={download}
+          onCSV={downloadCsv}
+          onJSON={downloadJson}
+          onQR={qrAll}
+          onSelectAll={() => selectAll(true)}
+          onDeselectAll={() => selectAll(false)}
+          onCopySelected={copySelected}
+        />
+        <ResultCharts entries={pool} showColo={false} />
+        <VirtualTable items={pool} getKey={(e) => e.endpoint} colspan={7} {header} {row} />
       {/if}
-    {:else}
-      <ResultsActions
-        onCopyAll={copyAll}
-        onDownload={download}
-        onCSV={downloadCsv}
-        onJSON={downloadJson}
-        onQR={qrAll}
-        onSelectAll={() => selectAll(true)}
-        onDeselectAll={() => selectAll(false)}
-        onCopySelected={copySelected}
-      />
-      <ResultCharts entries={pool} showColo={false} />
-      <VirtualTable items={pool} getKey={(e) => e.endpoint} colspan={7} {header} {row} />
-    {/if}
 
-    {#if liveCountN > 0}
-      <div class="live-count">{$_('results.working', { values: { n: liveCountN } })}</div>
-    {/if}
+      {#if liveCountN > 0}
+        <div class="live-count">{$_('results.working', { values: { n: liveCountN } })}</div>
+      {/if}
+    </div>
   </div>
 
-  <div class="card">
-    <HelpPanel />
-  </div>
-
-  <ScanHistory tab="endpoint" />
+  <aside class="workbench-pane" aria-label={$_('help.paneLabel')}>
+    <h3 class="workbench-pane-title">{$_('help.header')}</h3>
+    <div class="workbench-pane-body">
+      <HelpPanel dense />
+    </div>
+  </aside>
 </div>

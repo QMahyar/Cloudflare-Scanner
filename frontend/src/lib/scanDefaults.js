@@ -28,9 +28,8 @@ export const RANGE_PRESETS = [
 ]
 
 // ─── Endpoint Scanner (WARP) ───────────────────────────────────────────────
-// Native handshake is the default path: concurrency 256, timeout 6s (scanner.go).
-// Noise mode uses concurrency 12 via DefaultConcurrency when noise is on and
-// concurrency is left at 0 (auto).
+// Aggressive defaults: short handshake timeout, modest concurrency, single try.
+// Noise mode still uses DefaultConcurrency when concurrency is left at 0 (auto).
 export const ENDPOINT_DEFAULTS = {
 	useConfig: true,
 	scanDepth: '500',
@@ -38,9 +37,9 @@ export const ENDPOINT_DEFAULTS = {
 	ipVersion: '4',
 	advOpen: false,
 	noise: false,
-	timeoutMs: '6000',
-	concurrency: '0', // 0 = auto (256 native / 12 noise)
-	attempts: '2',
+	timeoutMs: '200',
+	concurrency: '25',
+	attempts: '1',
 	stopAfter: '0',
 	notify: false,
 	outCount: '0',
@@ -50,6 +49,7 @@ export const ENDPOINT_DEFAULTS = {
 /** Concurrent workers: 0 = auto. Noise path is process-heavy; keep options modest. */
 export const ENDPOINT_CONCURRENCY_OPTIONS = [
 	{ v: '0', label: 'Auto' },
+	{ v: '25', label: '25' },
 	{ v: '64', label: '64' },
 	{ v: '128', label: '128' },
 	{ v: '256', label: '256' },
@@ -57,12 +57,12 @@ export const ENDPOINT_CONCURRENCY_OPTIONS = [
 	{ v: '1024', label: '1024' },
 ]
 
-/** Per-endpoint handshake attempts (server clamps 1–5, default 2). */
+/** Per-endpoint handshake attempts (server clamps 1–5). */
 export const ENDPOINT_ATTEMPTS_OPTIONS = ['1', '2', '3']
 
 // ─── IP Scanner (clean Cloudflare IPs) ─────────────────────────────────────
-// Phase 1: TCP dial; Auto concurrency via defaultPhase1Probes(); 3s timeout.
-// Phase 2: xray batch size 16; default 16 concurrent slots = 1 process; 8s timeout.
+// Aggressive defaults: fixed moderate P1 concurrency, validate all P1 winners
+// (phase2Count 0), short dial/validate timeouts. Advanced fields remain editable.
 export const CLEAN_DEFAULTS = {
 	useConfig: true,
 	source: 'pool',
@@ -72,13 +72,14 @@ export const CLEAN_DEFAULTS = {
 	ipVersion: '4',
 	advOpen: false,
 	// 0 = server chooses (NumCPU-aware, lower on Windows).
-	phase1Probes: '0',
-	phase2Probes: '16',
-	phase2Count: '30',
+	phase1Probes: '100',
+	phase2Probes: '10',
+	// 0 = validate every Phase-1 success (backend treats 0 as unlimited).
+	phase2Count: '0',
 	ports: [443],
 	nearby: false,
-	timeout1: '3000',
-	timeout2: '8000',
+	timeout1: '200',
+	timeout2: '500',
 	stopAfter: '0',
 	notify: false,
 	outCount: '0',
@@ -101,6 +102,7 @@ export const PHASE1_PROBES_OPTIONS = [
  */
 export const PHASE2_PROBES_OPTIONS = [
 	{ v: '8', label: '8' },
+	{ v: '10', label: '10' },
 	{ v: '16', label: '16' },
 	{ v: '32', label: '32' },
 	{ v: '48', label: '48' },
@@ -108,5 +110,5 @@ export const PHASE2_PROBES_OPTIONS = [
 	{ v: '128', label: '128' },
 ]
 
-/** How many Phase-1 winners to validate through xray. */
-export const PHASE2_COUNT_OPTIONS = ['10', '20', '30', '50', '100']
+/** How many Phase-1 winners to validate through xray. 0 = all. */
+export const PHASE2_COUNT_OPTIONS = ['0', '10', '20', '30', '50', '100']

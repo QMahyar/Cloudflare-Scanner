@@ -1,6 +1,9 @@
 <script>
   import { _ } from 'svelte-i18n'
 
+  /** When true, render body only (parent provides pane chrome / summary). */
+  let { dense = false } = $props()
+
   const online = [
     { url: 'https://warp-generator.github.io/warp/', name: 'warp-generator.github.io', rec: true, desc: 'help.gen1' },
     { url: 'https://lanrat.github.io/wireguard-warp-generator/', name: 'lanrat.github.io', desc: 'help.gen2' },
@@ -25,8 +28,7 @@
   ]
 </script>
 
-<details class="help-panel">
-  <summary>{$_('help.header')}</summary>
+{#snippet body()}
   <p class="desc help-intro">{$_('help.desc')}</p>
 
   <h3 class="help-cat">
@@ -92,4 +94,15 @@
       <a class="help-link" href="https://github.com/zaneschepke/wgtunnel" target="_blank" rel="noopener">{$_('help.visit3')}</a>
     </div>
   </div>
-</details>
+{/snippet}
+
+{#if dense}
+  <div class="help-panel help-panel-dense">
+    {@render body()}
+  </div>
+{:else}
+  <details class="help-panel">
+    <summary>{$_('help.header')}</summary>
+    {@render body()}
+  </details>
+{/if}

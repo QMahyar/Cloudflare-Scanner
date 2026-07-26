@@ -11,6 +11,7 @@
   import VirtualTable from './VirtualTable.svelte'
   import SegmentedBar from './ui/SegmentedBar.svelte'
   import FileDrop from './ui/FileDrop.svelte'
+  import ReplacerResources from './ReplacerResources.svelte'
 
   // ─── Config type (proxy share-URLs vs WireGuard .conf) ───
   let ctype = $state('proxy')
@@ -276,6 +277,8 @@
   </tr>
 {/snippet}
 
+<div class="workbench">
+  <div class="workbench-main">
 <SegmentedBar
   bind:value={ctype}
   options={[
@@ -441,17 +444,23 @@
     {/if}
   </div>
 {/if}
+  </div>
 
-<div class="card">
-  <details class="help-panel">
-    <summary>{$_('repHelp.header')}</summary>
-    <p class="desc help-intro">{$_('repHelp.intro')}</p>
-    <div class="help-list">
-      <div>{@html $_('repHelp.p1')}</div>
-      <div>{@html $_('repHelp.p2')}</div>
-      <div>{@html $_('repHelp.p3')}</div>
-      <div>{@html $_('repHelp.p4')}</div>
+  <aside class="workbench-pane" aria-label={$_('replacer.res.paneLabel')}>
+    <h3 class="workbench-pane-title">{$_('replacer.res.header')}</h3>
+    <div class="workbench-pane-body">
+      <ReplacerResources dense />
+      <div class="help-panel help-panel-dense pane-help-block">
+        <h3 class="help-cat">{$_('repHelp.header')}</h3>
+        <p class="desc help-intro">{$_('repHelp.intro')}</p>
+        <div class="help-list">
+          <div>{@html $_('repHelp.p1')}</div>
+          <div>{@html $_('repHelp.p2')}</div>
+          <div>{@html $_('repHelp.p3')}</div>
+          <div>{@html $_('repHelp.p4')}</div>
+        </div>
+        <p class="desc">{$_('repHelp.tip')}</p>
+      </div>
     </div>
-    <p class="desc">{$_('repHelp.tip')}</p>
-  </details>
+  </aside>
 </div>

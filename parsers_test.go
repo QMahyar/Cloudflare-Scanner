@@ -249,9 +249,49 @@ PersistentKeepalive = 25
 }
 
 func TestParseWarpURI_MissingPrivateKey(t *testing.T) {
-	_, err := ParseWarpConfigText("wg://engage.cloudflareclient.com:2408?public_key=abc&local_address=172.16.0.2/32")
+	_, err := ParseWarpConfigText("wg://engage.cloudflareclient.com:2408?public_key=bmXOC%2BF1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo%3D&local_address=172.16.0.2/32")
 	if err == nil || !strings.Contains(err.Error(), "private_key") {
 		t.Errorf("expected private_key error, got %v", err)
+	}
+}
+
+// Throne often leaves base64 "+" and "/" unescaped. url.Query() would turn "+"
+// into a space and break the native handshake with "invalid public key".
+func TestParseWarpURI_LiteralPlusInPublicKey(t *testing.T) {
+	// Same shape as real Throne exports: public_key has raw + and /, only = is %3D.
+	raw := "wg://8.6.112.25:2408?private_key=AAUy90gYgba6YmtA6s43krn1W6dbTokUhwnTUq4763k%3D&local_address=172.16.0.2/32-2606:4700:110:8a36:df92:102a:9602:fa18/128&mtu=1280&public_key=bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo%3D&persistent_keepalive_interval=25"
+	cfg, err := ParseWarpConfigText(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wantPub := "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo="
+	if cfg.PublicKey != wantPub {
+		t.Errorf("public key corrupted: got %q want %q", cfg.PublicKey, wantPub)
+	}
+	if strings.Contains(cfg.PublicKey, " ") {
+		t.Errorf("public key still has spaces (url.Query +→space bug): %q", cfg.PublicKey)
+	}
+	if cfg.Endpoint != "8.6.112.25:2408" {
+		t.Errorf("endpoint: %q", cfg.Endpoint)
+	}
+	if len(cfg.Addresses) != 2 || cfg.Addresses[0] != "172.16.0.2/32" {
+		t.Errorf("addresses: %v", cfg.Addresses)
+	}
+}
+
+func TestParseWarpURI_PlaceholderPrivateKey(t *testing.T) {
+	raw := "wg://8.6.112.25:2408?private_key=%3Cyour-private-key%3E&local_address=172.16.0.2/32&public_key=bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo%3D"
+	_, err := ParseWarpConfigText(raw)
+	if err == nil || !strings.Contains(err.Error(), "placeholder") {
+		t.Errorf("expected placeholder error, got %v", err)
+	}
+}
+
+func TestParseWarpURI_InvalidBase64Key(t *testing.T) {
+	raw := "wg://h:1?private_key=not-valid-base64!!!&local_address=1.2.3.4/32&public_key=bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo%3D"
+	_, err := ParseWarpConfigText(raw)
+	if err == nil || !strings.Contains(err.Error(), "private key") {
+		t.Errorf("expected invalid private key error, got %v", err)
 	}
 }
 

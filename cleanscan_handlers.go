@@ -58,10 +58,14 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 		if req.Count > maxScanCount {
 			req.Count = maxScanCount
 		}
-		if req.Phase2Count <= 0 {
-			req.Phase2Count = 30
+		// 0 = validate every Phase-1 success (unlimited top-N). Positive values
+		// are clamped; negative is treated as 0 (all).
+		if req.Phase2Count < 0 {
+			req.Phase2Count = 0
 		}
-		req.Phase2Count = clampInt(req.Phase2Count, 1, maxOutCount)
+		if req.Phase2Count > 0 {
+			req.Phase2Count = clampInt(req.Phase2Count, 1, maxOutCount)
+		}
 		// 0 = Auto (resolved in runCleanScan via defaultPhase1Probes).
 		req.Phase1Probes = clampInt(req.Phase1Probes, 0, maxCleanPhase1Probes)
 		// 0 = one full batch (16); clamp keeps a user value in the safe band.

@@ -68,38 +68,6 @@ export function beginResultsPersistence() {
 	cleanData.subscribe(persistResults)
 }
 
-// ─── Scan history (cfscanner_history) ───
-const HISTORY_KEY = 'cfscanner_history'
-const HISTORY_MAX = 25
-function loadHistory() {
-	try {
-		return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]') || []
-	} catch {
-		return []
-	}
-}
-export const scanHistory = writable(loadHistory())
-
-export function recordScan(entry) {
-	scanHistory.update((list) => {
-		const next = [{ ...entry, ts: entry.ts || Date.now() }, ...list].slice(
-			0,
-			HISTORY_MAX,
-		)
-		try {
-			localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
-		} catch {}
-		return next
-	})
-}
-
-export function clearHistory() {
-	try {
-		localStorage.removeItem(HISTORY_KEY)
-	} catch {}
-	scanHistory.set([])
-}
-
 // ─── Live scan-running indicators ───
 export const endpointScanning = writable(false)
 export const cleanScanning = writable(false)
