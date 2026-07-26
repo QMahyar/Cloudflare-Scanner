@@ -34,7 +34,7 @@
     <span>{$_('help.onlineGen')}</span>
   </h3>
   <div class="link-grid">
-    {#each online as l}
+    {#each online as l (l.url)}
       <a class="link-tile" href={l.url} target="_blank" rel="noopener">
         <span class="link-tile-name"><span>{l.name}</span>{#if l.rec}<span class="rec-pill">{$_('help.recommended')}</span>{/if}</span>
         <span class="link-tile-desc">{$_(l.desc)}</span>
@@ -47,7 +47,7 @@
     <span>{$_('help.telegram')}</span>
   </h3>
   <div class="link-grid">
-    {#each telegram as l}
+    {#each telegram as l (l.url)}
       <a class="link-tile" href={l.url} target="_blank" rel="noopener">
         <span class="link-tile-name"><span>{l.name}</span></span>
         <span class="link-tile-desc">{$_(l.desc)}</span>
@@ -60,7 +60,7 @@
     <span>{$_('help.cliTools')}</span>
   </h3>
   <div class="link-grid">
-    {#each cli as l}
+    {#each cli as l (l.url)}
       <a class="link-tile" href={l.url} target="_blank" rel="noopener">
         <span class="link-tile-name"><span>{l.name}</span></span>
         <span class="link-tile-desc">{$_(l.desc)}</span>

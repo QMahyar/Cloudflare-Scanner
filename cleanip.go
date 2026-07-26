@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -71,6 +72,26 @@ func releaseCleanJobInputs(job *CleanIPJob) {
 	job.Config = nil
 }
 
+// defaultPhase1Probes picks a Phase-1 TCP concurrency when the client sends 0
+// (UI "Auto"). Goal: finish a Normal (500) depth scan quickly without blowing
+// the OS ephemeral-port budget — the dominant failure mode on Windows under a
+// fixed 500–2000 dial storm.
+func defaultPhase1Probes() int {
+	n := runtime.NumCPU() * 64
+	if n < 128 {
+		n = 128
+	}
+	if n > 500 {
+		n = 500
+	}
+	// Windows TCP stack recycles TIME_WAIT slowly; a 500-way burst routinely
+	// exhausts the default ephemeral range under load. Cap lower there.
+	if runtime.GOOS == "windows" && n > 256 {
+		n = 256
+	}
+	return n
+}
+
 func runCleanScan(job *CleanIPJob, xrayPath string) {
 	defer scheduleCleanJobCleanup(job.ID)
 
@@ -85,7 +106,10 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 	}()
 
 	phase1Timeout := 3 * time.Second
-	phase2Timeout := 5 * time.Second
+	// Phase-2 needs headroom for TLS + WS upgrade + VLESS handshake + the 204
+	// probe. 5s was tight on high-latency links and produced false negatives
+	// ("connection reset" / "http read timeout") even when the edge was fine.
+	phase2Timeout := 8 * time.Second
 	// User-configurable per-probe TCP dial timeout for phase 1 (the reachability
 	// probe). 0 keeps the default. Validated/clamped server-side.
 	if job.TimeoutMs > 0 {
@@ -99,11 +123,16 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 
 	p1Probes := job.Phase1Probes
 	if p1Probes <= 0 {
-		p1Probes = 500
+		// Auto: scale with CPU, but cap lower on Windows where a 500–2000-way
+		// dial burst exhausts the ephemeral port pool and looks like "connection
+		// closed" on otherwise-healthy networks. Matches the UI "Auto" option.
+		p1Probes = defaultPhase1Probes()
 	}
 	p2Probes := job.Phase2Probes
 	if p2Probes <= 0 {
-		p2Probes = 12
+		// One full xray batch (phase2BatchSize = 16) is the sweet spot: enough
+		// parallelism without spawning many processes. Was 12 (a partial batch).
+		p2Probes = 16
 	}
 
 	job.mu.Lock()

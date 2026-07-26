@@ -57,7 +57,7 @@ func runCleanPhase1TCP(ctx context.Context, endpoints []string, timeout time.Dur
 	var mu sync.Mutex
 	var lastPub time.Time
 	if concurrency <= 0 {
-		concurrency = 500
+		concurrency = defaultPhase1Probes()
 	}
 	if len(endpoints) < concurrency {
 		concurrency = len(endpoints)

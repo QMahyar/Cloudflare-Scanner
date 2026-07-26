@@ -29,7 +29,8 @@
   let fetchStatus = $state(null) // {ok, msg}
   let parseStatus = $state(null)
 
-  let configs = $state([])
+  // API config list is replaced wholesale; deep proxying every field is wasted work.
+  let configs = $state.raw([])
   let cfgSelected = $state(new Set())
   let cfgSort = $state({ field: 'num', dir: 'asc' })
 
@@ -249,11 +250,11 @@
 
 {#snippet cfgRow(c, i, measure)}
   {@const idx = configs.indexOf(c)}
-  <tr data-index={i} use:measure>
+  <tr data-index={i} {@attach measure}>
     <td class="checkbox-cell"><input type="checkbox" checked={cfgSelected.has(idx)} onchange={(e) => toggleCfg(idx, e.currentTarget.checked)} /></td>
     <td class="num">{i + 1}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }}>{c.address}</span></td>
+    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) }} {@attach activateKey(() => { copyToClipboard(c.address); showToast($_('copied.clipboard')) })}>{c.address}</span></td>
     <td>{c.port}</td>
     <td><span class="replacer-config-remark" title={c.remark || ''}>{c.remark || c.protocol + '://' + (c.uuid || '').substring(0, 8) + '…'}</span></td>
   </tr>
@@ -264,10 +265,10 @@
 {/snippet}
 
 {#snippet genRow(u, i, measure)}
-  <tr data-index={i} use:measure>
+  <tr data-index={i} {@attach measure}>
     <td class="num">{i + 1}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <td class="mono-break"><span class="tag" role="button" tabindex="0" onclick={() => copyRow(u)} use:activateKey={() => copyRow(u)} title={$_('replacer.copyAllTitle')}>{u.length > 100 ? u.substring(0, 100) + '…' : u}</span></td>
+    <td class="mono-break"><span class="tag" role="button" tabindex="0" onclick={() => copyRow(u)} {@attach activateKey(() => copyRow(u))} title={$_('replacer.copyAllTitle')}>{u.length > 100 ? u.substring(0, 100) + '…' : u}</span></td>
     <td class="actions-cell">
       <button class="btn btn-secondary btn-sm" onclick={() => copyRow(u)} title={$_('replacer.copyAllTitle')}>{$_('buttons.copy')}</button>
       <button class="btn btn-secondary btn-sm" onclick={() => rowQR(u)}>QR</button>
@@ -414,7 +415,7 @@
     {#if applyStatus}
       <div class="status-slot">
         <div class={applyStatus.ok ? 'success-msg' : 'error-msg'}>{applyStatus.msg}</div>
-        {#each failedResults as r}<div class="error-msg apply-error">{r.name}: {r.error}</div>{/each}
+        {#each failedResults as r (r.name + '|' + (r.error || ''))}<div class="error-msg apply-error">{r.name}: {r.error}</div>{/each}
       </div>
     {/if}
     {#if goodResults.length > 0}

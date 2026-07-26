@@ -1,4 +1,5 @@
 <script>
+  import { onMount } from 'svelte'
   import { _ } from 'svelte-i18n'
   import { apiJSON } from '../lib/api.js'
   import { copyToClipboard } from '../lib/clipboard.js'
@@ -7,6 +8,7 @@
 
   // Receiving addresses. The TRON address also receives USDT-TRC20 (recommended);
   // the EVM address is the same across all EVM chains; TON receives native USDT.
+  // Constants — not reactive.
   const DONATE = {
     trx: 'TD2QrQFpW9QkUzhhH6X8QQEg12uH8wcQGg',
     ton: 'UQCOVixrzJdJ1pGus4zY7oTRpXs8D8mFv-8L6r0kYP5AQi68',
@@ -23,9 +25,11 @@
   let version = $state('—')
   let repoURL = $state('https://github.com/')
   let checking = $state(false)
-  let updateStatus = $state(null) // {ok, html-less: msg, url?, isUpdate}
+  // $state.raw: status object is always replaced wholesale, never mutated.
+  let updateStatus = $state.raw(null) // {ok, msg, url?, isUpdate}
 
-  $effect(() => {
+  // One-shot fetch on mount — not an effect that re-runs on state reads.
+  onMount(() => {
     apiJSON('/api/version').then((d) => {
       if (d.version) version = 'v' + d.version.replace(/^v/i, '')
       if (d.repo_url) repoURL = d.repo_url
@@ -39,7 +43,8 @@
   function addrQR(kind) { showQR(DONATE[kind]) }
 
   async function checkUpdate() {
-    checking = true; updateStatus = null
+    checking = true
+    updateStatus = null
     try {
       const d = await apiJSON('/api/update-check')
       if (d.update_available) {
@@ -85,7 +90,7 @@
   </h2>
   <p class="desc">{$_('about.donateDesc')}</p>
 
-  {#each COINS as c}
+  {#each COINS as c (c.kind)}
     <div class="donate-row">
       <div class="donate-coin">
         <span class="donate-badge">{c.badge}</span>

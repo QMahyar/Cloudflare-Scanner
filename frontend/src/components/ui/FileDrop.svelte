@@ -35,7 +35,7 @@
     {disabled}
     onchange={handleChange}
   />
-  <div class="file-label" class:selected={hasFile} {title}>
+  <div class={['file-label', { selected: hasFile }]} {title}>
     {#if icon}{@render icon()}{/if}
     <span>{display}</span>
   </div>

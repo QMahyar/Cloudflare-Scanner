@@ -20,7 +20,7 @@
         <button class="btn btn-ghost btn-sm" onclick={clearHistory}>{$_('history.clear')}</button>
       </div>
       <div class="hist-list">
-        {#each items as h}
+        {#each items as h (h.ts + '|' + h.label + '|' + h.found)}
           <div class="hist-row">
             <span class="hist-label">{h.label}</span>
             <span class="hist-meta">

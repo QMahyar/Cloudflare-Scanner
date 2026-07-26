@@ -8,7 +8,7 @@
   } = $props()
 </script>
 
-<details class={className} bind:open>
+<details class={[className]} bind:open>
   <summary>{summary}</summary>
   {@render children?.()}
 </details>

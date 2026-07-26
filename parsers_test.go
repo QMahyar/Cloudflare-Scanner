@@ -153,6 +153,131 @@ PublicKey  = BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
 	}
 }
 
+// Throne / v2rayN-style share URI. private_key is URL-encoded base64 (trailing
+// %3D), local_address uses '-' as the dual-stack separator, reserved uses '-'.
+func TestParseWarpURI_WGScheme(t *testing.T) {
+	raw := "wg://engage.cloudflareclient.com:2408?private_key=AAUy90gYgba6YmtA6s43krn1W6dbTokUhwnTUq4763k%3D&local_address=172.16.0.2/32-2606:4700:110:8d3c:8476:1644:5924:f539/128&mtu=1280&public_key=bmXOC%2BF1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo%3D&reserved=255-212-70&persistent_keepalive_interval=30"
+	cfg, err := ParseWarpConfigText(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.PrivateKey != "AAUy90gYgba6YmtA6s43krn1W6dbTokUhwnTUq4763k=" {
+		t.Errorf("wrong PrivateKey: %q", cfg.PrivateKey)
+	}
+	if cfg.PublicKey != "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=" {
+		t.Errorf("wrong PublicKey: %q", cfg.PublicKey)
+	}
+	if len(cfg.Addresses) != 2 {
+		t.Fatalf("expected 2 addresses, got %v", cfg.Addresses)
+	}
+	if cfg.Addresses[0] != "172.16.0.2/32" {
+		t.Errorf("v4 address: %q", cfg.Addresses[0])
+	}
+	if cfg.Addresses[1] != "2606:4700:110:8d3c:8476:1644:5924:f539/128" {
+		t.Errorf("v6 address: %q", cfg.Addresses[1])
+	}
+	if len(cfg.Reserved) != 3 || cfg.Reserved[0] != 255 || cfg.Reserved[1] != 212 || cfg.Reserved[2] != 70 {
+		t.Errorf("wrong Reserved: %v", cfg.Reserved)
+	}
+	if cfg.MTU != 1280 {
+		t.Errorf("wrong MTU: %d", cfg.MTU)
+	}
+	if cfg.Endpoint != "engage.cloudflareclient.com:2408" {
+		t.Errorf("wrong Endpoint: %q", cfg.Endpoint)
+	}
+}
+
+func TestParseWarpURI_WireGuardScheme(t *testing.T) {
+	raw := "wireguard://engage.cloudflareclient.com:2408?private_key=AAUy90gYgba6YmtA6s43krn1W6dbTokUhwnTUq4763k%3D&local_address=172.16.0.2/32-2606:4700:110:8d3c:8476:1644:5924:f539/128&mtu=1280&public_key=bmXOC%2BF1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo%3D&reserved=255-212-70"
+	cfg, err := ParseWarpConfigText(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.PrivateKey == "" || cfg.PublicKey == "" {
+		t.Fatalf("missing keys: priv=%q pub=%q", cfg.PrivateKey, cfg.PublicKey)
+	}
+	if len(cfg.Addresses) != 2 {
+		t.Fatalf("expected 2 addresses, got %v", cfg.Addresses)
+	}
+}
+
+// Standard INI paste (no file) with AmneziaWG junk keys + dual-stack Address.
+func TestParseWarpConfigText_INIWithAmnezia(t *testing.T) {
+	conf := `[Interface]
+PrivateKey = 39l0houfixtSIA4O3MQRDMX5fBNUQw72H+RivqX2EbI=
+Address = 172.16.0.2/32, 2606:4700:110:8d4a:ca6:b507:215:d04f/128
+DNS = 1.1.1.1
+MTU = 1280
+Jc = 5
+Jmin = 50
+Jmax = 100
+S1 = 0
+S2 = 0
+H1 = 1
+H2 = 2
+H3 = 3
+H4 = 4
+
+[Peer]
+PublicKey = bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=
+AllowedIPs = 0.0.0.0/0, ::/0
+Endpoint = engage.cloudflareclient.com:2408
+PersistentKeepalive = 25
+`
+	cfg, err := ParseWarpConfigText(conf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.PrivateKey != "39l0houfixtSIA4O3MQRDMX5fBNUQw72H+RivqX2EbI=" {
+		t.Errorf("PrivateKey: %q", cfg.PrivateKey)
+	}
+	if cfg.PublicKey != "bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo=" {
+		t.Errorf("PublicKey: %q", cfg.PublicKey)
+	}
+	if len(cfg.Addresses) != 2 {
+		t.Fatalf("addresses: %v", cfg.Addresses)
+	}
+	if cfg.Jc != 5 || cfg.Jmin != 50 || cfg.Jmax != 100 {
+		t.Errorf("junk params: Jc=%d Jmin=%d Jmax=%d", cfg.Jc, cfg.Jmin, cfg.Jmax)
+	}
+	if cfg.H1 != 1 || cfg.H2 != 2 || cfg.H3 != 3 || cfg.H4 != 4 {
+		t.Errorf("H params: %d %d %d %d", cfg.H1, cfg.H2, cfg.H3, cfg.H4)
+	}
+	if cfg.Endpoint != "engage.cloudflareclient.com:2408" {
+		t.Errorf("Endpoint: %q", cfg.Endpoint)
+	}
+}
+
+func TestParseWarpURI_MissingPrivateKey(t *testing.T) {
+	_, err := ParseWarpConfigText("wg://engage.cloudflareclient.com:2408?public_key=abc&local_address=172.16.0.2/32")
+	if err == nil || !strings.Contains(err.Error(), "private_key") {
+		t.Errorf("expected private_key error, got %v", err)
+	}
+}
+
+func TestBuildXrayJSON_WSHostTopLevelAndHeaders(t *testing.T) {
+	// Phase-2 WS configs must emit both the modern top-level host field and the
+	// legacy headers.Host so CDN routing works on every xray pin.
+	cfg := &ProxyConfig{
+		Protocol: "vless", UUID: "u", Address: "1.2.3.4", Port: 443,
+		Security: "tls", SNI: "edge.example.com", Network: "ws", Path: "/",
+		Host: "edge.example.com",
+	}
+	path, _, err := cfg.BuildXrayJSONBatch([]string{"1.2.3.4:443"}, 35990)
+	if err != nil {
+		t.Fatalf("BuildXrayJSONBatch error: %v", err)
+	}
+	defer os.RemoveAll(filepath.Dir(path))
+	data, _ := os.ReadFile(path)
+	js := string(data)
+	if !strings.Contains(js, `"host": "edge.example.com"`) {
+		t.Errorf("missing top-level ws host:\n%s", js)
+	}
+	if !strings.Contains(js, `"Host": "edge.example.com"`) {
+		t.Errorf("missing headers.Host fallback:\n%s", js)
+	}
+}
+
 func writeTempConf(t *testing.T, content string) string {
 	t.Helper()
 	f, err := os.CreateTemp("", "warp-*.conf")

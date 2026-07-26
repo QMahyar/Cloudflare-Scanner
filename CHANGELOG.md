@@ -9,6 +9,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v3.10.0] — 2026-07-26
+
+Clean-IP Phase 2 reliability, WARP share-URI paste, scanner defaults, and Svelte 5 cleanup.
+
+### Fixed
+- Clean-IP Phase 2 now retries whole-batch failures (cold xray starts and single-endpoint batches no longer skip retry).
+- Phase 2 default timeout raised to 8s; xray startup budget scales with batch size and surfaces stderr/log causes.
+- WebSocket validation emits top-level `wsSettings.host` plus `headers.Host` for xray v26 CDN routing.
+- Phase 1 TCP concurrency Auto scales with CPU and caps lower on Windows to avoid ephemeral-port exhaustion.
+
+### Added
+- Endpoint Scanner accepts pasted WireGuard INI, `wg://`, and `wireguard://` (Throne-style) configs, not only file upload.
+- Shared `scanDefaults.js` for depth/ports/probe presets; endpoint attempts control and Auto concurrency selects.
+- Phase 2 probe options aligned to full xray batches (16-slot steps).
+
+### Changed
+- Removed legacy `vless_url` API alias (use `config_url` only).
+- Removed unused UI primitives (`Field`, `StepCard`), settings migration layer, and debug scratch.
+- Frontend modernized to Svelte 5 attachments, keyed each blocks, and clsx-style `class` objects.
+
+---
+
 ## [v3.9.0] — 2026-07-26
 
 Improved scan result visibility, live-update reliability, and local frontend testing.

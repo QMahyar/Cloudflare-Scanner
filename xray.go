@@ -269,9 +269,16 @@ func BatchProbe(ctx context.Context, xrayPath, configPath string, endpoints []st
 		}
 	}()
 
-	// Wait for the highest inbound port — xray binds in order.
+	// Wait for the highest inbound port — xray binds inbounds in array order.
+	// Budget scales with batch size: a 16-endpoint process can take longer to
+	// bind every SOCKS port than a single-endpoint one, and a flat 6s budget
+	// was a common false "startup timeout" under load.
 	lastAddr := fmt.Sprintf("127.0.0.1:%d", basePort+len(endpoints)-1)
-	startupDeadline := time.Now().Add(6 * time.Second)
+	startupBudget := 6*time.Second + time.Duration(len(endpoints))*200*time.Millisecond
+	if startupBudget > 15*time.Second {
+		startupBudget = 15 * time.Second
+	}
+	startupDeadline := time.Now().Add(startupBudget)
 	started := false
 	for time.Now().Before(startupDeadline) {
 		select {
@@ -288,6 +295,11 @@ func BatchProbe(ctx context.Context, xrayPath, configPath string, endpoints []st
 			started = true
 			break
 		}
+		// If the process already exited, don't burn the full budget — surface
+		// the real config/runtime error from stderr/log instead.
+		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+			break
+		}
 		select {
 		case <-ctx.Done():
 			for i := range results {
@@ -298,10 +310,27 @@ func BatchProbe(ctx context.Context, xrayPath, configPath string, endpoints []st
 		}
 	}
 	if !started {
+		cause := readXrayStartupCause(filepath.Dir(configPath))
+		errMsg := "xray startup timeout"
+		if cause != "" {
+			errMsg = "xray startup timeout: " + cause
+		}
 		for i := range results {
-			results[i] = probeResult{Endpoint: endpoints[i], Error: "xray startup timeout"}
+			results[i] = probeResult{Endpoint: endpoints[i], Error: errMsg}
 		}
 		return results
+	}
+
+	// Brief settle so every inbound (not just the last) is accept-ready before
+	// the concurrent probe storm. Without this, the first probe on a cold
+	// multi-inbound process can race the remaining binds.
+	select {
+	case <-ctx.Done():
+		for i := range results {
+			results[i] = probeResult{Endpoint: endpoints[i], Error: "cancelled"}
+		}
+		return results
+	case <-time.After(50 * time.Millisecond):
 	}
 
 	// Probe every endpoint concurrently.
@@ -322,6 +351,43 @@ func BatchProbe(ctx context.Context, xrayPath, configPath string, endpoints []st
 	wg.Wait()
 
 	return results
+}
+
+// readXrayStartupCause pulls a short, actionable reason from the batch's stderr
+// and xray.log when the process never became ready. Without this, every endpoint
+// just says "xray startup timeout" and the user can't tell a bad config from a
+// missing binary from AV killing the child.
+func readXrayStartupCause(dir string) string {
+	for _, name := range []string{"stderr.log", "xray.log"} {
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil || len(data) == 0 {
+			continue
+		}
+		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+		for i := len(lines) - 1; i >= 0; i-- {
+			l := strings.TrimSpace(lines[i])
+			if l == "" {
+				continue
+			}
+			low := strings.ToLower(l)
+			if strings.Contains(low, "error") || strings.Contains(low, "failed") ||
+				strings.Contains(low, "invalid") || strings.Contains(low, "panic") ||
+				strings.Contains(low, "rejected") {
+				if len(l) > 200 {
+					l = l[:200] + "…"
+				}
+				return l
+			}
+		}
+		// Fall back to the last non-empty line so a silent crash still leaves a clue.
+		if l := strings.TrimSpace(lines[len(lines)-1]); l != "" {
+			if len(l) > 200 {
+				l = l[:200] + "…"
+			}
+			return l
+		}
+	}
+	return ""
 }
 
 // VerifyXrayRunnable confirms the xray binary actually executes — not just that

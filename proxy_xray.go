@@ -246,26 +246,33 @@ func (c *ProxyConfig) buildStreamSettings() json.RawMessage {
 		if wsPath == "" {
 			wsPath = "/"
 		}
-		wsCfg := WSSettings{
-			Path:                wsPath,
-			MaxEarlyData:        c.MaxEarlyData,
-			EarlyDataHeaderName: c.EarlyDataHeaderName,
-		}
-		// Cloudflare routes CDN-fronted configs by the WS Host header. Real
-		// clients (and GenerateShareURL) fall back to the SNI when no explicit
-		// host= is present; mirror that here so validation hits the same origin
-		// the exported config would — otherwise xray sends Host:<edge-IP> and
+		// Cloudflare routes CDN-fronted configs by the WS Host. Real clients
+		// (and GenerateShareURL) fall back to the SNI when no explicit host= is
+		// present; mirror that here so validation hits the same origin the
+		// exported config would — otherwise xray sends Host:<edge-IP> and
 		// Cloudflare can't route, failing every Phase-2 check.
+		//
+		// xray-core v26 prefers the top-level `host` field (headers.Host is
+		// deprecated). Emit BOTH: `host` for current xray, headers.Host for
+		// older sidecars still in the wild.
 		wsHost := c.Host
 		if wsHost == "" {
 			wsHost = c.SNI
 		}
-		if wsHost != "" {
-			wsCfg.Headers = map[string]string{
-				"Host": wsHost,
-			}
+		wsObj := map[string]interface{}{
+			"path": wsPath,
 		}
-		wsJSON, _ := json.Marshal(wsCfg)
+		if c.MaxEarlyData > 0 {
+			wsObj["maxEarlyData"] = c.MaxEarlyData
+		}
+		if c.EarlyDataHeaderName != "" {
+			wsObj["earlyDataHeaderName"] = c.EarlyDataHeaderName
+		}
+		if wsHost != "" {
+			wsObj["host"] = wsHost
+			wsObj["headers"] = map[string]string{"Host": wsHost}
+		}
+		wsJSON, _ := json.Marshal(wsObj)
 		ss.WSSettings = wsJSON
 
 	case "grpc":

@@ -77,24 +77,27 @@ func handleScanStart(xrayPath string) http.HandlerFunc {
 		}
 
 		var cfg *WarpConfig
+		// Prefer an uploaded file; fall back to a pasted body (INI .conf text or
+		// a Throne-style wg:// / wireguard:// URI). Both go through the same
+		// ParseWarpConfigText so reserved/local_address/Amnezia keys stay consistent.
 		file, _, err := r.FormFile("config")
 		if err == nil {
 			defer file.Close()
-			tmpFile, err := os.CreateTemp("", "warp-*.conf")
-			if err != nil {
-				jsonError(w, fmt.Sprintf("temp file: %v", err), 500)
+			body, rerr := io.ReadAll(io.LimitReader(file, 1<<20))
+			if rerr != nil {
+				jsonError(w, fmt.Sprintf("read uploaded config: %v", rerr), 400)
 				return
 			}
-			defer os.Remove(tmpFile.Name())
-			if _, err := io.Copy(tmpFile, file); err != nil {
-				tmpFile.Close()
-				jsonError(w, fmt.Sprintf("read uploaded config: %v", err), 400)
-				return
-			}
-			tmpFile.Close()
-			cfg, err = ParseWarpConfig(tmpFile.Name())
+			cfg, err = ParseWarpConfigText(string(body))
 			if err != nil {
 				jsonError(w, fmt.Sprintf("%v", err), 400)
+				return
+			}
+		} else if paste := strings.TrimSpace(r.FormValue("config_text")); paste != "" {
+			var perr error
+			cfg, perr = ParseWarpConfigText(paste)
+			if perr != nil {
+				jsonError(w, fmt.Sprintf("%v", perr), 400)
 				return
 			}
 		}

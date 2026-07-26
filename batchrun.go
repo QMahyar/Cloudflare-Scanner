@@ -8,13 +8,14 @@ import (
 
 // runBatches is the shared pooled-batch orchestrator for the two xray scan paths
 // (WARP noise fallback and clean-IP Phase 2). It splits endpoints into batches of
-// batchSize, runs up to concurrentBatches validate() calls at once, retries an
-// endpoint's failures ONCE in a fresh follow-up batch — unless the WHOLE batch
-// failed (systemic: broken xray / wrong config / every endpoint dead), where a
-// second spawn only doubles cost for no benefit — marks retried results via
-// markRetried, and hands each completed batch to onBatch. It stops launching new
-// batches once ctx or cancel fires, and keeps partial results (onBatch decides
-// what to do with a late batch). Returns true if it was cancelled mid-run.
+// batchSize, runs up to concurrentBatches validate() calls at once, retries every
+// failed endpoint ONCE in a fresh follow-up batch (including all-failed batches —
+// a cold xray start, TLS handshake race, or transient edge 403 often wipes a whole
+// first attempt, and skipping the retry was the dominant "Phase 2 returns nothing"
+// failure mode on otherwise-good networks), marks retried results via markRetried,
+// and hands each completed batch to onBatch. It stops launching new batches once
+// ctx or cancel fires, and keeps partial results (onBatch decides what to do with
+// a late batch). Returns true if it was cancelled mid-run.
 //
 // allocPort returns a fresh non-overlapping SOCKS base port per validate call;
 // the caller owns the port-band math. validate runs one batch against its base
@@ -77,7 +78,12 @@ func runBatches[T any](
 					retryEps = append(retryEps, batch[i])
 				}
 			}
-			if len(retryEps) > 0 && len(retryEps) < len(batch) {
+			// Always retry failures once, even when the whole batch failed.
+			// Total-failure skip used to avoid a second spawn on "broken xray /
+			// dead config", but it also discarded recoverable cold-start and
+			// transient edge failures — and a single-endpoint batch always
+			// looked "total", so it never retried at all.
+			if len(retryEps) > 0 {
 				select {
 				case <-ctx.Done():
 				default:

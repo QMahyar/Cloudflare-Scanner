@@ -285,7 +285,7 @@ func TestSummarizeFailure(t *testing.T) {
 	}{
 		{
 			"xray startup timeout",
-			"xray didn't come up in time (slow start or crash)",
+			"xray didn't come up in time (slow start, crash, or bad config)",
 		},
 		{
 			"start xray: permission denied",

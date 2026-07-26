@@ -16,9 +16,13 @@
     <label for={id || undefined} {title}>{label}</label>
   {/if}
   <input
-    class="compact-input"
-    class:compact-input-colo={width === 'colo'}
-    class:compact-input-auto={width === 'auto'}
+    class={[
+      'compact-input',
+      {
+        'compact-input-colo': width === 'colo',
+        'compact-input-auto': width === 'auto',
+      },
+    ]}
     {id}
     type="text"
     bind:value

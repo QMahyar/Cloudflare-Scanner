@@ -11,7 +11,7 @@
   } = $props()
 </script>
 
-<div class="toggle-wrap" class:toggle-align-field={align === 'field'}>
+<div class={['toggle-wrap', { 'toggle-align-field': align === 'field' }]}>
   <label class="toggle" {title} aria-label={ariaLabel || label}>
     <input type="checkbox" bind:checked {disabled} />
     <span class="slider"></span>

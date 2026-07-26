@@ -4,10 +4,13 @@
   // Mirror the original showToast(): fade in via .show on the next frame, fade
   // out after the store hides it, then drop from layout 300ms later (matching
   // the CSS transition) so the invisible toast never traps pointer events.
+  // $effect is appropriate here: we are syncing an external store to local
+  // animation state (timers + rAF), not deriving a pure value.
   let display = $state(false)
   let shown = $state(false)
   let msg = $state('')
   let error = $state(false)
+  // Non-reactive timer handle — never read from the template.
   let hideTimer
 
   $effect(() => {
@@ -28,6 +31,6 @@
 
 {#if display}
   <div class="toast-container">
-    <div class="toast" class:show={shown} class:error role="status" aria-live="polite">{msg}</div>
+    <div class={['toast', { show: shown, error }]} role="status" aria-live="polite">{msg}</div>
   </div>
 {/if}

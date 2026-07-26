@@ -57,6 +57,6 @@ func TestHandleCleanScanResultsReturnsBothPhases(t *testing.T) {
 		t.Fatalf("phase2_entries=%+v", response.Phase2Entries)
 	}
 	if len(response.Entries) != 1 || response.Entries[0].Endpoint != "2.2.2.2:443" {
-		t.Fatalf("legacy entries=%+v", response.Entries)
+		t.Fatalf("entries=%+v", response.Entries)
 	}
 }

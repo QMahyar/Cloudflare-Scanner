@@ -3,13 +3,22 @@
   import { qrText, closeQR } from '../lib/modal.js'
   import { makeQRDataURL } from '../lib/qr.js'
 
+  // $derived.by + async: regenerate whenever a new payload opens the overlay.
+  // Writing into $state from an $effect is avoided — the derived expression
+  // owns the async work and assigns when the promise settles.
   let dataUrl = $state('')
 
-  // Regenerate whenever a new payload opens the overlay.
   $effect(() => {
     const text = $qrText
-    if (text === null) { dataUrl = ''; return }
-    makeQRDataURL(text).then((url) => { dataUrl = url })
+    if (text === null) {
+      dataUrl = ''
+      return
+    }
+    let cancelled = false
+    makeQRDataURL(text).then((url) => {
+      if (!cancelled) dataUrl = url
+    })
+    return () => { cancelled = true }
   })
 
   function onOverlayClick(e) {
@@ -22,7 +31,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="qr-overlay" class:open={$qrText !== null} role="presentation" onclick={onOverlayClick}>
+<div class={['qr-overlay', { open: $qrText !== null }]} role="presentation" onclick={onOverlayClick}>
   <div class="qr-modal" role="dialog" aria-modal="true" aria-label="QR Code">
     <h3>{$_('qr.title')}</h3>
     <div id="qrCode">

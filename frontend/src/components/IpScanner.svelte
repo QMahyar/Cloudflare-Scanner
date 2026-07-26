@@ -13,6 +13,16 @@
   import { subscribeStatus } from '../lib/sse.js'
   import { mergeCleanResults } from '../lib/results.js'
   import { cleanData, activeTab, getSetting, setSetting, recordScan, cleanScanning } from '../lib/stores.js'
+  import {
+    SCAN_DEPTHS,
+    HTTPS_PORTS,
+    HTTP_PORTS,
+    RANGE_PRESETS,
+    CLEAN_DEFAULTS as D,
+    PHASE1_PROBES_OPTIONS,
+    PHASE2_PROBES_OPTIONS,
+    PHASE2_COUNT_OPTIONS,
+  } from '../lib/scanDefaults.js'
   import { pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
   import VirtualTable from './VirtualTable.svelte'
   import ScanProgress from './ScanProgress.svelte'
@@ -24,41 +34,33 @@
   import Disclosure from './ui/Disclosure.svelte'
   import FilterInput from './ui/FilterInput.svelte'
 
-  // Official published Cloudflare ranges (cloudflare.com/ips).
+  // Official published Cloudflare ranges (cloudflare.com/ips) — full lists for
+  // the "All CF v4/v6" chips. Compact RANGE_PRESETS live in scanDefaults.js.
   const CF_V4_RANGES = ['173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22']
   const CF_V6_RANGES = ['2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32', '2405:8100::/32', '2a06:98c0::/29', '2c0f:f248::/32']
 
-  const RANGE_PRESETS = ['104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '162.159.0.0/16', '188.114.96.0/20', '198.41.128.0/17', '2606:4700::/32']
-  const DEPTHS = [
-    { v: '100', k: 'settings.depth.quick' },
-    { v: '500', k: 'settings.depth.normal' },
-    { v: '1000', k: 'settings.depth.deep' },
-    { v: '5000', k: 'settings.depth.insane' },
-    { v: '10000', k: 'settings.depth.massive' },
-    { v: '0', k: 'settings.depth.custom' },
-  ]
-  const HTTPS_PORTS = [443, 8443, 2053, 2083, 2087, 2096]
-  const HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095]
-
   // ─── Settings (persisted under the original cfscanner_settings keys) ───
-  let useConfig = $state(getSetting('useConfigClean', true))
+  // Defaults live in scanDefaults.js and match cleanip.go / cleanscan_handlers.go.
+  let useConfig = $state(getSetting('useConfigClean', D.useConfig))
   let vlessURL = $state(getSetting('cleanVlessURL', ''))
-  let source = $state(getSetting('cleanSource', 'pool'))
-  let customRanges = $state(getSetting('cleanCustomRanges', ''))
-  let scanDepth = $state(getSetting('cleanDepth', '500'))
-  let customCount = $state(getSetting('cleanCustomCount', ''))
-  let ipVersion = $state(getSetting('cleanIPVersion', '4'))
-  let advOpen = $state(getSetting('cleanAdv', false))
-  let phase1Probes = $state(getSetting('phase1Probes', '500'))
-  let phase2Probes = $state(getSetting('phase2Probes', '12'))
+  let source = $state(getSetting('cleanSource', D.source))
+  let customRanges = $state(getSetting('cleanCustomRanges', D.customRanges))
+  let scanDepth = $state(getSetting('cleanDepth', D.scanDepth))
+  let customCount = $state(getSetting('cleanCustomCount', D.customCount))
+  let ipVersion = $state(getSetting('cleanIPVersion', D.ipVersion))
+  let advOpen = $state(getSetting('cleanAdv', D.advOpen))
+  let phase1Probes = $state(String(getSetting('phase1Probes', D.phase1Probes)))
+  let phase2Probes = $state(String(getSetting('phase2Probes', D.phase2Probes)))
   // Validate a few more Phase-1 hits so the best edge isn't missed on sparse pools.
-  let phase2Count = $state(getSetting('cleanPhase2', '30'))
-  let ports = $state(getSetting('cleanPorts', [443]))
-  let nearby = $state(getSetting('nearbyScan', false))
-  let timeout1 = $state(getSetting('cleanTimeout', '2500'))
-  let timeout2 = $state(getSetting('cleanPhase2Timeout', '6000'))
-  let stopAfter = $state(getSetting('cleanStopAfter', '0'))
-  let notify = $state(getSetting('notifyClean', false))
+  let phase2Count = $state(String(getSetting('cleanPhase2', D.phase2Count)))
+  // Ports list is reassigned as a whole on toggle/preset — $state.raw avoids proxy overhead.
+  let ports = $state.raw(getSetting('cleanPorts', D.ports))
+  let nearby = $state(getSetting('nearbyScan', D.nearby))
+  let timeout1 = $state(getSetting('cleanTimeout', D.timeout1))
+  // Phase-2 default 8s matches the server default — headroom for TLS+WS+VLESS+204.
+  let timeout2 = $state(getSetting('cleanPhase2Timeout', D.timeout2))
+  let stopAfter = $state(getSetting('cleanStopAfter', D.stopAfter))
+  let notify = $state(getSetting('notifyClean', D.notify))
 
   $effect(() => {
     setSetting('useConfigClean', useConfig)
@@ -82,8 +84,8 @@
 
   // ─── Results filters ───
   let coloFilter = $state('')
-  let maxLatency = $state('0')
-  let outCount = $state('0')
+  let maxLatency = $state(D.maxLatency)
+  let outCount = $state(D.outCount)
   let sort = $state({ field: 'score', dir: 'desc' }) // rank by overall quality by default
   let list = $state('direct') // direct | nearby
   let phaseView = $state('all') // all | phase1 | phase2
@@ -458,10 +460,10 @@
 {/snippet}
 
 {#snippet row(e, i, measure)}
-  <tr data-index={i} use:measure>
+  <tr data-index={i} {@attach measure}>
     <td class="num">{i + 1}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
+    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} {@attach activateKey(() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) })} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
     <td class="lat-cell {scoreClass(e.score)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{scoreBar(e.score)}%"></span></span><span class="lat-val">{e.score || '—'}</span></td>
     <td class="lat-cell {latClass(e.latency)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{latBar(e.latency)}%"></span></span><span class="lat-val">{e.latency}</span></td>
     <td class="lat-cell {e.score ? lossClass(e.loss) : ''}"><span class="lat-val">{e.score ? fmtLoss(e.loss) : '—'}</span></td>
@@ -484,7 +486,7 @@
     <div class="row">
       <div class="col">
         <Toggle bind:checked={useConfig} label={$_('clean.useConfig')} title={$_('clean.useConfigTitle')} ariaLabel={$_('clean.useConfig')} />
-        <div class:config-fields-disabled={!useConfig}>
+        <div class={{ 'config-fields-disabled': !useConfig }}>
           <label for="vlessURL" title={$_('clean.vlessTitle')}>{$_('clean.vlessLabel')}</label>
           <input type="text" id="vlessURL" bind:value={vlessURL} disabled={!useConfig} placeholder={$_('clean.vlessPlaceholder')} title={$_('clean.vlessTitle')} />
         </div>
@@ -510,7 +512,7 @@
     {#if source === 'custom'}
       <div class="ranges-block">
         <div class="preset-bar">
-          {#each RANGE_PRESETS as r}
+          {#each RANGE_PRESETS as r (r)}
             <button type="button" class="preset-btn" onclick={() => addRangePreset(r)}>{r}</button>
           {/each}
           <button type="button" class="preset-btn" onclick={() => addRangePreset('__cf_v4__')}>{$_('clean.presetAllV4')}</button>
@@ -519,7 +521,7 @@
         <textarea rows="4" bind:value={customRanges} placeholder={$_('clean.customPlaceholder')}></textarea>
         <label class="file-input-wrap" for="cleanRangesFile">
           <input type="file" id="cleanRangesFile" accept=".txt,.csv,.list,text/plain" onchange={onRangesFile} />
-          <div class="file-label" class:selected={!!rangesFileName}>
+          <div class={['file-label', { selected: !!rangesFileName }]}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <span>{rangesFileName || $_('clean.rangesFile')}</span>
           </div>
@@ -535,8 +537,8 @@
       <div class="col">
         <div class="field-label" title={$_('clean.depthTitle')}>{$_('settings.scanDepth')}</div>
         <div class="preset-bar">
-          {#each DEPTHS as d}
-            <button type="button" class="preset-btn" class:active={scanDepth === d.v} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
+          {#each SCAN_DEPTHS as d (d.v)}
+            <button type="button" class={['preset-btn', { active: scanDepth === d.v }]} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
           {/each}
         </div>
         {#if scanDepth === '0'}
@@ -560,20 +562,22 @@
         <div class="col">
           <label for="phase1Probes" title={$_('clean.probesTitle')}>{$_('clean.probesLabel')}</label>
           <select id="phase1Probes" bind:value={phase1Probes} title={$_('clean.probesTitle')}>
-            {#each ['100', '250', '500', '1000', '2000'] as v}<option value={v}>{v}</option>{/each}
+            {#each PHASE1_PROBES_OPTIONS as o (o.v)}
+              <option value={o.v}>{o.v === '0' ? $_('clean.probesAuto') : o.label}</option>
+            {/each}
           </select>
         </div>
         <div class="col">
-          <label for="phase2Probes" title={$_('clean.phase2Title')}>{$_('clean.phase2ProbesLabel')}</label>
-          <select id="phase2Probes" bind:value={phase2Probes} title={$_('clean.phase2Title')}>
-            {#each ['5', '12', '25', '50', '100'] as v}<option value={v}>{v}</option>{/each}
+          <label for="phase2Probes" title={$_('clean.phase2ProbesTitle')}>{$_('clean.phase2ProbesLabel')}</label>
+          <select id="phase2Probes" bind:value={phase2Probes} title={$_('clean.phase2ProbesTitle')}>
+            {#each PHASE2_PROBES_OPTIONS as o (o.v)}<option value={o.v}>{o.label}</option>{/each}
           </select>
         </div>
         {#if useConfig}
           <div class="col">
             <label for="cleanPhase2" title={$_('clean.phase2Title')}>{$_('clean.phase2Label')}</label>
             <select id="cleanPhase2" bind:value={phase2Count} title={$_('clean.phase2Title')}>
-              {#each ['10', '20', '30', '50'] as v}<option value={v}>{v}</option>{/each}
+              {#each PHASE2_COUNT_OPTIONS as v (v)}<option value={v}>{v}</option>{/each}
             </select>
           </div>
         {/if}
@@ -590,13 +594,13 @@
         </div>
         <div class="port-section-label">{$_('settings.portHttps')}</div>
         <div class="port-grid">
-          {#each HTTPS_PORTS as p}
+          {#each HTTPS_PORTS as p (p)}
             <label class="port-cb-label"><input type="checkbox" checked={ports.includes(p)} onchange={(e) => togglePort(p, e.currentTarget.checked)} /> {p}</label>
           {/each}
         </div>
         <div class="port-section-label">{$_('settings.portHttp')}</div>
         <div class="port-grid">
-          {#each HTTP_PORTS as p}
+          {#each HTTP_PORTS as p (p)}
             <label class="port-cb-label"><input type="checkbox" checked={ports.includes(p)} onchange={(e) => togglePort(p, e.currentTarget.checked)} /> {p}</label>
           {/each}
         </div>
@@ -608,12 +612,12 @@
         </div>
         <div class="col">
           <label for="cleanTimeout" title={$_('clean.timeoutTitle')}>{$_('clean.timeout1Label')}</label>
-          <input id="cleanTimeout" type="text" bind:value={timeout1} inputmode="numeric" title={$_('clean.timeoutTitle')} />
+          <input id="cleanTimeout" type="text" bind:value={timeout1} inputmode="numeric" title={$_('clean.timeoutTitle')} placeholder={D.timeout1} />
         </div>
         {#if useConfig}
           <div class="col">
             <label for="cleanPhase2Timeout" title={$_('clean.timeout2Title')}>{$_('clean.timeout2Label')}</label>
-            <input id="cleanPhase2Timeout" type="text" bind:value={timeout2} inputmode="numeric" title={$_('clean.timeout2Title')} />
+            <input id="cleanPhase2Timeout" type="text" bind:value={timeout2} inputmode="numeric" title={$_('clean.timeout2Title')} placeholder={D.timeout2} />
           </div>
         {/if}
       </div>
@@ -661,16 +665,16 @@
 
     {#if phase1Entries.length > 0 || phase2Entries.length > 0}
       <div class="btn-bar list-toggle-bar">
-        <button type="button" class="btn btn-sm method-btn" class:active={phaseView === 'all'} onclick={() => (phaseView = 'all')}>All ({allDirect.length})</button>
-        <button type="button" class="btn btn-sm method-btn" class:active={phaseView === 'phase1'} onclick={() => (phaseView = 'phase1')}>Phase 1 ({phase1Entries.length})</button>
-        <button type="button" class="btn btn-sm method-btn" class:active={phaseView === 'phase2'} onclick={() => (phaseView = 'phase2')}>Phase 2 ({phase2Entries.length})</button>
+        <button type="button" class={['btn', 'btn-sm', 'method-btn', { active: phaseView === 'all' }]} onclick={() => (phaseView = 'all')}>All ({allDirect.length})</button>
+        <button type="button" class={['btn', 'btn-sm', 'method-btn', { active: phaseView === 'phase1' }]} onclick={() => (phaseView = 'phase1')}>Phase 1 ({phase1Entries.length})</button>
+        <button type="button" class={['btn', 'btn-sm', 'method-btn', { active: phaseView === 'phase2' }]} onclick={() => (phaseView = 'phase2')}>Phase 2 ({phase2Entries.length})</button>
       </div>
     {/if}
 
     {#if nearbyAll.length > 0}
       <div class="btn-bar list-toggle-bar">
-        <button type="button" class="btn btn-sm method-btn" class:active={list === 'direct'} onclick={() => (list = 'direct')}>{$_('clean.listDirect')}</button>
-        <button type="button" class="btn btn-sm method-btn" class:active={list === 'nearby'} onclick={() => (list = 'nearby')}>
+        <button type="button" class={['btn', 'btn-sm', 'method-btn', { active: list === 'direct' }]} onclick={() => (list = 'direct')}>{$_('clean.listDirect')}</button>
+        <button type="button" class={['btn', 'btn-sm', 'method-btn', { active: list === 'nearby' }]} onclick={() => (list = 'nearby')}>
           {$_('clean.listNearby')} <span class="list-count">({nearbyAll.length})</span>
         </button>
       </div>
@@ -711,13 +715,13 @@
         <div class="fail-panel">
           <div class="fail-title">{$_('clean.whyFailed')}</div>
           <ul class="fail-list">
-            {#each failReasons as r}<li><span class="fail-count">{r.n}×</span> {r.k}</li>{/each}
+            {#each failReasons as r (r.k)}<li><span class="fail-count">{r.n}×</span> {r.k}</li>{/each}
           </ul>
           {#if failExamples.length > 0}
             <details class="fail-examples">
               <summary>{$_('clean.failExamples')}</summary>
               <div class="fail-ex-wrap">
-                {#each failExamples as f}
+                {#each failExamples as f (f.endpoint + '|' + (f.error || ''))}
                   <div class="fail-ex"><span class="tag">{f.endpoint}</span> <span class="fail-ex-err">{f.error || ''}</span></div>
                 {/each}
               </div>
@@ -734,7 +738,7 @@
         <div class="fail-panel">
           <div class="fail-title">{$_('clean.whyFailed')}</div>
           <ul class="fail-list">
-            {#each failReasons as r}<li><span class="fail-count">{r.n}×</span> {r.k}</li>{/each}
+            {#each failReasons as r (r.k)}<li><span class="fail-count">{r.n}×</span> {r.k}</li>{/each}
           </ul>
         </div>
       {/if}

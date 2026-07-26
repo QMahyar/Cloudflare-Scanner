@@ -69,10 +69,10 @@
     <div class="chart-card">
       <div class="chart-title">{$_('charts.latency')}</div>
       <div class="hist">
-        {#each latHist as b}
+        {#each latHist as b (b.label)}
           <div class="hist-col" title={`${b.label} ms · ${b.n}`}>
             <div class="hist-bar-wrap">
-              <div class="hist-bar" style="height:{Math.max(3, b.pct * 100)}%"></div>
+              <div class="hist-bar" style:height="{Math.max(3, b.pct * 100)}%"></div>
             </div>
             <div class="hist-n">{b.n || ''}</div>
             <div class="hist-x">{b.label}</div>
@@ -85,9 +85,9 @@
       <div class="chart-card">
         <div class="chart-title">{$_('charts.quality')}</div>
         <div class="qbar">
-          {#if quality.good}<div class="qseg q-good" style="flex:{quality.good}" title={`${$_('charts.good')}: ${quality.good}`}></div>{/if}
-          {#if quality.ok}<div class="qseg q-ok" style="flex:{quality.ok}" title={`${$_('charts.ok')}: ${quality.ok}`}></div>{/if}
-          {#if quality.poor}<div class="qseg q-poor" style="flex:{quality.poor}" title={`${$_('charts.poor')}: ${quality.poor}`}></div>{/if}
+          {#if quality.good}<div class="qseg q-good" style:flex={quality.good} title={`${$_('charts.good')}: ${quality.good}`}></div>{/if}
+          {#if quality.ok}<div class="qseg q-ok" style:flex={quality.ok} title={`${$_('charts.ok')}: ${quality.ok}`}></div>{/if}
+          {#if quality.poor}<div class="qseg q-poor" style:flex={quality.poor} title={`${$_('charts.poor')}: ${quality.poor}`}></div>{/if}
         </div>
         <div class="qlegend">
           <span><i class="dot q-good"></i>{$_('charts.good')} {quality.good}</span>
@@ -101,10 +101,10 @@
       <div class="chart-card">
         <div class="chart-title">{$_('charts.colo')}</div>
         <div class="colo-rows">
-          {#each coloBars as c}
+          {#each coloBars as c (c.colo)}
             <div class="colo-row">
               <span class="colo-name">{c.colo}</span>
-              <span class="colo-track"><span class="colo-fill" style="width:{Math.max(4, c.pct * 100)}%"></span></span>
+              <span class="colo-track"><span class="colo-fill" style:width="{Math.max(4, c.pct * 100)}%"></span></span>
               <span class="colo-n">{c.n}</span>
             </div>
           {/each}

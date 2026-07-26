@@ -6,8 +6,8 @@
   // Reusable virtualized table body. Keeps real <table> semantics (and the
   // shared .results-table CSS) by rendering only the visible window of rows
   // plus two spacer <tr>s whose heights stand in for the off-screen rows.
-  // Rows self-measure (use:measure + data-index), so estimateSize only needs
-  // to be roughly right — the virtualizer corrects total height as rows render.
+  // Rows self-measure via {@attach measure} + data-index, so estimateSize only
+  // needs to be roughly right — the virtualizer corrects total height as rows render.
   let {
     items,
     getKey = (_item, i) => i,
@@ -28,7 +28,9 @@
   // under Svelte 5 runes: the @tanstack/svelte-virtual wrapper always re-emits
   // the SAME mutated instance, which a reference-deduped store-rune signal
   // ignores, so scroll/resize updates silently never reach the DOM.
-  let vItems = $state([])
+  // $state.raw: the virtualizer mutates its item list in place; we only care
+  // about reassignment of the array reference we push from the subscription.
+  let vItems = $state.raw([])
   let totalSize = $state(0)
 
   // overscan is re-applied reactively via setOptions() below; the constructor
@@ -65,28 +67,27 @@
     })
   })
 
-  // measureElement reads data-index off the node and observes its real height.
+  // Attachment: measureElement reads data-index off the node and observes its
+  // real height. Prefer {@attach} over the legacy use: action form.
+  /** @type {import('svelte/attachments').Attachment} */
   function measure(node) {
     get(virtualizer).measureElement(node)
-    return {
-      update() { get(virtualizer).measureElement(node) },
-      destroy() { get(virtualizer).measureElement(null) },
-    }
+    return () => get(virtualizer).measureElement(null)
   }
 
   const padTop = $derived(vItems.length ? vItems[0].start : 0)
   const padBottom = $derived(vItems.length ? totalSize - vItems[vItems.length - 1].end : 0)
 </script>
 
-<div bind:this={scrollEl} class="results-table-wrap virtual-scroll" style="max-height:{maxHeight}">
+<div bind:this={scrollEl} class="results-table-wrap virtual-scroll" style:max-height={maxHeight}>
   <table class="results-table">
     <thead>{@render header()}</thead>
     <tbody>
-      {#if padTop > 0}<tr aria-hidden="true" class="virtual-pad"><td {colspan} style="height:{padTop}px;padding:0;border:0"></td></tr>{/if}
+      {#if padTop > 0}<tr aria-hidden="true" class="virtual-pad"><td {colspan} style:height="{padTop}px" style:padding="0" style:border="0"></td></tr>{/if}
       {#each vItems as vi (getKey(items[vi.index], vi.index))}
         {@render row(items[vi.index], vi.index, measure)}
       {/each}
-      {#if padBottom > 0}<tr aria-hidden="true" class="virtual-pad"><td {colspan} style="height:{padBottom}px;padding:0;border:0"></td></tr>{/if}
+      {#if padBottom > 0}<tr aria-hidden="true" class="virtual-pad"><td {colspan} style:height="{padBottom}px" style:padding="0" style:border="0"></td></tr>{/if}
     </tbody>
   </table>
 </div>

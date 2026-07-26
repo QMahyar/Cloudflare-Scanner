@@ -12,6 +12,12 @@
   import { notifyDone, scanRateText } from '../lib/notify.js'
   import { subscribeStatus } from '../lib/sse.js'
   import { endpointRaw, activeTab, getSetting, setSetting, recordScan, endpointScanning } from '../lib/stores.js'
+  import {
+    SCAN_DEPTHS,
+    ENDPOINT_DEFAULTS as D,
+    ENDPOINT_CONCURRENCY_OPTIONS,
+    ENDPOINT_ATTEMPTS_OPTIONS,
+  } from '../lib/scanDefaults.js'
   import { pendingWarpEndpoint, replacerCtype } from '../lib/handoff.js'
   import HelpPanel from './HelpPanel.svelte'
   import VirtualTable from './VirtualTable.svelte'
@@ -24,28 +30,21 @@
   import FilterInput from './ui/FilterInput.svelte'
   import FileDrop from './ui/FileDrop.svelte'
 
-  const DEPTHS = [
-    { v: '100', k: 'settings.depth.quick' },
-    { v: '500', k: 'settings.depth.normal' },
-    { v: '1000', k: 'settings.depth.deep' },
-    { v: '5000', k: 'settings.depth.insane' },
-    { v: '10000', k: 'settings.depth.massive' },
-    { v: '0', k: 'settings.depth.custom' },
-  ]
-
   // ─── Settings (persisted under the original cfscanner_settings keys) ───
-  let useConfig = $state(getSetting('useConfigEndpoint', true))
-  let scanDepth = $state(getSetting('scanDepth', '500'))
-  let customCount = $state(getSetting('customCount', ''))
-  let ipVersion = $state(getSetting('ipVersion', '4'))
-  let advOpen = $state(getSetting('endpointAdv', false))
+  // Defaults live in scanDefaults.js and match scanner.go / scan_handlers.go.
+  let useConfig = $state(getSetting('useConfigEndpoint', D.useConfig))
+  let scanDepth = $state(getSetting('scanDepth', D.scanDepth))
+  let customCount = $state(getSetting('customCount', D.customCount))
+  let ipVersion = $state(getSetting('ipVersion', D.ipVersion))
+  let advOpen = $state(getSetting('endpointAdv', D.advOpen))
   // Native handshake is the default: faster and doesn't spawn xray. Noise
   // (AmneziaWG via xray) is opt-in for networks that drop plain WireGuard.
-  let noise = $state(getSetting('noiseToggle', false))
-  let timeoutMs = $state(getSetting('endpointTimeout', '5000'))
-  let concurrency = $state(getSetting('endpointConcurrency', '0'))
-  let stopAfter = $state(getSetting('stopAfter', '0'))
-  let notify = $state(getSetting('notifyEndpoint', false))
+  let noise = $state(getSetting('noiseToggle', D.noise))
+  let timeoutMs = $state(getSetting('endpointTimeout', D.timeoutMs))
+  let concurrency = $state(getSetting('endpointConcurrency', D.concurrency))
+  let attempts = $state(getSetting('endpointAttempts', D.attempts))
+  let stopAfter = $state(getSetting('stopAfter', D.stopAfter))
+  let notify = $state(getSetting('notifyEndpoint', D.notify))
 
   $effect(() => {
     setSetting('useConfigEndpoint', useConfig)
@@ -56,18 +55,25 @@
     setSetting('noiseToggle', noise)
     setSetting('endpointTimeout', timeoutMs)
     setSetting('endpointConcurrency', concurrency)
+    setSetting('endpointAttempts', attempts)
     setSetting('stopAfter', stopAfter)
     setSetting('notifyEndpoint', notify)
   })
 
-  // ─── File ───
-  let files = $state(null)
+  // ─── File / paste ───
+  // FileList is opaque / only reassigned — no deep reactivity needed.
+  let files = $state.raw(null)
+  let configText = $state(getSetting('endpointConfigText', ''))
   const hasFile = $derived(!!(files && files.length))
   const fileName = $derived(hasFile ? files[0].name : '')
+  const hasConfig = $derived(hasFile || !!configText.trim())
+
+  // Persist paste box (side effect to localStorage — not a pure derived).
+  $effect(() => { setSetting('endpointConfigText', configText) })
 
   // ─── Results filters ───
-  let outCount = $state('0')
-  let maxLatency = $state('0')
+  let outCount = $state(D.outCount)
+  let maxLatency = $state(D.maxLatency)
   let sort = $state({ field: 'score', dir: 'desc' }) // rank by overall quality by default
 
   // ─── Scan state ───
@@ -88,10 +94,11 @@
   let fetchTimer = null
   let recorded = false
   let selected = $state(new Set())
-  let failInfo = $state(null) // { reasons: [{k,n}], examples: [{endpoint,error}], scanned }
+  // $state.raw: fail snapshot is always reassigned wholesale from the API.
+  let failInfo = $state.raw(null) // { reasons, examples, scanned }
 
   const scanDesc = $derived(useConfig ? $_('endpoint.descFull') : $_('endpoint.descTCP'))
-  const startDisabled = $derived(status === 'running' || (useConfig && !hasFile))
+  const startDisabled = $derived(status === 'running' || (useConfig && !hasConfig))
   const hasResults = $derived(($endpointRaw?.length || 0) > 0)
 
   const failReasons = $derived.by(() => {
@@ -121,7 +128,7 @@
   }
 
   async function startScan() {
-    if (useConfig && !hasFile) return
+    if (useConfig && !hasConfig) return
     jobId = null
     status = 'running'
     progressPct = 0
@@ -140,11 +147,14 @@
       count,
       outCount: parseInt(outCount) || 0,
       concurrency: parseInt(concurrency) || 0,
+      attempts: parseInt(attempts) || 2,
       timeoutMs: parseInt(timeoutMs) || 0,
       stop_after: parseInt(stopAfter) || 0,
     }
     const fd = new FormData()
+    // File upload wins when both are set; otherwise send the pasted INI / wg:// URI.
     if (useConfig && hasFile) fd.append('config', files[0])
+    else if (useConfig && configText.trim()) fd.append('config_text', configText.trim())
     fd.append('params', JSON.stringify(params))
 
     try {
@@ -329,10 +339,10 @@
 {/snippet}
 
 {#snippet row(e, i, measure)}
-  <tr data-index={i} use:measure>
+  <tr data-index={i} {@attach measure}>
     <td class="num">{i + 1}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} use:activateKey={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
+    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} {@attach activateKey(() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) })} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
     <td class="lat-cell {scoreClass(e.score)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{scoreBar(e.score)}%"></span></span><span class="lat-val">{e.score || '—'}</span></td>
     <td class="lat-cell {latClass(e.latency)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{latBar(e.latency)}%"></span></span><span class="lat-val">{e.latency}</span></td>
     <td class="lat-cell {e.score ? lossClass(e.loss) : ''}"><span class="lat-val">{e.score ? fmtLoss(e.loss) : '—'}</span></td>
@@ -351,7 +361,7 @@
     <div class="row">
       <div class="col">
         <Toggle bind:checked={useConfig} label={$_('endpoint.useConfig')} title={$_('endpoint.useConfigTitle')} ariaLabel={$_('endpoint.useConfig')} />
-        <div class:config-fields-disabled={!useConfig}>
+        <div class={{ 'config-fields-disabled': !useConfig }}>
           <label for="configFile" title={$_('config.fileTitle')}>{$_('config.fileLabel')}</label>
           <FileDrop
             id="configFile"
@@ -362,6 +372,17 @@
             selectedLabel={fileName}
             title={$_('config.chooseTitle')}
           />
+          <label for="configText" title={$_('config.pasteTitle')}>{$_('config.pasteLabel')}</label>
+          <textarea
+            id="configText"
+            rows="5"
+            bind:value={configText}
+            disabled={!useConfig}
+            placeholder={$_('config.pastePlaceholder')}
+            title={$_('config.pasteTitle')}
+            spellcheck="false"
+          ></textarea>
+          <p class="scan-desc">{$_('config.pasteHint')}</p>
         </div>
       </div>
     </div>
@@ -376,8 +397,8 @@
       <div class="col">
         <div class="field-label" title={$_('settings.depthTitle')}>{$_('settings.scanDepth')}</div>
         <div class="preset-bar">
-          {#each DEPTHS as d}
-            <button type="button" class="preset-btn" class:active={scanDepth === d.v} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
+          {#each SCAN_DEPTHS as d (d.v)}
+            <button type="button" class={['preset-btn', { active: scanDepth === d.v }]} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
           {/each}
         </div>
         {#if scanDepth === '0'}
@@ -400,22 +421,31 @@
         <div class="col">
           <Toggle bind:checked={noise} label={$_('settings.noise')} title={$_('settings.noiseTitle')} ariaLabel={$_('settings.noise')} />
         </div>
-        <div class="col"></div>
+        <div class="col">
+          <label for="endpointAttempts" title={$_('settings.attemptsTitle')}>{$_('settings.attemptsLabel')}</label>
+          <select id="endpointAttempts" bind:value={attempts} title={$_('settings.attemptsTitle')}>
+            {#each ENDPOINT_ATTEMPTS_OPTIONS as v (v)}<option value={v}>{v}</option>{/each}
+          </select>
+        </div>
       </div>
       <div class="row">
         <div class="col">
           <label for="endpointTimeout" title={$_('settings.timeoutTitle')}>{$_('settings.timeoutLabel')}</label>
-          <input id="endpointTimeout" type="text" bind:value={timeoutMs} inputmode="numeric" title={$_('settings.timeoutTitle')} />
+          <input id="endpointTimeout" type="text" bind:value={timeoutMs} inputmode="numeric" title={$_('settings.timeoutTitle')} placeholder={D.timeoutMs} />
         </div>
         <div class="col">
           <label for="endpointConcurrency" title={$_('settings.concurrencyTitle')}>{$_('settings.concurrencyLabel')}</label>
-          <input id="endpointConcurrency" type="text" bind:value={concurrency} inputmode="numeric" placeholder="0 (auto)" title={$_('settings.concurrencyTitle')} />
+          <select id="endpointConcurrency" bind:value={concurrency} title={$_('settings.concurrencyTitle')}>
+            {#each ENDPOINT_CONCURRENCY_OPTIONS as o (o.v)}
+              <option value={o.v}>{o.v === '0' ? $_('settings.concurrencyAuto') : o.label}</option>
+            {/each}
+          </select>
         </div>
       </div>
       <div class="row">
         <div class="col">
           <label for="stopAfter" title={$_('settings.stopAfterTitle')}>{$_('settings.stopAfter')}</label>
-          <input id="stopAfter" type="text" bind:value={stopAfter} inputmode="numeric" title={$_('settings.stopAfterTitle')} />
+          <input id="stopAfter" type="text" bind:value={stopAfter} inputmode="numeric" title={$_('settings.stopAfterTitle')} placeholder="0" />
         </div>
         <div class="col">
           <Toggle bind:checked={notify} label={$_('settings.notify')} title={$_('settings.notifyTitle')} ariaLabel={$_('settings.notify')} align="field" />
@@ -467,13 +497,13 @@
         <div class="fail-panel">
           <div class="fail-title">{$_('results.whyFailed')}</div>
           <ul class="fail-list">
-            {#each failReasons as r}<li><span class="fail-count">{r.n}×</span> {r.k}</li>{/each}
+            {#each failReasons as r (r.k)}<li><span class="fail-count">{r.n}×</span> {r.k}</li>{/each}
           </ul>
           {#if failExamples.length > 0}
             <details class="fail-examples">
               <summary>{$_('clean.failExamples')}</summary>
               <div class="fail-ex-wrap">
-                {#each failExamples as f}
+                {#each failExamples as f (f.endpoint + '|' + (f.error || ''))}
                   <div class="fail-ex"><span class="tag">{f.endpoint}</span> <span class="fail-ex-err">{f.error || ''}</span></div>
                 {/each}
               </div>

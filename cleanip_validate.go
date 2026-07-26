@@ -21,7 +21,7 @@ func summarizeFailure(err string) string {
 	e := strings.ToLower(err)
 	switch {
 	case strings.Contains(e, "startup timeout"):
-		return "xray didn't come up in time (slow start or crash)"
+		return "xray didn't come up in time (slow start, crash, or bad config)"
 	case strings.Contains(e, "start xray"), strings.Contains(e, "xray config"):
 		return "xray failed to launch (check the xray binary / config)"
 	case strings.Contains(e, "no uuid"), strings.Contains(e, "empty uuid"), strings.Contains(e, "empty address"), strings.Contains(e, "invalid port"):
@@ -30,6 +30,14 @@ func summarizeFailure(err string) string {
 		return "couldn't reach xray's local SOCKS port"
 	case strings.Contains(e, "socks5"):
 		return "tunnel handshake failed (proxy refused the connection)"
+	case strings.Contains(e, "certificate"), strings.Contains(e, "x509"):
+		return "TLS certificate mismatch (IP is not a Cloudflare edge for this SNI)"
+	// xray-side WS/TLS failures (before any HTTP 204 is attempted). Match these
+	// before the generic "http …" status branch so a log-enriched
+	// "http read: … | xray: … 403 Forbidden" is categorized usefully.
+	case strings.Contains(e, "bad handshake"), strings.Contains(e, "websocket"),
+		strings.Contains(e, "403 forbidden"), strings.Contains(e, "failed to dial websocket"):
+		return "WebSocket/TLS handshake rejected (wrong Host/SNI/path, or edge not serving this Worker)"
 	case strings.Contains(e, "forcibly closed"), strings.Contains(e, "connection reset"), strings.Contains(e, "reset by peer"), strings.Contains(e, "unexpected eof"):
 		return "connection reset mid-handshake (likely ISP/DPI filtering or a dead origin)"
 	case strings.Contains(e, "connection refused"):

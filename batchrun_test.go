@@ -55,10 +55,10 @@ func TestRunBatchesCoversAllEndpoints(t *testing.T) {
 }
 
 // TestRunBatchesRetriesPartialFailureOnce: a batch with some (not all) failures
-// re-validates exactly the failures, once; a wholly-failed batch is NOT retried.
+// re-validates exactly the failures, once.
 func TestRunBatchesRetryPolicy(t *testing.T) {
 	// One batch of 4: "good" passes, "bad-retryable" fails first then passes on
-	// retry, "bad-permanent" always fails. A separate all-fail batch must never retry.
+	// retry, "bad-permanent" always fails.
 	eps := []string{"good", "bad-retryable", "bad-permanent", "good2"}
 
 	var validateCalls int32
@@ -115,11 +115,14 @@ func TestRunBatchesRetryPolicy(t *testing.T) {
 	}
 }
 
-// TestRunBatchesNoRetryOnTotalFailure: when every endpoint in a batch fails, no
-// retry batch is spawned (systemic failure).
-func TestRunBatchesNoRetryOnTotalFailure(t *testing.T) {
+// TestRunBatchesRetriesTotalFailure: when every endpoint in a batch fails, still
+// spawn one retry batch. Cold xray starts and transient edge failures often wipe
+// a whole first attempt; skipping the retry made Phase 2 look empty.
+func TestRunBatchesRetriesTotalFailure(t *testing.T) {
 	eps := []string{"x", "y", "z"}
 	var validateCalls int32
+	var callMu sync.Mutex
+	calls := map[string]int{}
 	runBatches[fakeResult](
 		context.Background(), make(chan struct{}), eps, 16, 1,
 		func() int { return 1 },
@@ -127,7 +130,11 @@ func TestRunBatchesNoRetryOnTotalFailure(t *testing.T) {
 			atomic.AddInt32(&validateCalls, 1)
 			out := make([]fakeResult, len(batch))
 			for i, ep := range batch {
-				out[i] = fakeResult{ep: ep, ok: false}
+				callMu.Lock()
+				calls[ep]++
+				callMu.Unlock()
+				// Pass on the second attempt only.
+				out[i] = fakeResult{ep: ep, ok: calls[ep] >= 2}
 			}
 			return out
 		},
@@ -135,8 +142,13 @@ func TestRunBatchesNoRetryOnTotalFailure(t *testing.T) {
 		func(r *fakeResult) { r.attempts = 2 },
 		func(res []fakeResult) {},
 	)
-	if got := atomic.LoadInt32(&validateCalls); got != 1 {
-		t.Errorf("total failure must not retry: expected 1 validate call, got %d", got)
+	if got := atomic.LoadInt32(&validateCalls); got != 2 {
+		t.Errorf("total failure must retry once: expected 2 validate calls, got %d", got)
+	}
+	for _, ep := range eps {
+		if calls[ep] != 2 {
+			t.Errorf("endpoint %s validated %d times, want 2", ep, calls[ep])
+		}
 	}
 }
 

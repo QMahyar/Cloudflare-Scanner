@@ -359,7 +359,7 @@ the embedded UI — no authentication.
 
 ```json
 {
-  "vless_url": "vless://...",
+  "config_url": "vless://...",
   "count": 500,
   "ipv4": true,
   "ipv6": true,
