@@ -86,8 +86,11 @@ func handleCleanScanStart(xrayPath string) http.HandlerFunc {
 			}
 		}
 		if req.Phase2TimeoutMs > 0 {
-			if req.Phase2TimeoutMs < 100 {
-				req.Phase2TimeoutMs = 100
+			// Floor well above a bare dial: Phase 2 covers SOCKS5 + TLS + WS +
+			// VLESS + HTTP/204. Values like the old 100–500ms UI default just
+			// produced empty Phase-2 result sets on healthy networks.
+			if req.Phase2TimeoutMs < 1000 {
+				req.Phase2TimeoutMs = 1000
 			}
 			if req.Phase2TimeoutMs > 60000 {
 				req.Phase2TimeoutMs = 60000

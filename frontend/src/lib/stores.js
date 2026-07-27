@@ -7,11 +7,44 @@ export const activeTab = writable('endpoint')
 // ─── Settings persistence (cfscanner_settings) ───
 // Components read initial values via getSetting() and write back via
 // setSetting() (debounced). Missing keys fall through to the caller fallback
-// (scanDefaults.js) — there is no migration layer.
+// (scanDefaults.js).
 const SETTINGS_KEY = 'cfscanner_settings'
+
+// The "aggressive defaults" redesign briefly persisted sub-second probe
+// timeouts that made both scanners return empty/false-negative result sets.
+// Migrate those known-bad saved values back to the working defaults so users
+// who opened the app during that window recover without clearing storage.
+const BROKEN_TIMEOUT_MIGRATIONS = {
+	endpointTimeout: { bad: ['200'], good: '6000' },
+	cleanTimeout: { bad: ['200'], good: '3000' },
+	cleanPhase2Timeout: { bad: ['500', '200', '100'], good: '8000' },
+}
+
+/** @param {Record<string, unknown>} raw */
+export function migrateBrokenTimeouts(raw) {
+	const out = { ...raw }
+	let changed = false
+	for (const [key, { bad, good }] of Object.entries(BROKEN_TIMEOUT_MIGRATIONS)) {
+		const v = out[key]
+		if (v === undefined || v === null) continue
+		if (bad.includes(String(v))) {
+			out[key] = good
+			changed = true
+		}
+	}
+	return { settings: out, changed }
+}
+
 function loadSettings() {
 	try {
-		return JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || {}
+		const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) || 'null') || {}
+		const { settings: migrated, changed } = migrateBrokenTimeouts(raw)
+		if (changed) {
+			try {
+				localStorage.setItem(SETTINGS_KEY, JSON.stringify(migrated))
+			} catch {}
+		}
+		return migrated
 	} catch {
 		return {}
 	}

@@ -28,8 +28,10 @@ export const RANGE_PRESETS = [
 ]
 
 // ─── Endpoint Scanner (WARP) ───────────────────────────────────────────────
-// Aggressive defaults: short handshake timeout, modest concurrency, single try.
-// Noise mode still uses DefaultConcurrency when concurrency is left at 0 (auto).
+// Native handshake default path: concurrency 256 (or modest UI preset), timeout
+// 6s (scanner.go). Noise mode still uses DefaultConcurrency when concurrency is
+// left at 0 (auto). Sub-second timeouts false-negative both native retransmits
+// and the xray noise path (SOCKS + 204 through WireGuard).
 export const ENDPOINT_DEFAULTS = {
 	useConfig: true,
 	scanDepth: '500',
@@ -37,9 +39,9 @@ export const ENDPOINT_DEFAULTS = {
 	ipVersion: '4',
 	advOpen: false,
 	noise: false,
-	timeoutMs: '200',
+	timeoutMs: '6000',
 	concurrency: '25',
-	attempts: '1',
+	attempts: '2',
 	stopAfter: '0',
 	notify: false,
 	outCount: '0',
@@ -61,8 +63,9 @@ export const ENDPOINT_CONCURRENCY_OPTIONS = [
 export const ENDPOINT_ATTEMPTS_OPTIONS = ['1', '2', '3']
 
 // ─── IP Scanner (clean Cloudflare IPs) ─────────────────────────────────────
-// Aggressive defaults: fixed moderate P1 concurrency, validate all P1 winners
-// (phase2Count 0), short dial/validate timeouts. Advanced fields remain editable.
+// Moderate P1 concurrency, validate all P1 winners (phase2Count 0). Timeouts
+// match cleanip.go: 3s Phase-1 dial, 8s Phase-2 xray validation. Advanced
+// fields remain editable.
 export const CLEAN_DEFAULTS = {
 	useConfig: true,
 	source: 'pool',
@@ -78,8 +81,8 @@ export const CLEAN_DEFAULTS = {
 	phase2Count: '0',
 	ports: [443],
 	nearby: false,
-	timeout1: '200',
-	timeout2: '500',
+	timeout1: '3000',
+	timeout2: '8000',
 	stopAfter: '0',
 	notify: false,
 	outCount: '0',

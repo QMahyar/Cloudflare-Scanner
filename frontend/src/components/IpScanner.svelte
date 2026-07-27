@@ -56,8 +56,9 @@
   // Ports list is reassigned as a whole on toggle/preset — $state.raw avoids proxy overhead.
   let ports = $state.raw(getSetting('cleanPorts', D.ports))
   let nearby = $state(getSetting('nearbyScan', D.nearby))
+  // Phase-1 3s / Phase-2 8s match cleanip.go. Broken sub-second values from the
+  // aggressive-defaults redesign are rewritten on load in stores.js.
   let timeout1 = $state(getSetting('cleanTimeout', D.timeout1))
-  // Phase-2 default 8s matches the server default — headroom for TLS+WS+VLESS+204.
   let timeout2 = $state(getSetting('cleanPhase2Timeout', D.timeout2))
   let stopAfter = $state(getSetting('cleanStopAfter', D.stopAfter))
   let notify = $state(getSetting('notifyClean', D.notify))

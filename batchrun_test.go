@@ -152,6 +152,28 @@ func TestRunBatchesRetriesTotalFailure(t *testing.T) {
 	}
 }
 
+// TestRunBatchesToleratesShortValidateSlice: a buggy validate that returns fewer
+// results than endpoints must not panic on retry indexing, and onBatch still
+// receives one slot per endpoint.
+func TestRunBatchesToleratesShortValidateSlice(t *testing.T) {
+	eps := []string{"a", "b", "c"}
+	var got int
+	runBatches[fakeResult](
+		context.Background(), make(chan struct{}), eps, 16, 1,
+		func() int { return 1 },
+		func(batch []string, basePort int) []fakeResult {
+			// Deliberately short — only the first endpoint is reported.
+			return []fakeResult{{ep: batch[0], ok: true}}
+		},
+		func(r fakeResult) bool { return r.ok },
+		func(r *fakeResult) { r.attempts = 2 },
+		func(res []fakeResult) { got = len(res) },
+	)
+	if got != len(eps) {
+		t.Fatalf("onBatch got %d results, want %d (padded to batch size)", got, len(eps))
+	}
+}
+
 // TestRunBatchesCancelShortCircuits: a pre-cancelled channel means (near) no work
 // and the cancelled flag is returned.
 func TestRunBatchesCancelShortCircuits(t *testing.T) {

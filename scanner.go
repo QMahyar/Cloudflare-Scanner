@@ -42,7 +42,7 @@ func NewScanner(cfg *WarpConfig, noise NoiseConfig, xrayPath string) *Scanner {
 		Noise:       noise,
 		XrayPath:    xrayPath,
 		Concurrency: DefaultConcurrency(cfg, noise),
-		Timeout:     200 * time.Millisecond,
+		Timeout:     6 * time.Second,
 	}
 	// Build the handshake prober once when the native UDP path is in play
 	// (a config is present and no obfuscation forces the xray fallback). The

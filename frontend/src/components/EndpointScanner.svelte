@@ -39,6 +39,7 @@
   // Native handshake is the default: faster and doesn't spawn xray. Noise
   // (AmneziaWG via xray) is opt-in for networks that drop plain WireGuard.
   let noise = $state(getSetting('noiseToggle', D.noise))
+  // 6s matches scanner.go; stores.js rewrites the broken 200ms aggressive default.
   let timeoutMs = $state(getSetting('endpointTimeout', D.timeoutMs))
   let concurrency = $state(getSetting('endpointConcurrency', D.concurrency))
   let attempts = $state(getSetting('endpointAttempts', D.attempts))

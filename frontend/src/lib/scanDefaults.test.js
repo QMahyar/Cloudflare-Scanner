@@ -26,16 +26,16 @@ describe('scanDefaults', () => {
 	})
 
 	it('aligns endpoint defaults with scanner.go / scan_handlers.go', () => {
-		expect(ENDPOINT_DEFAULTS.timeoutMs).toBe('200')
+		expect(ENDPOINT_DEFAULTS.timeoutMs).toBe('6000')
 		expect(ENDPOINT_DEFAULTS.concurrency).toBe('25')
-		expect(ENDPOINT_DEFAULTS.attempts).toBe('1')
+		expect(ENDPOINT_DEFAULTS.attempts).toBe('2')
 		expect(ENDPOINT_DEFAULTS.scanDepth).toBe('500')
 		expect(ENDPOINT_DEFAULTS.noise).toBe(false)
 	})
 
 	it('aligns clean defaults with cleanip.go', () => {
-		expect(CLEAN_DEFAULTS.timeout1).toBe('200')
-		expect(CLEAN_DEFAULTS.timeout2).toBe('500')
+		expect(CLEAN_DEFAULTS.timeout1).toBe('3000')
+		expect(CLEAN_DEFAULTS.timeout2).toBe('8000')
 		expect(CLEAN_DEFAULTS.phase1Probes).toBe('100')
 		expect(CLEAN_DEFAULTS.phase2Probes).toBe('10')
 		expect(CLEAN_DEFAULTS.phase2Count).toBe('0')

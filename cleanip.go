@@ -105,11 +105,19 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 		}
 	}()
 
-	phase1Timeout := 200 * time.Millisecond
+	// Phase-1 is a bare TCP dial with one timeout-only retry. 3s is generous so a
+	// single dropped SYN under the dial burst doesn't discard a reachable IP
+	// (see dialReachable). Sub-second defaults look "fast" but produce the classic
+	// "tight timeout finds nothing" false-negative pattern.
+	phase1Timeout := 3 * time.Second
 	// Phase-2 needs headroom for TLS + WS upgrade + VLESS handshake + the 204
-	// probe. 5s was tight on high-latency links and produced false negatives
-	// ("connection reset" / "http read timeout") even when the edge was fine.
-	phase2Timeout := 500 * time.Millisecond
+	// probe. The single conn.SetDeadline covers SOCKS5 + TLS + WS + VLESS + the
+	// HTTP round-trip, so anything below ~5s times out the handshake on
+	// high-latency links and produces false negatives ("connection reset" /
+	// "http read timeout") even when the edge is fine. 8s is the long-standing
+	// value chosen after the v3.10 Phase-2 reliability pass; the 500ms value
+	// the "aggressive defaults" commit tried here reliably returned nothing.
+	phase2Timeout := 8 * time.Second
 	// User-configurable per-probe TCP dial timeout for phase 1 (the reachability
 	// probe). 0 keeps the default. Validated/clamped server-side.
 	if job.TimeoutMs > 0 {
@@ -264,6 +272,20 @@ func runCleanScan(job *CleanIPJob, xrayPath string) {
 			applyH3(job.NearbyPhase1Results, nearbyH3)
 			job.mu.Unlock()
 		}
+	}
+
+	// Cancel can land during colo/quality/h3 enrichment or the nearby dial pass
+	// (the only explicit cancel check above is right after Phase 1). Without this,
+	// a one-phase scan would flip to "done" after Stop, and a two-phase scan
+	// would briefly enter Phase 2 only to cancel mid-batch.
+	select {
+	case <-job.Cancel:
+		job.mu.Lock()
+		job.Status = "cancelled"
+		releaseCleanJobInputs(job)
+		job.mu.Unlock()
+		return
+	default:
 	}
 
 	if job.SkipPhase2 {

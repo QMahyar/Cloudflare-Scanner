@@ -69,6 +69,15 @@ func runBatches[T any](
 			}
 
 			res := validate(batch, allocPort())
+			// Defensive: every validate() must return one result per endpoint. A short
+			// slice would panic on batch[i] / retryIdx[j]; a long one would drop the
+			// tail. Pad / trim so the rest of the pipeline can assume alignment.
+			if len(res) != len(batch) {
+				fixed := make([]T, len(batch))
+				n := copy(fixed, res)
+				_ = n
+				res = fixed
+			}
 
 			var retryIdx []int
 			var retryEps []string
@@ -88,13 +97,22 @@ func runBatches[T any](
 				case <-ctx.Done():
 				default:
 					rres := validate(retryEps, allocPort())
-					for j, rr := range rres {
+					limit := len(rres)
+					if limit > len(retryIdx) {
+						limit = len(retryIdx)
+					}
+					for j := 0; j < limit; j++ {
+						rr := rres[j]
 						if isSuccess(rr) {
 							markRetried(&rr)
 							res[retryIdx[j]] = rr
 						} else {
 							markRetried(&res[retryIdx[j]])
 						}
+					}
+					// Retries that never came back still count as a second attempt.
+					for j := limit; j < len(retryIdx); j++ {
+						markRetried(&res[retryIdx[j]])
 					}
 				}
 			}
