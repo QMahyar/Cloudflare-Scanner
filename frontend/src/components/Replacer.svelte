@@ -429,6 +429,7 @@
               <span class="apply-config-item-name">{r.name}</span>
               <div class="apply-config-item-actions">
                 {#if r.path}<span class="apply-path">{r.path}</span>{/if}
+                {#if r.overwritten}<span class="apply-overwritten" title={$_('apply.overwritten')}>⚠ {$_('apply.overwritten')}</span>{/if}
                 <button class="btn btn-secondary btn-sm" onclick={() => copyApply(r)} title={$_('results.tableEndpoint')}>{$_('results.copyAll')}</button>
                 <button class="btn btn-secondary btn-sm" onclick={() => applyQR(r)} title="QR">QR</button>
               </div>

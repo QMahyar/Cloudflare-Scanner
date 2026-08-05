@@ -104,7 +104,13 @@ func waitForShutdown(srv *http.Server) {
 	// their connections go idle — otherwise srv.Shutdown would block the full 5s
 	// waiting on streams that never idle on their own.
 	stopAllJobs()
-	time.Sleep(500 * time.Millisecond) // brief grace for children to die
+	// Wait (bounded) for every in-flight job to reach a terminal status instead
+	// of a fixed sleep. A job flips to done/cancelled only after its goroutines —
+	// and each xray BatchProbe's deferred Kill()+Wait() — have unwound, so
+	// polling status is a real "children are reaped" signal: fast when nothing
+	// was running, patient when a child is mid-spawn, bounded so a wedged job
+	// can't hang shutdown.
+	waitForJobsToFinish(3 * time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -115,6 +121,39 @@ func waitForShutdown(srv *http.Server) {
 	os.RemoveAll(filepath.Join(os.TempDir(), "_xray_work"))
 	os.RemoveAll(filepath.Join(os.TempDir(), "_xray_clean"))
 	os.Exit(0)
+}
+
+// waitForJobsToFinish polls until every scan/clean job has left the running
+// state, or the deadline passes. Terminal status (done/cancelled) means the
+// job's goroutines — and their xray children — have unwound, so the os.Exit
+// above won't orphan processes or leave them holding their ports.
+func waitForJobsToFinish(timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		running := 0
+		scanJobsMu.Lock()
+		for _, j := range scanJobs {
+			j.mu.Lock()
+			if j.Status != "done" && j.Status != "cancelled" {
+				running++
+			}
+			j.mu.Unlock()
+		}
+		scanJobsMu.Unlock()
+		cleanJobsMu.Lock()
+		for _, j := range cleanJobs {
+			j.mu.Lock()
+			if j.Status != "done" && j.Status != "cancelled" {
+				running++
+			}
+			j.mu.Unlock()
+		}
+		cleanJobsMu.Unlock()
+		if running == 0 {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 func isTermux() bool {

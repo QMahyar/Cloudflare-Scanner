@@ -262,10 +262,21 @@ func BatchProbe(ctx context.Context, xrayPath, configPath string, endpoints []st
 		}
 		return results
 	}
+	// exited closes when cmd.Wait() returns (the process has exited and been
+	// reaped). exec.Cmd.ProcessState is only populated by Wait(), so without a
+	// Wait goroutine the poll loop below could never observe an early exit and
+	// would burn the whole startup budget on a process that died milliseconds
+	// after spawn. A closed channel (vs a buffered send) lets the deferred
+	// cleanup drain it safely whether or not the loop already consumed it.
+	exited := make(chan struct{})
+	go func() {
+		cmd.Wait()
+		close(exited)
+	}()
 	defer func() {
 		if cmd.Process != nil {
 			cmd.Process.Kill()
-			cmd.Wait()
+			<-exited // reap before returning so children never outlive BatchProbe
 		}
 	}()
 
@@ -280,6 +291,10 @@ func BatchProbe(ctx context.Context, xrayPath, configPath string, endpoints []st
 	}
 	startupDeadline := time.Now().Add(startupBudget)
 	started := false
+	// Ticker (not a fresh time.After per iteration) for the poll cadence.
+	pollTicker := time.NewTicker(80 * time.Millisecond)
+	defer pollTicker.Stop()
+pollLoop:
 	for time.Now().Before(startupDeadline) {
 		select {
 		case <-ctx.Done():
@@ -287,18 +302,17 @@ func BatchProbe(ctx context.Context, xrayPath, configPath string, endpoints []st
 				results[i] = probeResult{Endpoint: endpoints[i], Error: "cancelled"}
 			}
 			return results
+		case <-exited:
+			// Process already exited — surface the real config/runtime error
+			// from stderr/log instead of burning the full budget.
+			break pollLoop
 		default:
 		}
 		conn, derr := net.DialTimeout("tcp", lastAddr, 300*time.Millisecond)
 		if derr == nil {
 			conn.Close()
 			started = true
-			break
-		}
-		// If the process already exited, don't burn the full budget — surface
-		// the real config/runtime error from stderr/log instead.
-		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
-			break
+			break pollLoop
 		}
 		select {
 		case <-ctx.Done():
@@ -306,7 +320,9 @@ func BatchProbe(ctx context.Context, xrayPath, configPath string, endpoints []st
 				results[i] = probeResult{Endpoint: endpoints[i], Error: "cancelled"}
 			}
 			return results
-		case <-time.After(80 * time.Millisecond):
+		case <-exited:
+			break pollLoop
+		case <-pollTicker.C:
 		}
 	}
 	if !started {

@@ -65,3 +65,39 @@ func TestGenerateEndpointsNoDuplicateEndpoints(t *testing.T) {
 		seen[ep] = true
 	}
 }
+
+// TestGenerateEndpointsOddCountSplitsEvenly verifies that with both families
+// enabled, odd counts round IPv4 UP instead of skewing the whole remainder to
+// IPv6. The old count/2 split left count=1 with 0 v4 / 1 v6 — a pure IPv6
+// endpoint that fails outright on IPv4-only networks.
+func TestGenerateEndpointsOddCountSplitsEvenly(t *testing.T) {
+	for _, tc := range []struct {
+		count, wantV4, wantV6 int
+	}{
+		{1, 1, 0},
+		{2, 1, 1},
+		{3, 2, 1},
+		{4, 2, 2},
+		{5, 3, 2},
+	} {
+		eps := GenerateEndpoints(tc.count, true, true)
+		if len(eps) != tc.count {
+			t.Fatalf("count=%d: got %d endpoints", tc.count, len(eps))
+		}
+		v4, v6 := 0, 0
+		for _, ep := range eps {
+			host, _, err := net.SplitHostPort(ep)
+			if err != nil {
+				t.Fatalf("count=%d: invalid endpoint %q", tc.count, ep)
+			}
+			if net.ParseIP(host).To4() != nil {
+				v4++
+			} else {
+				v6++
+			}
+		}
+		if v4 != tc.wantV4 || v6 != tc.wantV6 {
+			t.Errorf("count=%d: got v4=%d v6=%d, want v4=%d v6=%d", tc.count, v4, v6, tc.wantV4, tc.wantV6)
+		}
+	}
+}

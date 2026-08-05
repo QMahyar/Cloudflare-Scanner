@@ -106,8 +106,11 @@ func (g *CleanIPGenerator) GenerateIPs(count int, useIPv4, useIPv6 bool, ports [
 	v4Count, v6Count := 0, 0
 	switch {
 	case useIPv4 && useIPv6:
-		v4Count = count / 2
-		v6Count = count - v4Count
+		// Round IPv4 up so odd counts don't skew to IPv6 — count=1 with the old
+		// count/2 produced only an IPv6 IP, which fails outright on IPv4-only
+		// networks. Mirrors GenerateEndpoints.
+		v4Count = (count + 1) / 2
+		v6Count = count / 2
 	case useIPv4:
 		v4Count = count
 	default:

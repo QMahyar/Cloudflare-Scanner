@@ -23,6 +23,8 @@
   const epBadge = $derived($endpointRaw?.length || 0)
   const cleanBadge = $derived($cleanData?.entries?.length || 0)
   const repBadge = $derived($replacerGenerated?.length || 0)
+  const pageTitle = $derived($_(`tab.${$activeTab}`))
+  const pageDescription = $derived($_(`page.${$activeTab}Desc`))
 
   // Local-host indicator: the page is served from the scanner's own
   // 127.0.0.1:<port> listener, so window.location.host is the real address.
@@ -63,8 +65,7 @@
 
 <div class="container">
   <main class="app-shell">
-
-    <div class="header-row">
+    <aside class="app-sidebar">
       <div class="header-brand">
         <div class="header-logo" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -73,29 +74,14 @@
             <path class="logo-signal-line" d="M9.7 12.3a2.3 2.3 0 0 1 4.6 0M8 12.3a4 4 0 0 1 8 0" stroke-width="1.1" stroke-linecap="round"/>
           </svg>
         </div>
-        <div>
+        <div class="brand-copy">
           <h1>{$_('title')}</h1>
-          <p class="subtitle">{$_('subtitle')}</p>
+          <p class="subtitle">{$_('brand.tagline')}</p>
         </div>
       </div>
-      <div class="header-actions">
-        {#if version}<span class="ver-chip" title={$_('about.header')}>{version}</span>{/if}
-        <span class="host-pill" title={$_('about.privacy')}>
-          <span class="host-dot"></span>
-          <span class="host-text">{host}</span>
-        </span>
-        <button class="theme-btn" data-theme-toggle onclick={toggleTheme} title={$_('themeToggle')} aria-label={$_('themeToggle')}>
-          {#if $theme === 'light'}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>
-          {:else}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
-          {/if}
-        </button>
-        <button class="lang-btn" onclick={toggleLanguage}>{$_('langBtn')}</button>
-      </div>
-    </div>
 
-    <div class="tab-bar" role="tablist" aria-label="Scanner tabs" aria-orientation={tabOrientation}>
+      <div class="sidebar-label">{$_('nav.tools')}</div>
+      <div class="tab-bar" role="tablist" aria-label="Scanner tabs" aria-orientation={tabOrientation}>
       <button id="tab-endpoint" class={['tab', { active: $activeTab === 'endpoint' }]} role="tab" aria-selected={$activeTab === 'endpoint'} aria-controls="endpointTab" tabindex={$activeTab === 'endpoint' ? 0 : -1} onclick={() => activeTab.set('endpoint')} onkeydown={(event) => handleTabKeydown(event, 'endpoint')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span class="tab-label tab-label-full">{$_('tab.endpoint')}</span><span class="tab-label tab-label-short">{$_('tab.endpointShort')}</span>{#if $endpointScanning}<span class="tab-scan-dot" title={$_('scan.scanning')}></span>{/if}<span class={['tab-badge', { show: epBadge > 0 }]}>{epBadge || ''}</span>
@@ -112,7 +98,37 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
         <span class="tab-label tab-label-full">{$_('tab.about')}</span><span class="tab-label tab-label-short">{$_('tab.aboutShort')}</span>
       </button>
-    </div>
+      </div>
+
+      <div class="sidebar-status">
+        <div class="sidebar-status-line"><span class="host-dot"></span><span>{$_('status.local')}</span></div>
+        <code>{host}</code>
+        {#if version}<span class="sidebar-version">v{version.replace(/^v/i, '')}</span>{/if}
+      </div>
+    </aside>
+
+    <header class="header-row">
+      <div class="mobile-brand">
+        <span class="mobile-brand-mark" aria-hidden="true"></span>
+        <span>{$_('title')}</span>
+      </div>
+      <div class="page-context">
+        <span class="page-eyebrow">{$_('page.workspace')}</span>
+        <h2>{pageTitle}</h2>
+        <p>{pageDescription}</p>
+      </div>
+      <div class="header-actions">
+        <span class="host-pill" title={$_('about.privacy')}><span class="host-dot"></span><span class="host-text">{$_('status.local')}</span></span>
+        <button class="theme-btn" data-theme-toggle onclick={toggleTheme} title={$_('themeToggle')} aria-label={$_('themeToggle')}>
+          {#if $theme === 'light'}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/></svg>
+          {:else}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          {/if}
+        </button>
+        <button class="lang-btn" onclick={toggleLanguage}>{$_('langBtn')}</button>
+      </div>
+    </header>
 
     <div id="endpointTab" class={['workspace-panel', { hidden: $activeTab !== 'endpoint' }]} role="tabpanel" aria-labelledby="tab-endpoint"><EndpointScanner /></div>
     <div id="cleanTab" class={['workspace-panel', { hidden: $activeTab !== 'clean' }]} role="tabpanel" aria-labelledby="tab-clean"><IpScanner /></div>

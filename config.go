@@ -28,6 +28,11 @@ type WarpConfig struct {
 	H2   int
 	H3   int
 	H4   int
+	// reservedSet records whether the config explicitly set Reserved (INI line or
+	// URI query). [0,0,0] is both the default AND a valid explicit value, so
+	// without this flag an explicit zero byte is indistinguishable from "never
+	// set" — and a later S1/S2/S3 line would silently override it.
+	reservedSet bool
 }
 
 // ParseWarpConfig reads a WireGuard/WARP .conf from disk and returns the
@@ -131,6 +136,7 @@ func parseWarpURI(raw string) (*WarpConfig, error) {
 			return nil, err
 		}
 		cfg.Reserved = parsed
+		cfg.reservedSet = true
 	}
 
 	// Endpoint from the URI host:port (engage.cloudflareclient.com:2408).
@@ -256,6 +262,7 @@ func parseWarpINI(text string) (*WarpConfig, error) {
 					return nil, err
 				}
 				cfg.Reserved = parsed
+				cfg.reservedSet = true
 			case "s1":
 				if err := setReservedByte(cfg, 0, val, "S1"); err != nil {
 					return nil, err
@@ -295,7 +302,7 @@ func parseWarpINI(text string) (*WarpConfig, error) {
 				cfg.Endpoint = val
 			case "reserved":
 				// Some clients put Reserved under [Peer] instead of [Interface].
-				if isDefaultReserved(cfg.Reserved) {
+				if !cfg.reservedSet && isDefaultReserved(cfg.Reserved) {
 					parsed, err := parseReservedList(val)
 					if err != nil {
 						return nil, err
@@ -432,8 +439,10 @@ func setReservedByte(cfg *WarpConfig, idx int, val, name string) error {
 	for len(cfg.Reserved) <= idx {
 		cfg.Reserved = append(cfg.Reserved, 0)
 	}
-	// Only overwrite the zero default — an explicit Reserved= line wins over S1/S2/S3.
-	if cfg.Reserved[idx] != 0 {
+	// An explicit Reserved= line wins over S1/S2/S3, even when one of its bytes
+	// is 0 (the old cfg.Reserved[idx] != 0 check couldn't tell an explicit zero
+	// from the [0,0,0] default, so a later S1 silently overwrote it).
+	if cfg.reservedSet {
 		return nil
 	}
 	n, err := strconv.Atoi(val)

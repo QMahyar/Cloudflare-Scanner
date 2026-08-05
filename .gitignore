@@ -54,4 +54,5 @@ cmd/verify/
 .shots/
 frontend/debug/
 frontend/debug-rtl.html
+e2e-artifacts/
 .pi-subagents/

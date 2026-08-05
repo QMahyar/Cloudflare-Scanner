@@ -4,7 +4,8 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 // The built bundle is embedded into the Go binary via //go:embed all:ui/dist.
 // base:'./' makes asset URLs relative so they resolve correctly when the
 // server serves index.html from '/'. The build output lands in ../ui/dist,
-// which is committed to git (no Node needed for `go build`).
+// which is git-ignored and NOT committed — run `npm run build` before `go
+// build` (a fresh clone without it fails the embed).
 // `go run .` binds to an OS-assigned random port (printed at startup) — set
 // VITE_API_TARGET to that address to proxy /api/* during `npm run dev`, e.g.
 //   VITE_API_TARGET=http://127.0.0.1:51824 npm run dev

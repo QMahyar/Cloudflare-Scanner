@@ -242,6 +242,89 @@ S1 = 999
 	}
 }
 
+// TestReservedExplicitZeroNotOverridden verifies an explicit Reserved= line
+// keeps its zero bytes even when S1/S2/S3 appear later in the file. The old
+// cfg.Reserved[idx] != 0 guard couldn't distinguish an explicit 0 from the
+// [0,0,0] default, so a later S1 silently overwrote byte 0 — e.g. Reserved =
+// 0,212,70 followed by S1 = 200 produced [200 212 70] instead of [0 212 70].
+func TestReservedExplicitZeroNotOverridden(t *testing.T) {
+	content := `[Interface]
+PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+Address = 172.16.0.2/32
+Reserved = 0,212,70
+S1 = 200
+S2 = 5
+
+[Peer]
+PublicKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+`
+	cfg, err := ParseWarpConfigText(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []int{0, 212, 70}
+	if len(cfg.Reserved) != 3 || cfg.Reserved[0] != want[0] || cfg.Reserved[1] != want[1] || cfg.Reserved[2] != want[2] {
+		t.Fatalf("Reserved = %v, want %v (S1/S2 must not override explicit zeros)", cfg.Reserved, want)
+	}
+}
+
+// TestReservedSBytesWithoutReservedLine locks the other side of the same
+// rule: with no Reserved= line at all, S1/S2/S3 still fill the bytes.
+func TestReservedSBytesWithoutReservedLine(t *testing.T) {
+	content := `[Interface]
+PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+Address = 172.16.0.2/32
+S1 = 200
+S2 = 5
+S3 = 70
+
+[Peer]
+PublicKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+`
+	cfg, err := ParseWarpConfigText(content)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []int{200, 5, 70}
+	if len(cfg.Reserved) != 3 || cfg.Reserved[0] != want[0] || cfg.Reserved[1] != want[1] || cfg.Reserved[2] != want[2] {
+		t.Fatalf("Reserved = %v, want %v", cfg.Reserved, want)
+	}
+}
+
+// TestGenerateIPsOddCountSplitsEvenly mirrors TestGenerateEndpointsOddCountSplitsEvenly
+// for the clean-IP generator: odd counts must round IPv4 up, not hand the whole
+// odd remainder to IPv6.
+func TestGenerateIPsOddCountSplitsEvenly(t *testing.T) {
+	g := NewCleanIPGenerator()
+	for _, tc := range []struct {
+		count, wantV4, wantV6 int
+	}{
+		{1, 1, 0},
+		{2, 1, 1},
+		{3, 2, 1},
+	} {
+		eps := g.GenerateIPs(tc.count, true, true, []int{443})
+		if len(eps) != tc.count {
+			t.Fatalf("count=%d: got %d endpoints", tc.count, len(eps))
+		}
+		v4, v6 := 0, 0
+		for _, ep := range eps {
+			host, _, err := net.SplitHostPort(ep)
+			if err != nil {
+				t.Fatalf("count=%d: invalid endpoint %q", tc.count, ep)
+			}
+			if net.ParseIP(host).To4() != nil {
+				v4++
+			} else {
+				v6++
+			}
+		}
+		if v4 != tc.wantV4 || v6 != tc.wantV6 {
+			t.Errorf("count=%d: got v4=%d v6=%d, want v4=%d v6=%d", tc.count, v4, v6, tc.wantV4, tc.wantV6)
+		}
+	}
+}
+
 // TestSanitizeScanPorts locks the clean-scan port bound: valid ports pass,
 // out-of-range drop, duplicates collapse, the result never exceeds maxScanPorts,
 // and an empty/all-invalid input defaults to 443. This bounds the downstream

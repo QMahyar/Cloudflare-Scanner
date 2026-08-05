@@ -84,7 +84,7 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 
 - **Native WireGuard Handshake** (`warp_probe.go`): Uses `golang.org/x/crypto` (blake2s + chacha20poly1305) for cryptographically valid WARP endpoint validation — no xray process needed. Only falls back to xray when noise/obfuscation is requested.
 - **Clean-IP Two-Phase Scan**:
-  - **Phase 1**: High-concurrency TCP dial (500 workers) with retry on timeout only.
+  - **Phase 1**: High-concurrency TCP dial (default NumCPU×64, capped at 500 — 256 on Windows) with retry on timeout only.
   - **Phase 2**: xray validation (SOCKS5 → HTTP/204) + `/cdn-cgi/trace` for colo/country.
   - **Nearby scan**: Expands `/24` (IPv4) or `/64` (IPv6) around working IPs.
 - **Two xray Temp Dirs** (auto-cleaned on shutdown):
@@ -106,4 +106,4 @@ Cross-compile: set `$env:GOOS` / `$env:GOARCH` (linux, darwin, windows × amd64,
 - Add more context to error paths (e.g., xray startup failures in `cleanip.go`).
 - Consider architecture documentation for onboarding.
 - Current security: apply-endpoint basenames uploads and validates endpoints; absolute output dirs allowed; folder picker uses native OS dialogs; loopback + CSRF.
-- Performance: Native WARP handshake precomputes DH; clean-IP uses high concurrency (500 TCP, 12 xray).
+- Performance: Native WARP handshake precomputes DH; clean-IP uses high concurrency (Phase-1 default NumCPU×64 capped at 500, 256 on Windows; Phase-2 validates in 16-endpoint xray batches).

@@ -36,8 +36,11 @@ func GenerateEndpoints(count int, useIPv4, useIPv6 bool) []string {
 	v4Count, v6Count := 0, 0
 	switch {
 	case useIPv4 && useIPv6:
-		v4Count = count / 2
-		v6Count = count - v4Count
+		// Round IPv4 up so odd counts don't skew to IPv6 — the old count/2 left
+		// count=1 with 0 v4 / 1 v6, emitting only an IPv6 endpoint that fails
+		// outright on IPv4-only networks.
+		v4Count = (count + 1) / 2
+		v6Count = count / 2
 	case useIPv4:
 		v4Count = count
 	default:
@@ -46,8 +49,17 @@ func GenerateEndpoints(count int, useIPv4, useIPv6 bool) []string {
 
 	// The IPv4 pool is finite (len(ipv4Prefixes)*256 unique IPs). Bounding the
 	// attempts keeps an over-large count from spinning forever once the pool is
-	// exhausted — it simply yields fewer endpoints. Mirrors CleanIPGenerator.
-	for attempts := 0; len(endpoints) < v4Count && attempts < v4Count*20+len(ipv4Prefixes)*256; attempts++ {
+	// exhausted — it simply yields fewer endpoints. The cap is coupon-collector
+	// shaped: 20× the target for in-pool counts, but never more than 20× the
+	// pool size — beyond that, extra picks cannot yield new IPs, so a huge
+	// request (e.g. 100k with both families) stops burning iterations the moment
+	// the pool is dry. Mirrors CleanIPGenerator.
+	poolSize := len(ipv4Prefixes) * 256
+	attemptCap := v4Count * 20
+	if poolBound := poolSize*20 + poolSize; attemptCap > poolBound {
+		attemptCap = poolBound
+	}
+	for attempts := 0; len(endpoints) < v4Count && attempts < attemptCap; attempts++ {
 		prefix := ipv4Prefixes[rng.Intn(len(ipv4Prefixes))]
 		ip := fmt.Sprintf("%s%d", prefix, rng.Intn(256))
 		if seen[ip] {

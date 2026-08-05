@@ -228,10 +228,10 @@ func runScan(job *ScanJob, xrayPath string) {
 		scanner.Timeout = time.Duration(job.TimeoutMs) * time.Millisecond
 	}
 
-	// The noise/AmneziaWG fallback spawns an xray process per endpoint. Route it
-	// through the pooled batch runner (one process per batch) instead. The default
-	// native-handshake path and the TCP-only path are process-free and stay on the
-	// per-endpoint loop below, untouched.
+	// The noise/AmneziaWG fallback probes endpoints through pooled xray batches
+	// (one process per 16-endpoint batch — runScanNoiseBatched), not one process
+	// per endpoint. The default native-handshake path and the TCP-only path are
+	// process-free and stay on the per-endpoint loop below, untouched.
 	if job.Config != nil && job.Noise.Type != "" {
 		runScanNoiseBatched(ctx, job, scanner)
 		return
@@ -383,7 +383,14 @@ func runScanNoiseBatched(ctx context.Context, job *ScanJob, scanner *Scanner) {
 					res[i].Best = res[i].Latency
 				}
 				if res[i].Success {
-					res[i].Loss = lossPercent(res[i].Passes, res[i].Attempts)
+					// A success here is one 204 response in the winning batch
+					// attempt. The batch-level retry marker (Attempts=2) must not
+					// masquerade as packet loss — lossPercent(1,2) handed every
+					// retried endpoint 50% Loss and hammered its Score (loss is
+					// 35% of qualityScore) vs 0% for first-try successes. Mirrors
+					// the clean-IP path, where Phase-2 loss comes from the
+					// independent quality pass and batch retries only bump Attempts.
+					res[i].Loss = 0
 					res[i].Score = qualityScore(res[i].Latency, res[i].Jitter, res[i].Loss)
 				}
 				job.Results = append(job.Results, res[i])
@@ -686,10 +693,11 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type fileResult struct {
-		Name    string `json:"name"`
-		Path    string `json:"path,omitempty"`
-		Content string `json:"content,omitempty"`
-		Error   string `json:"error,omitempty"`
+		Name        string `json:"name"`
+		Path        string `json:"path,omitempty"`
+		Content     string `json:"content,omitempty"`
+		Overwritten bool   `json:"overwritten,omitempty"`
+		Error       string `json:"error,omitempty"`
 	}
 
 	results := make([]fileResult, 0, len(files))
@@ -735,6 +743,11 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 
 		// filepath.Base strips any directory components the browser may include.
 		outPath := filepath.Join(outputDir, filepath.Base(fh.Filename))
+		// Report collisions so the user knows an existing file was replaced.
+		overwritten := false
+		if _, statErr := os.Stat(outPath); statErr == nil {
+			overwritten = true
+		}
 		modified := strings.Join(newLines, "\n")
 		if err := os.WriteFile(outPath, []byte(modified), 0644); err != nil {
 			results = append(results, fileResult{Name: fh.Filename, Error: err.Error()})
@@ -742,7 +755,7 @@ func handleApplyEndpoint(w http.ResponseWriter, r *http.Request) {
 		}
 
 		saved++
-		results = append(results, fileResult{Name: fh.Filename, Path: outPath, Content: modified})
+		results = append(results, fileResult{Name: fh.Filename, Path: outPath, Content: modified, Overwritten: overwritten})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
