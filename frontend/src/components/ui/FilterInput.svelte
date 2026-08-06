@@ -1,5 +1,5 @@
 <script>
-  // Compact labeled filter control for results header rows.
+
   let {
     id = '',
     label = '',
@@ -7,7 +7,7 @@
     value = $bindable(''),
     placeholder = '',
     inputmode = undefined,
-    width = 'narrow', // narrow | colo | auto
+    width = 'narrow',
   } = $props()
 </script>
 

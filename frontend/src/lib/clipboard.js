@@ -1,5 +1,3 @@
-// copyToClipboard — async clipboard with a hidden-textarea fallback for
-// non-secure contexts. Faithful port of the original.
 export async function copyToClipboard(text) {
   try {
     await navigator.clipboard.writeText(text)
@@ -16,7 +14,6 @@ export async function copyToClipboard(text) {
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-// Blob download helper (used by the various "Download" buttons).
 export function downloadText(filename, text, type = 'text/plain') {
   const blob = new Blob([text], { type })
   const url = URL.createObjectURL(blob)

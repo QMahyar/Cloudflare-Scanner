@@ -1,8 +1,5 @@
 import { downloadText } from './clipboard.js'
 
-// Shared result exporters used by both scanner tabs. Columns are emitted in a
-// stable order; fields a given tab doesn't produce (colo/h3 on WARP) come out
-// empty rather than being special-cased per tab.
 const COLUMNS = [
   ['endpoint', 'endpoint'],
   ['score', 'score'],
@@ -21,7 +18,6 @@ function csvCell(v) {
   return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
 }
 
-// exportCSV downloads the result rows as CSV (spreadsheet / DNS-tooling friendly).
 export function exportCSV(filename, entries) {
   const rows = entries || []
   const header = COLUMNS.map(([, label]) => label).join(',')
@@ -29,7 +25,6 @@ export function exportCSV(filename, entries) {
   downloadText(filename, header + '\n' + body + '\n', 'text/csv')
 }
 
-// exportJSON downloads the result rows verbatim as pretty JSON (automation).
 export function exportJSON(filename, entries) {
   downloadText(filename, JSON.stringify(entries || [], null, 2) + '\n', 'application/json')
 }

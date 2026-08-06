@@ -1,5 +1,5 @@
 <script>
-  // Advanced-settings disclosure with bindable open state.
+
   let {
     open = $bindable(false),
     summary = '',

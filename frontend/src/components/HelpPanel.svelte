@@ -1,7 +1,6 @@
 <script>
   import { _ } from 'svelte-i18n'
 
-  /** When true, render body only (parent provides pane chrome / summary). */
   let { dense = false } = $props()
 
   const online = [

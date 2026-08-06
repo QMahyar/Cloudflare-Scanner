@@ -13,37 +13,32 @@
   import FileDrop from './ui/FileDrop.svelte'
   import ReplacerResources from './ReplacerResources.svelte'
 
-  // ─── Config type (proxy share-URLs vs WireGuard .conf) ───
   let ctype = $state('proxy')
-  // Consume cross-tab handoff: "Use" on a WARP endpoint switches to warp mode.
+
   $effect(() => {
     const c = $replacerCtype
     if (c) { ctype = c; replacerCtype.set(null) }
   })
 
-  // ═══════════════════════════ Proxy mode ═══════════════════════════
-  let method = $state('url') // url | paste
+  let method = $state('url')
   let subURL = $state('')
   let rawText = $state('')
   let fetching = $state(false)
   let parsing = $state(false)
-  let fetchStatus = $state(null) // {ok, msg}
+  let fetchStatus = $state(null)
   let parseStatus = $state(null)
 
-  // API config list is replaced wholesale; deep proxying every field is wasted work.
   let configs = $state.raw([])
   let cfgSelected = $state(new Set())
   let cfgSort = $state({ field: 'num', dir: 'asc' })
 
   let endpointsText = $state('')
-  // Default keeps the original remark and appends the edge IP so generated
-  // configs stay distinguishable in a client list.
+
   let nameTemplate = $state('{remark}-{ip}')
   let generating = $state(false)
   let genStatus = $state(null)
   let genCount = $state(0)
 
-  // Consume pushed proxy endpoints from the IP scanner.
   $effect(() => {
     const eps = $pendingProxyEndpoints
     if (eps && eps.length) {
@@ -101,10 +96,9 @@
 
   function loadConfigs(list) {
     configs = list || []
-    cfgSelected = new Set(configs.map((_, i) => i)) // all selected by default
+    cfgSelected = new Set(configs.map((_, i) => i))
   }
 
-  // Live endpoint validation (host:port, IPv4/IPv6, port range).
   function isValidEndpoint(s) {
     let host, port
     if (s[0] === '[') {
@@ -160,7 +154,6 @@
     generating = false
   }
 
-  // ─── Generated results ───
   let subscription = $state('')
   let genCountEp = $state(0)
   const generated = $derived(appState.replacerGenerated)
@@ -177,15 +170,13 @@
   }
   function downloadSub() { if (generated.length) downloadText('subscription.txt', subText()) }
 
-  // ═══════════════════════════ WireGuard mode ═══════════════════════════
   let applyEndpoint = $state('')
   let applyFiles = $state(null)
   let outputDir = $state('')
   let applying = $state(false)
-  let applyStatus = $state(null) // {ok, msg}
+  let applyStatus = $state(null)
   let applyResults = $state([])
 
-  // Consume pushed WARP endpoint from the endpoint scanner.
   $effect(() => {
     const ep = $pendingWarpEndpoint
     if (ep) { applyEndpoint = ep; pendingWarpEndpoint.set(null) }
@@ -378,7 +369,7 @@
     </div>
   {/if}
 {:else}
-  <!-- WireGuard / WARP .conf mode -->
+
   <div class="card">
     <h2>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>

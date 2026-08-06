@@ -1,17 +1,12 @@
 <script>
   import { _ } from 'svelte-i18n'
 
-  // Shared scan feedback: the status pill + live percentage + progress bar,
-  // followed by the post-scan summary chips. Purely presentational — the parent
-  // owns the scan lifecycle and passes the current snapshot. Styles live in the
-  // global app.css (.scan-pill / .scan-summary / .stat-chip), so this component
-  // needs no <style> of its own.
   let {
-    status,                 // 'idle' | 'running' | 'done' | 'cancelled'
+    status,
     progressPct = 0,
     progressText = '',
-    summary = null,         // { found, scanned, best, elapsed, rate } | null
-    runningLabel = null,    // tab-specific "Scanning..." label
+    summary = null,
+    runningLabel = null,
   } = $props()
 </script>
 

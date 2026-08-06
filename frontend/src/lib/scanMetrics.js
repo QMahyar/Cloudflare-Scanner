@@ -1,11 +1,5 @@
 import { parseLatency } from './sort.js'
 
-// computeSummary reduces a finished scan into the chips ScanProgress renders:
-// how many endpoints were found, how many were scanned, the best latency seen,
-// wall-clock elapsed (s), and throughput (/s). Pure — each scanner passes its
-// own entry list and scanned count, so the metric logic lives in one place
-// instead of being re-derived per tab. `scanned` falls back to the entry count
-// when the caller has no separate total.
 export function computeSummary(entries, scanned, scanMs) {
   const list = entries || []
   let best = Infinity

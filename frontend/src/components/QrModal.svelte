@@ -3,9 +3,6 @@
   import { qrText, closeQR } from '../lib/modal.js'
   import { makeQRDataURL } from '../lib/qr.js'
 
-  // $derived.by + async: regenerate whenever a new payload opens the overlay.
-  // Writing into $state from an $effect is avoided — the derived expression
-  // owns the async work and assigns when the promise settles.
   let dataUrl = $state('')
 
   $effect(() => {

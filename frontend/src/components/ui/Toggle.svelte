@@ -1,12 +1,11 @@
 <script>
-  // Labeled switch. Owns vertical rhythm so parents never need padding-top hacks.
-  // `align` = 'start' | 'field' — field aligns the switch with a labeled text input.
+
   let {
     checked = $bindable(false),
     label = '',
     title = '',
     ariaLabel = '',
-    align = 'start', // start | field
+    align = 'start',
     disabled = false,
   } = $props()
 </script>

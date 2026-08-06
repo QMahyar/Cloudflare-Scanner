@@ -1,21 +1,16 @@
-/* Hallmark · genre: modern-minimal · macrostructure: Workbench · designed-as-app
- * Single source of design tokens. Dark is the default (:root); light is opt-in
- * via [data-theme="light"] on <html>. All colours are OKLCH. Referenced by name
- * only — never inline raw values in component CSS.
- */
 :root {
-  /* Surfaces — warm near-black slate, four layered steps */
+
   --color-paper: oklch(14% 0.012 60);
   --color-paper-2: oklch(17.5% 0.014 60);
   --color-paper-3: oklch(22% 0.015 60);
   --color-paper-4: oklch(27% 0.016 60);
-  /* Ink — warm off-white ramp */
+
   --color-ink: oklch(95% 0.008 80);
   --color-ink-2: oklch(78% 0.012 72);
   --color-ink-3: oklch(62% 0.013 66);
   --color-rule: oklch(30% 0.014 60);
   --color-rule-strong: oklch(42% 0.018 60);
-  /* Brand — Cloudflare orange, tuned a touch richer + a brighter hover */
+
   --color-accent: oklch(72% 0.2 52);
   --color-accent-hover: oklch(79% 0.18 58);
   --color-accent-ink: oklch(17% 0.03 50);
@@ -74,10 +69,6 @@
   --z-toast: 500;
 }
 
-/* ─── Light theme ─── warm paper, dark ink, deepened accent for contrast.
-   Placed after :root so it wins on [data-theme="light"] html. The legacy
-   bg/text aliases get their light values in app.css (they're defined there,
-   so their overrides must live there to win on source order). */
 [data-theme="light"] {
   --color-paper: oklch(98.5% 0.004 85);
   --color-paper-2: oklch(96.5% 0.006 85);

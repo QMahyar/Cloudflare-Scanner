@@ -1,16 +1,9 @@
-// Svelte 5 stores
-
-// The "aggressive defaults" redesign briefly persisted sub-second probe
-// timeouts that made both scanners return empty/false-negative result sets.
-// Migrate those known-bad saved values back to the working defaults so users
-// who opened the app during that window recover without clearing storage.
 const BROKEN_TIMEOUT_MIGRATIONS = {
 	endpointTimeout: { bad: ['200'], good: '6000' },
 	cleanTimeout: { bad: ['200'], good: '3000' },
 	cleanPhase2Timeout: { bad: ['500', '200', '100'], good: '8000' },
 }
 
-/** @param {Record<string, unknown>} raw */
 export function migrateBrokenTimeouts(raw) {
 	const out = { ...raw }
 	let changed = false
@@ -65,7 +58,6 @@ export function setSetting(key, value) {
     persistSettings()
 }
 
-// ─── Result stores (cfscanner_results) ───
 const RESULTS_KEY = 'cfscanner_results'
 const MAX_PERSISTED_ROWS = 10000
 
@@ -94,7 +86,7 @@ function capRows(rows) {
 let persistTimer
 export function persistResults() {
 	if (typeof localStorage === 'undefined') return
-	// Skip mid-scan frames entirely
+
 	if (appState.endpointScanning || appState.cleanScanning) return
 	clearTimeout(persistTimer)
 	persistTimer = setTimeout(() => {

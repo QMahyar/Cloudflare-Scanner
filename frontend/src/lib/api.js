@@ -1,5 +1,3 @@
-// apiJSON — fetch wrapper that parses JSON and throws on non-2xx with the
-// server's {error} message. Faithful port of the original apiJSON().
 export function csrfToken() {
 	return (
 		document.cookie

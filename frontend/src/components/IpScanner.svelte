@@ -34,13 +34,9 @@
   import Disclosure from './ui/Disclosure.svelte'
   import FilterInput from './ui/FilterInput.svelte'
 
-  // Official published Cloudflare ranges (cloudflare.com/ips) — full lists for
-  // the "All CF v4/v6" chips. Compact RANGE_PRESETS live in scanDefaults.js.
   const CF_V4_RANGES = ['173.245.48.0/20', '103.21.244.0/22', '103.22.200.0/22', '103.31.4.0/22', '141.101.64.0/18', '108.162.192.0/18', '190.93.240.0/20', '188.114.96.0/20', '197.234.240.0/22', '198.41.128.0/17', '162.158.0.0/15', '104.16.0.0/13', '104.24.0.0/14', '172.64.0.0/13', '131.0.72.0/22']
   const CF_V6_RANGES = ['2400:cb00::/32', '2606:4700::/32', '2803:f800::/32', '2405:b500::/32', '2405:8100::/32', '2a06:98c0::/29', '2c0f:f248::/32']
 
-  // ─── Settings (persisted under the original cfscanner_settings keys) ───
-  // Defaults live in scanDefaults.js and match cleanip.go / cleanscan_handlers.go.
   let useConfig = $state(getSetting('useConfigClean', D.useConfig))
   let vlessURL = $state(getSetting('cleanVlessURL', ''))
   let source = $state(getSetting('cleanSource', D.source))
@@ -51,21 +47,17 @@
   let advOpen = $state(getSetting('cleanAdv', D.advOpen))
   let phase1Probes = $state(String(getSetting('phase1Probes', D.phase1Probes)))
   let phase2Probes = $state(String(getSetting('phase2Probes', D.phase2Probes)))
-  // Validate a few more Phase-1 hits so the best edge isn't missed on sparse pools.
+
   let phase2Count = $state(String(getSetting('cleanPhase2', D.phase2Count)))
-  // Ports list is reassigned as a whole on toggle/preset — $state.raw avoids proxy overhead.
+
   let ports = $state.raw(getSetting('cleanPorts', D.ports))
   let nearby = $state(getSetting('nearbyScan', D.nearby))
-  // Phase-1 3s / Phase-2 8s match cleanip.go. Broken sub-second values from the
-  // aggressive-defaults redesign are rewritten on load in stores.js.
+
   let timeout1 = $state(getSetting('cleanTimeout', D.timeout1))
   let timeout2 = $state(getSetting('cleanPhase2Timeout', D.timeout2))
   let stopAfter = $state(getSetting('cleanStopAfter', D.stopAfter))
   let notify = $state(getSetting('notifyClean', D.notify))
 
-  // Persist each setting in its own effect so changing one field doesn't
-  // rewrite every key — a single combined effect fired 17 settings.update calls
-  // (each cloning the settings object) per keystroke. Idempotent, but wasteful.
   $effect(() => setSetting('useConfigClean', useConfig))
   $effect(() => setSetting('cleanVlessURL', vlessURL))
   $effect(() => setSetting('cleanSource', source))
@@ -84,21 +76,17 @@
   $effect(() => setSetting('cleanStopAfter', stopAfter))
   $effect(() => setSetting('notifyClean', notify))
 
-  // ─── Results filters ───
   let coloFilter = $state('')
   let maxLatency = $state(D.maxLatency)
   let outCount = $state(D.outCount)
-  let sort = $state({ field: 'score', dir: 'desc' }) // rank by overall quality by default
-  let list = $state('direct') // direct | nearby
-  let phaseView = $state('all') // all | phase1 | phase2
+  let sort = $state({ field: 'score', dir: 'desc' })
+  let list = $state('direct')
+  let phaseView = $state('all')
   let selected = $state(new Set())
 
-  // ─── Scan state ───
   let jobId = $state(null)
-  let status = $state('idle') // idle | running | done | cancelled
+  let status = $state('idle')
 
-  // Mirror the running state into the shared store so the tab bar can show a
-  // pulse while a scan runs in the background on another tab.
   $effect(() => { appState.cleanScanning = (status === 'running') })
   let progressPct = $state(0)
   let progressText = $state('')
@@ -116,9 +104,6 @@
   const hasResults = $derived((phase1Entries.length || phase2Entries.length || data?.nearby_entries?.length || 0) > 0)
   const startDisabled = $derived(status === 'running' || (useConfig && !vlessURL.trim()) || (source === 'custom' && !customRanges.trim()))
 
-  // Colo/location filter. Prefix or word-prefix match: substring matching let a
-  // single common letter (e.g. "e") match nearly every row, which made the
-  // filter useless as a narrowing tool.
   const matchFilter = (e) => {
     const q = coloFilter.trim().toLowerCase()
     const maxLat = parseInt(maxLatency) || 0
@@ -139,8 +124,7 @@
     const validated = new Map(phase2Entries.map((e) => [e.endpoint, e]))
     return [...phase1Entries.filter((e) => !validated.has(e.endpoint)), ...phase2Entries]
   })
-  // Endpoints that passed phase-2 xray validation — used to mark phase-1-only
-  // rows in the "All" view so failed-validation hits are distinguishable.
+
   const validatedSet = $derived(new Set(phase2Entries.map((e) => e.endpoint)))
   const directPool = $derived(limitPool(phaseView === 'phase1' ? phase1Entries : phaseView === 'phase2' ? phase2Entries : allDirect))
   const nearbyPool = $derived(limitPool(data?.nearby_entries || []))
@@ -148,7 +132,6 @@
   const activePool = $derived(list === 'nearby' ? nearbyPool : directPool)
   const isPhase2 = $derived(data?.phase === 'phase2')
 
-  // Post-scan metrics for the summary strip (null until a scan finishes).
   const summary = $derived.by(() => {
     if (status !== 'done' && status !== 'cancelled') return null
     return computeSummary(data?.entries, data?.scanned || data?.phase1_total, scanMs)
@@ -164,7 +147,6 @@
     if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null }
   }
 
-  // ─── Source / ranges ───
   function appendRanges(lines) {
     const existing = new Set(customRanges.split('\n').map((s) => s.trim()).filter(Boolean))
     const fresh = lines.filter((v) => v && !existing.has(v))
@@ -190,7 +172,6 @@
     ev.currentTarget.value = ''
   }
 
-  // ─── Ports ───
   function togglePort(p, on) {
     const s = new Set(ports)
     if (on) s.add(p); else s.delete(p)
@@ -208,7 +189,6 @@
     }
   }
 
-  // ─── Scan lifecycle ───
   async function startScan() {
     const onePhase = !useConfig
     if (!onePhase && !vlessURL.trim()) { showToast($_('clean.errNoURL'), true); return }
@@ -280,15 +260,12 @@
           progressText = $_('clean.progressCancelled')
         }
         const done = d.status === 'done' || d.status === 'cancelled'
-        // Results stream off the status channel: each pushed frame (the server
-        // only sends one when something changed) triggers a throttled results
-        // fetch, replacing the old fixed-interval blind poll.
+
         scheduleFetch(id, done)
         if (done) {
           status = d.status
           scanMs = startTime ? Date.now() - startTime : 0
-          // Only celebrate real completions — a user-initiated stop must not
-          // toast / beep / desktop-notify.
+
           if (d.status === 'done' && notify) notifyDone($_('notify.title'), $_('notify.cleanBody', { values: { n: data?.entries?.length || 0 } }))
         }
       },
@@ -306,9 +283,6 @@
     } catch {}
   }
 
-  // scheduleFetch throttles result fetches to ~1 per 600ms during a scan, and
-  // forces an immediate final fetch on completion so the enriched
-  // (score/loss/QUIC/colo) terminal snapshot always lands.
   function scheduleFetch(id, force) {
     if (force) {
       if (fetchTimer) { clearTimeout(fetchTimer); fetchTimer = null }
@@ -352,12 +326,6 @@
     selected = on ? new Set(activePool.map((e) => e.endpoint)) : new Set()
   }
 
-  // ─── Result actions ───
-  // Exports always reflect what's on screen: the same filtered pool the table
-  // renders (colo/latency/out-count filters + phase/list view), matching the
-  // EndpointScanner tab's CSV/JSON behavior. Previously these used the raw
-  // phase lists, so a user filtering by colo/latency then exporting got every
-  // hit instead of the visible subset.
   function curEntries() {
     return list === 'nearby' ? nearbyPool : directPool
   }
@@ -409,9 +377,8 @@
       }))
       if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || resp.statusText) }
       const blob = await resp.blob()
-      // Derive the download name from the config protocol so trojan/vmess users
-      // don't get a misleading "vless" filename.
-      const proto = (vlessURL.trim().match(/^(vless|trojan|vmess):\/\//) || [])[1] || ''
+
+      const proto = (vlessURL.trim().match(/^(vless|trojan|vmess):\/\//)?.[1]) || ''
       const prefix = list === 'nearby' ? 'nearby_ips' : 'clean_ips'
       const filename = proto ? `${prefix}_${proto}.txt` : `${prefix}.txt`
       downloadBlob(blob, filename)
@@ -430,11 +397,6 @@
     showToast($_('clean.pushedToReplacer', { values: { n: cleaned.length } }))
   }
 
-  // Enter-to-start is a convenience for the setup inputs ONLY — never the
-  // results filters (FilterInput renders type="text" too). On this tab a stray
-  // Enter in the colo/latency/out-count filter would call startScan(), which
-  // sets appState.cleanData to null — silently wiping the current results. Match
-  // explicit setup ids instead of every text input on the workbench.
   const ENTER_START_IDS = new Set(['vlessURL', 'cleanCustomCount', 'cleanTimeout', 'cleanPhase2Timeout', 'cleanStopAfter'])
   function onKeydown(e) {
     if (e.key === 'Enter' && e.target.matches('input[type=text]') && ENTER_START_IDS.has(e.target.id) && !startDisabled) {

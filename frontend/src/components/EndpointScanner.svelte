@@ -29,26 +29,20 @@
   import FilterInput from './ui/FilterInput.svelte'
   import FileDrop from './ui/FileDrop.svelte'
 
-  // ─── Settings (persisted under the original cfscanner_settings keys) ───
-  // Defaults live in scanDefaults.js and match scanner.go / scan_handlers.go.
   let useConfig = $state(getSetting('useConfigEndpoint', D.useConfig))
   let scanDepth = $state(getSetting('scanDepth', D.scanDepth))
   let customCount = $state(getSetting('customCount', D.customCount))
   let ipVersion = $state(getSetting('ipVersion', D.ipVersion))
   let advOpen = $state(getSetting('endpointAdv', D.advOpen))
-  // Native handshake is the default: faster and doesn't spawn xray. Noise
-  // (AmneziaWG via xray) is opt-in for networks that drop plain WireGuard.
+
   let noise = $state(getSetting('noiseToggle', D.noise))
-  // 6s matches scanner.go; stores.js rewrites the broken 200ms aggressive default.
+
   let timeoutMs = $state(getSetting('endpointTimeout', D.timeoutMs))
   let concurrency = $state(getSetting('endpointConcurrency', D.concurrency))
   let attempts = $state(getSetting('endpointAttempts', D.attempts))
   let stopAfter = $state(getSetting('stopAfter', D.stopAfter))
   let notify = $state(getSetting('notifyEndpoint', D.notify))
 
-  // Persist each setting in its own effect so changing one field doesn't
-  // rewrite every key — a single combined effect fired 11 settings.update calls
-  // (each cloning the settings object) per keystroke. Idempotent, but wasteful.
   $effect(() => setSetting('useConfigEndpoint', useConfig))
   $effect(() => setSetting('scanDepth', scanDepth))
   $effect(() => setSetting('customCount', customCount))
@@ -61,28 +55,21 @@
   $effect(() => setSetting('stopAfter', stopAfter))
   $effect(() => setSetting('notifyEndpoint', notify))
 
-  // ─── File / paste ───
-  // FileList is opaque / only reassigned — no deep reactivity needed.
   let files = $state.raw(null)
   let configText = $state(getSetting('endpointConfigText', ''))
   const hasFile = $derived(!!(files && files.length))
   const fileName = $derived(hasFile ? files[0].name : '')
   const hasConfig = $derived(hasFile || !!configText.trim())
 
-  // Persist paste box (side effect to localStorage — not a pure derived).
   $effect(() => { setSetting('endpointConfigText', configText) })
 
-  // ─── Results filters ───
   let outCount = $state(D.outCount)
   let maxLatency = $state(D.maxLatency)
-  let sort = $state({ field: 'score', dir: 'desc' }) // rank by overall quality by default
+  let sort = $state({ field: 'score', dir: 'desc' })
 
-  // ─── Scan state ───
   let jobId = $state(null)
-  let status = $state('idle') // idle | running | done | cancelled
+  let status = $state('idle')
 
-  // Mirror the running state into the shared store so the tab bar can show a
-  // pulse while a scan runs in the background on another tab.
   $effect(() => { endpointScanning.set(status === 'running') })
   let progressPct = $state(0)
   let progressText = $state('')
@@ -94,8 +81,8 @@
   let lastFetch = 0
   let fetchTimer = null
   let selected = $state(new Set())
-  // $state.raw: fail snapshot is always reassigned wholesale from the API.
-  let failInfo = $state.raw(null) // { reasons, examples, scanned }
+
+  let failInfo = $state.raw(null)
 
   const scanDesc = $derived(useConfig ? $_('endpoint.descFull') : $_('endpoint.descTCP'))
   const startDisabled = $derived(status === 'running' || (useConfig && !hasConfig))
@@ -116,7 +103,6 @@
     return p
   })
 
-  // Post-scan metrics for the summary strip (null until a scan finishes).
   const summary = $derived.by(() => {
     if (status !== 'done' && status !== 'cancelled') return null
     return computeSummary(appState.endpointRaw, total, scanMs)
@@ -136,9 +122,7 @@
     liveCountN = 0
     selected = new Set()
     failInfo = null
-    // Drop stale results from a previous scan immediately. The old behaviour
-    // kept them on screen until the new scan's first non-empty frame arrived,
-    // which misled mid-run (e.g. a new IPv6 scan still showing IPv4 endpoints).
+
     appState.endpointRaw = []
 
     let count = parseInt(scanDepth)
@@ -155,7 +139,7 @@
       stop_after: parseInt(stopAfter) || 0,
     }
     const fd = new FormData()
-    // File upload wins when both are set; otherwise send the pasted INI / wg:// URI.
+
     if (useConfig && hasFile) fd.append('config', files[0])
     else if (useConfig && configText.trim()) fd.append('config_text', configText.trim())
     fd.append('params', JSON.stringify(params))
@@ -186,8 +170,7 @@
         if (data.status === 'done' || data.status === 'cancelled') {
           finishScan(id, data.status)
         } else {
-          // Live results stream off the status channel (throttled) instead of a
-          // fixed-interval blind poll — a frame only arrives when something changed.
+
           scheduleFetch(id)
         }
       },
@@ -216,8 +199,7 @@
     clearTimers()
     status = st
     await fetchResults(id)
-    // Only celebrate real completions — a user-initiated stop must not toast /
-    // beep / desktop-notify.
+
     if (st === 'done' && notify) notifyDone($_('notify.title'), $_('notify.endpointBody', { values: { n: (appState.endpointRaw || []).length } }))
   }
 
@@ -301,11 +283,6 @@
     showToast($_('apply.pushed', { values: { ep } }))
   }
 
-  // Enter-to-start is a convenience for the setup inputs ONLY. The results
-  // filters (FilterInput renders type="text" too) must never start a scan —
-  // they apply live on every keystroke and a stray Enter would kick off a
-  // brand-new scan. Match explicit setup ids instead of every text input on
-  // the workbench.
   const ENTER_START_IDS = new Set(['customCount', 'endpointTimeout', 'stopAfter'])
   function onKeydown(e) {
     if (e.key === 'Enter' && e.target.matches('input[type=text]') && ENTER_START_IDS.has(e.target.id) && !startDisabled) {

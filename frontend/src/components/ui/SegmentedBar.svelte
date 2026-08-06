@@ -1,8 +1,7 @@
 <script>
-  // Segmented control: mutually exclusive option buttons (source/depth/port/list).
-  // Caller supplies already-translated labels; i18n stays outside this primitive.
+
   let {
-    options = [], // { value, label, title? }[]
+    options = [],
     value = $bindable(),
     class: className = '',
     onchange = undefined,

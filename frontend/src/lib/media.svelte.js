@@ -1,4 +1,3 @@
-// lib/media.svelte.js
 export function createMediaQuery(query) {
   let matches = $state(false);
 

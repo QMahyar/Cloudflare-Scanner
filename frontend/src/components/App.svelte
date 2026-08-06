@@ -14,7 +14,6 @@
 
   initResults()
 
-  // Svelte 5 reactive effect for persistence
   $effect(() => {
     if (appState.endpointRaw || appState.cleanData || appState.endpointScanning === false || appState.cleanScanning === false) {
       persistResults()
@@ -29,13 +28,11 @@
 
   import { createMediaQuery } from '../lib/media.svelte.js'
 
-  // Local-host indicator: the page is served from the scanner's own
-  // 127.0.0.1:<port> listener, so window.location.host is the real address.
   const host = typeof window !== 'undefined' ? window.location.host : ''
   let version = $state('')
   const isDesktop = createMediaQuery('(min-width: 60rem)')
   const tabOrientation = $derived(isDesktop.matches ? 'vertical' : 'horizontal')
-  // Constant — not reactive.
+
   const tabOrder = ['endpoint', 'clean', 'replacer', 'about']
 
   onMount(async () => {

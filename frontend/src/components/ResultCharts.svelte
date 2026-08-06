@@ -2,9 +2,6 @@
   import { _ } from 'svelte-i18n'
   import { parseLatency } from '../lib/sort.js'
 
-  // Pure-SVG result visualizations — no chart dependency, styled with the global
-  // design tokens. Shared by both scanner tabs. Renders nothing until there are
-  // results. `showColo` lets the WARP tab hide the colo chart it has no data for.
   let { entries = [], showColo = true } = $props()
 
   const LAT_BUCKETS = [
@@ -45,8 +42,6 @@
     return top.map((x) => ({ ...x, pct: x.n / max }))
   })
 
-  // Quality mix: how the result set splits into good / ok / poor by score.
-  // Thresholds match scoreClass (75/50) so the chart legend and table colors agree.
   const quality = $derived.by(() => {
     let good = 0, ok = 0, poor = 0, scored = 0
     for (const e of entries) {
@@ -115,7 +110,7 @@
 {/if}
 
 <style>
-  /* Hallmark · component: result charts · genre: modern-minimal · theme: design.md */
+
   .charts {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
@@ -141,7 +136,7 @@
     color: var(--color-ink-2);
     margin-bottom: var(--space-xs);
   }
-  /* Latency histogram */
+
   .hist { display: flex; align-items: flex-end; gap: 4px; height: 92px; }
   .hist-col { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; }
   .hist-bar-wrap { width: 100%; height: 64px; display: flex; align-items: flex-end; }
@@ -154,7 +149,7 @@
   }
   .hist-n { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--color-ink-2); font-variant-numeric: tabular-nums; height: 14px; }
   .hist-x { font-family: var(--font-mono); font-size: 0.625rem; color: var(--color-ink-3); white-space: nowrap; }
-  /* Quality mix bar */
+
   .qbar { display: flex; height: 16px; border-radius: var(--radius-pill); overflow: hidden; background: var(--color-paper-4); }
   .qseg { height: 100%; }
   .q-good { background: var(--color-success); }
@@ -163,7 +158,7 @@
   .qlegend { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); font-size: 0.6875rem; color: var(--color-ink-2); }
   .qlegend span { display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
   .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  /* Colo distribution */
+
   .colo-rows { display: flex; flex-direction: column; gap: 5px; }
   .colo-row { display: grid; grid-template-columns: 34px 1fr 22px; align-items: center; gap: 6px; }
   .colo-name { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 700; color: var(--color-accent-hover); }

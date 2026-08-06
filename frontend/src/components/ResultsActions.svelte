@@ -2,10 +2,6 @@
   import { _ } from 'svelte-i18n'
   import { copyWithPorts, setCopyMode } from '../lib/copymode.js'
 
-  // Shared results action bar — unifies the copy/download/export/select buttons
-  // that were duplicated across the Endpoint and IP scanner tabs. Tab-specific
-  // buttons (Export Configs, Push to Replacer) are passed in via the `extra`
-  // snippet so the common controls live in exactly one place.
   let {
     onCopyAll,
     onDownload,

@@ -1,7 +1,5 @@
 import { showToast } from "./toast.js";
 
-// Shared AudioContext — browsers cap concurrent instances (Chrome: 6). Lazily
-// created on first beep so it's never allocated on pages that don't use audio.
 let _ac = null;
 function getAC() {
 	if (_ac && _ac.state !== "closed") return _ac;
@@ -11,7 +9,6 @@ function getAC() {
 	return _ac;
 }
 
-// Short two-tone beep via WebAudio, matching the original completion chime.
 function beep() {
 	try {
 		const ac = getAC();
@@ -32,8 +29,6 @@ function beep() {
 	} catch {}
 }
 
-// notifyDone: in-page toast (always) + desktop notification (best-effort, asks
-// permission lazily) + beep.
 export function notifyDone(title, body) {
 	showToast(body);
 	beep();
@@ -53,7 +48,6 @@ export function notifyDone(title, body) {
 	} catch {}
 }
 
-// " · 320/s · ~12s left" — live throughput + ETA. tEta formats the ETA string.
 export function scanRateText(progress, total, startMs, tEta) {
 	if (!startMs || progress <= 0) return "";
 	const elapsed = (Date.now() - startMs) / 1000;

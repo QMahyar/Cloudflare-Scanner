@@ -1,11 +1,8 @@
 <script>
   import { _ } from 'svelte-i18n'
 
-  /** When true, render body only (parent provides pane chrome / summary). */
   let { dense = false } = $props()
 
-  // Curated Cloudflare Worker / edge-tunnel projects for building configs the
-  // Replacer then rewires onto clean IPs. Static links only — no network.
   const projects = [
     {
       url: 'https://github.com/bia-pain-bache/BPB-Worker-Panel',

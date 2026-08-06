@@ -6,9 +6,6 @@
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
 
-  // Receiving addresses. The TRON address also receives USDT-TRC20 (recommended);
-  // the EVM address is the same across all EVM chains; TON receives native USDT.
-  // Constants — not reactive.
   const DONATE = {
     trx: 'TD2QrQFpW9QkUzhhH6X8QQEg12uH8wcQGg',
     ton: 'UQCOVixrzJdJ1pGus4zY7oTRpXs8D8mFv-8L6r0kYP5AQi68',
@@ -25,10 +22,9 @@
   let version = $state('—')
   let repoURL = $state('https://github.com/')
   let checking = $state(false)
-  // $state.raw: status object is always replaced wholesale, never mutated.
-  let updateStatus = $state.raw(null) // {ok, msg, url?, isUpdate}
 
-  // One-shot fetch on mount — not an effect that re-runs on state reads.
+  let updateStatus = $state.raw(null)
+
   onMount(() => {
     apiJSON('/api/version').then((d) => {
       if (d.version) version = 'v' + d.version.replace(/^v/i, '')

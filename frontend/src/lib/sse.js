@@ -1,6 +1,3 @@
-// Subscribe to status with SSE and fall back to bounded polling. EventSource's
-// built-in retry is deliberately avoided: an expired job otherwise reconnects
-// forever after the server's TTL removes it.
 export function subscribeStatus(sseUrl, pollUrl, {
   onStatus,
   isDone,

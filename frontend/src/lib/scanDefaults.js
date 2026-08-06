@@ -1,8 +1,3 @@
-// Single source of truth for scanner presets and default field values.
-// Keep these aligned with backend defaults in cleanip.go / scanner.go /
-// cleanscan_handlers.go / scan_handlers.go (and the i18n "default N" strings).
-
-/** @type {{ v: string, k: string }[]} */
 export const SCAN_DEPTHS = [
 	{ v: '100', k: 'settings.depth.quick' },
 	{ v: '500', k: 'settings.depth.normal' },
@@ -12,11 +7,9 @@ export const SCAN_DEPTHS = [
 	{ v: '0', k: 'settings.depth.custom' },
 ]
 
-// Official Cloudflare CDN ports (cloudflare.com/ips + support docs).
 export const HTTPS_PORTS = [443, 8443, 2053, 2083, 2087, 2096]
 export const HTTP_PORTS = [80, 8080, 8880, 2052, 2082, 2086, 2095]
 
-// Common high-density CF ranges for the custom-range chips (not the full pool).
 export const RANGE_PRESETS = [
 	'104.16.0.0/13',
 	'104.24.0.0/14',
@@ -27,11 +20,6 @@ export const RANGE_PRESETS = [
 	'2606:4700::/32',
 ]
 
-// ─── Endpoint Scanner (WARP) ───────────────────────────────────────────────
-// Native handshake default path: concurrency 256 (or modest UI preset), timeout
-// 6s (scanner.go). Noise mode still uses DefaultConcurrency when concurrency is
-// left at 0 (auto). Sub-second timeouts false-negative both native retransmits
-// and the xray noise path (SOCKS + 204 through WireGuard).
 export const ENDPOINT_DEFAULTS = {
 	useConfig: true,
 	scanDepth: '500',
@@ -48,7 +36,6 @@ export const ENDPOINT_DEFAULTS = {
 	maxLatency: '0',
 }
 
-/** Concurrent workers: 0 = auto. Noise path is process-heavy; keep options modest. */
 export const ENDPOINT_CONCURRENCY_OPTIONS = [
 	{ v: '0', label: 'Auto' },
 	{ v: '25', label: '25' },
@@ -59,13 +46,8 @@ export const ENDPOINT_CONCURRENCY_OPTIONS = [
 	{ v: '1024', label: '1024' },
 ]
 
-/** Per-endpoint handshake attempts (server clamps 1–5). */
 export const ENDPOINT_ATTEMPTS_OPTIONS = ['1', '2', '3']
 
-// ─── IP Scanner (clean Cloudflare IPs) ─────────────────────────────────────
-// Moderate P1 concurrency, validate all P1 winners (phase2Count 0). Timeouts
-// match cleanip.go: 3s Phase-1 dial, 8s Phase-2 xray validation. Advanced
-// fields remain editable.
 export const CLEAN_DEFAULTS = {
 	useConfig: true,
 	source: 'pool',
@@ -74,10 +56,10 @@ export const CLEAN_DEFAULTS = {
 	customCount: '',
 	ipVersion: '4',
 	advOpen: false,
-	// 0 = server chooses (NumCPU-aware, lower on Windows).
+
 	phase1Probes: '100',
 	phase2Probes: '10',
-	// 0 = validate every Phase-1 success (backend treats 0 as unlimited).
+
 	phase2Count: '0',
 	ports: [443],
 	nearby: false,
@@ -89,7 +71,6 @@ export const CLEAN_DEFAULTS = {
 	maxLatency: '0',
 }
 
-/** Phase-1 TCP concurrency. 0 = auto (server-side). */
 export const PHASE1_PROBES_OPTIONS = [
 	{ v: '0', label: 'Auto' },
 	{ v: '100', label: '100' },
@@ -99,10 +80,6 @@ export const PHASE1_PROBES_OPTIONS = [
 	{ v: '2000', label: '2000' },
 ]
 
-/**
- * Phase-2 concurrent endpoint slots. Mapped to batches of 16, so 16 = one xray
- * process, 32 = two, etc.
- */
 export const PHASE2_PROBES_OPTIONS = [
 	{ v: '8', label: '8' },
 	{ v: '10', label: '10' },
@@ -113,5 +90,4 @@ export const PHASE2_PROBES_OPTIONS = [
 	{ v: '128', label: '128' },
 ]
 
-/** How many Phase-1 winners to validate through xray. 0 = all. */
 export const PHASE2_COUNT_OPTIONS = ['0', '10', '20', '30', '50', '100']
