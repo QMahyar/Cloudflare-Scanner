@@ -30,9 +30,9 @@
   --color-warning-soft: oklch(80% 0.15 88 / 0.14);
   --color-danger-soft: oklch(69% 0.2 25 / 0.14);
 
-  --font-display: "Bahnschrift", "Aptos Display", "Segoe UI Variable Display", ui-sans-serif, sans-serif;
-  --font-body: "Aptos", "Segoe UI Variable Text", "Noto Sans", ui-sans-serif, sans-serif;
-  --font-mono: "Cascadia Mono", "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
+  --font-display: "Geist", "Inter", "Aptos Display", "Segoe UI Variable Display", ui-sans-serif, sans-serif;
+  --font-body: "Geist", "Inter", "Aptos", "Segoe UI Variable Text", "Noto Sans", ui-sans-serif, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Cascadia Mono", "SFMono-Regular", ui-monospace, monospace;
   --font-fa: Tahoma, "Noto Sans Arabic", sans-serif;
 
   --space-3xs: 0.125rem;

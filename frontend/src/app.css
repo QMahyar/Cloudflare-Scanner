@@ -1420,6 +1420,19 @@ body[dir="rtl"] .toggle input:checked + .slider::before {
 	margin-inline: calc(var(--space-md) * -1);
 	padding-inline: var(--space-md);
 	scrollbar-color: var(--color-rule-strong) transparent;
+	position: relative;
+	z-index: 1;
+}
+
+body::before {
+	content: '';
+	position: fixed;
+	top: 0; left: 0; right: 0; bottom: 0;
+	background-image: radial-gradient(var(--color-rule-strong) 1px, transparent 1px);
+	background-size: 24px 24px;
+	pointer-events: none;
+	opacity: 0.15;
+	z-index: 0;
 }
 
 .results-table-wrap.virtual-scroll {
@@ -1557,6 +1570,10 @@ body[dir="rtl"] .toggle input:checked + .slider::before {
 	font: inherit;
 	line-height: inherit;
 	text-align: left;
+	transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.results-table td .tag-btn:active {
+	transform: scale(0.96);
 }
 
 .results-table td .tag-btn:focus-visible {

@@ -4,7 +4,7 @@
   import { toggleLanguage } from '../lib/i18n.js'
   import { theme, toggleTheme } from '../lib/theme.js'
   import { apiJSON } from '../lib/api.js'
-  import { activeTab, endpointRaw, cleanData, replacerGenerated, loadResults, beginResultsPersistence, endpointScanning, cleanScanning } from '../lib/stores.js'
+  import { appState, initResults, persistResults } from '../lib/stores.svelte.js'
   import EndpointScanner from './EndpointScanner.svelte'
   import IpScanner from './IpScanner.svelte'
   import Replacer from './Replacer.svelte'
@@ -12,39 +12,34 @@
   import Toast from './Toast.svelte'
   import QrModal from './QrModal.svelte'
 
-  // Restore persisted results once, then begin auto-persisting changes.
-  const saved = loadResults()
-  if (saved) {
-    if (Array.isArray(saved.endpointRaw) && saved.endpointRaw.length) endpointRaw.set(saved.endpointRaw)
-    if (saved.cleanData) cleanData.set(saved.cleanData)
-  }
-  beginResultsPersistence()
+  initResults()
 
-  const epBadge = $derived($endpointRaw?.length || 0)
-  const cleanBadge = $derived($cleanData?.entries?.length || 0)
-  const repBadge = $derived($replacerGenerated?.length || 0)
-  const pageTitle = $derived($_(`tab.${$activeTab}`))
-  const pageDescription = $derived($_(`page.${$activeTab}Desc`))
+  // Svelte 5 reactive effect for persistence
+  $effect(() => {
+    if (appState.endpointRaw || appState.cleanData || appState.endpointScanning === false || appState.cleanScanning === false) {
+      persistResults()
+    }
+  })
+
+  const epBadge = $derived(appState.endpointRaw?.length || 0)
+  const cleanBadge = $derived(appState.cleanData?.entries?.length || 0)
+  const repBadge = $derived(appState.replacerGenerated?.length || 0)
+  const pageTitle = $derived($_(`tab.${appState.activeTab}`))
+  const pageDescription = $derived($_(`page.${appState.activeTab}Desc`))
+
+  import { createMediaQuery } from '../lib/media.svelte.js'
 
   // Local-host indicator: the page is served from the scanner's own
   // 127.0.0.1:<port> listener, so window.location.host is the real address.
   const host = typeof window !== 'undefined' ? window.location.host : ''
   let version = $state('')
-  let tabOrientation = $state('horizontal')
+  const isDesktop = createMediaQuery('(min-width: 60rem)')
+  const tabOrientation = $derived(isDesktop.matches ? 'vertical' : 'horizontal')
   // Constant — not reactive.
   const tabOrder = ['endpoint', 'clean', 'replacer', 'about']
 
   onMount(async () => {
     try { const v = await apiJSON('/api/version'); version = v?.version || '' } catch {}
-  })
-  // MatchMedia is an external event source; onMount + addEventListener is the
-  // right home (not $effect). MediaQuery / createSubscriber would also work.
-  onMount(() => {
-    const media = window.matchMedia('(min-width: 60rem)')
-    const updateOrientation = () => { tabOrientation = media.matches ? 'vertical' : 'horizontal' }
-    updateOrientation()
-    media.addEventListener('change', updateOrientation)
-    return () => media.removeEventListener('change', updateOrientation)
   })
 
   function handleTabKeydown(event, current) {
@@ -82,19 +77,19 @@
 
       <div class="sidebar-label">{$_('nav.tools')}</div>
       <div class="tab-bar" role="tablist" aria-label="Scanner tabs" aria-orientation={tabOrientation}>
-      <button id="tab-endpoint" class={['tab', { active: $activeTab === 'endpoint' }]} role="tab" aria-selected={$activeTab === 'endpoint'} aria-controls="endpointTab" tabindex={$activeTab === 'endpoint' ? 0 : -1} onclick={() => activeTab.set('endpoint')} onkeydown={(event) => handleTabKeydown(event, 'endpoint')}>
+      <button id="tab-endpoint" class={['tab', { active: appState.activeTab === 'endpoint' }]} role="tab" aria-selected={appState.activeTab === 'endpoint'} aria-controls="endpointTab" tabindex={appState.activeTab === 'endpoint' ? 0 : -1} onclick={() => appState.activeTab = 'endpoint'} onkeydown={(event) => handleTabKeydown(event, 'endpoint')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        <span class="tab-label tab-label-full">{$_('tab.endpoint')}</span><span class="tab-label tab-label-short">{$_('tab.endpointShort')}</span>{#if $endpointScanning}<span class="tab-scan-dot" title={$_('scan.scanning')}></span>{/if}<span class={['tab-badge', { show: epBadge > 0 }]}>{epBadge || ''}</span>
+        <span class="tab-label tab-label-full">{$_('tab.endpoint')}</span><span class="tab-label tab-label-short">{$_('tab.endpointShort')}</span>{#if appState.endpointScanning}<span class="tab-scan-dot" title={$_('scan.scanning')}></span>{/if}<span class={['tab-badge', { show: epBadge > 0 }]}>{epBadge || ''}</span>
       </button>
-      <button id="tab-clean" class={['tab', { active: $activeTab === 'clean' }]} role="tab" aria-selected={$activeTab === 'clean'} aria-controls="cleanTab" tabindex={$activeTab === 'clean' ? 0 : -1} onclick={() => activeTab.set('clean')} onkeydown={(event) => handleTabKeydown(event, 'clean')}>
+      <button id="tab-clean" class={['tab', { active: appState.activeTab === 'clean' }]} role="tab" aria-selected={appState.activeTab === 'clean'} aria-controls="cleanTab" tabindex={appState.activeTab === 'clean' ? 0 : -1} onclick={() => appState.activeTab = 'clean'} onkeydown={(event) => handleTabKeydown(event, 'clean')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-        <span class="tab-label tab-label-full">{$_('tab.clean')}</span><span class="tab-label tab-label-short">{$_('tab.cleanShort')}</span>{#if $cleanScanning}<span class="tab-scan-dot" title={$_('scan.scanning')}></span>{/if}<span class={['tab-badge', { show: cleanBadge > 0 }]}>{cleanBadge || ''}</span>
+        <span class="tab-label tab-label-full">{$_('tab.clean')}</span><span class="tab-label tab-label-short">{$_('tab.cleanShort')}</span>{#if appState.cleanScanning}<span class="tab-scan-dot" title={$_('scan.scanning')}></span>{/if}<span class={['tab-badge', { show: cleanBadge > 0 }]}>{cleanBadge || ''}</span>
       </button>
-      <button id="tab-replacer" class={['tab', { active: $activeTab === 'replacer' }]} role="tab" aria-selected={$activeTab === 'replacer'} aria-controls="replacerTab" tabindex={$activeTab === 'replacer' ? 0 : -1} onclick={() => activeTab.set('replacer')} onkeydown={(event) => handleTabKeydown(event, 'replacer')}>
+      <button id="tab-replacer" class={['tab', { active: appState.activeTab === 'replacer' }]} role="tab" aria-selected={appState.activeTab === 'replacer'} aria-controls="replacerTab" tabindex={appState.activeTab === 'replacer' ? 0 : -1} onclick={() => appState.activeTab = 'replacer'} onkeydown={(event) => handleTabKeydown(event, 'replacer')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
         <span class="tab-label tab-label-full">{$_('tab.replacer')}</span><span class="tab-label tab-label-short">{$_('tab.replacerShort')}</span><span class={['tab-badge', { show: repBadge > 0 }]}>{repBadge || ''}</span>
       </button>
-      <button id="tab-about" class={['tab', { active: $activeTab === 'about' }]} role="tab" aria-selected={$activeTab === 'about'} aria-controls="aboutTab" tabindex={$activeTab === 'about' ? 0 : -1} onclick={() => activeTab.set('about')} onkeydown={(event) => handleTabKeydown(event, 'about')}>
+      <button id="tab-about" class={['tab', { active: appState.activeTab === 'about' }]} role="tab" aria-selected={appState.activeTab === 'about'} aria-controls="aboutTab" tabindex={appState.activeTab === 'about' ? 0 : -1} onclick={() => appState.activeTab = 'about'} onkeydown={(event) => handleTabKeydown(event, 'about')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
         <span class="tab-label tab-label-full">{$_('tab.about')}</span><span class="tab-label tab-label-short">{$_('tab.aboutShort')}</span>
       </button>
@@ -130,10 +125,10 @@
       </div>
     </header>
 
-    <div id="endpointTab" class={['workspace-panel', { hidden: $activeTab !== 'endpoint' }]} role="tabpanel" aria-labelledby="tab-endpoint"><EndpointScanner /></div>
-    <div id="cleanTab" class={['workspace-panel', { hidden: $activeTab !== 'clean' }]} role="tabpanel" aria-labelledby="tab-clean"><IpScanner /></div>
-    <div id="replacerTab" class={['workspace-panel', { hidden: $activeTab !== 'replacer' }]} role="tabpanel" aria-labelledby="tab-replacer"><Replacer /></div>
-    <div id="aboutTab" class={['workspace-panel', { hidden: $activeTab !== 'about' }]} role="tabpanel" aria-labelledby="tab-about"><About /></div>
+    <div id="endpointTab" class={['workspace-panel', { hidden: appState.activeTab !== 'endpoint' }]} role="tabpanel" aria-labelledby="tab-endpoint"><EndpointScanner /></div>
+    <div id="cleanTab" class={['workspace-panel', { hidden: appState.activeTab !== 'clean' }]} role="tabpanel" aria-labelledby="tab-clean"><IpScanner /></div>
+    <div id="replacerTab" class={['workspace-panel', { hidden: appState.activeTab !== 'replacer' }]} role="tabpanel" aria-labelledby="tab-replacer"><Replacer /></div>
+    <div id="aboutTab" class={['workspace-panel', { hidden: appState.activeTab !== 'about' }]} role="tabpanel" aria-labelledby="tab-about"><About /></div>
 
   </main>
 </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { migrateBrokenTimeouts } from './stores.js'
+import { migrateBrokenTimeouts } from './stores.svelte.js'
 
 describe('migrateBrokenTimeouts', () => {
 	it('rewrites the aggressive-defaults timeout values that broke scans', () => {

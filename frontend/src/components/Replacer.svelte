@@ -6,7 +6,7 @@
   import { activateKey } from '../lib/a11y.js'
   import { showToast } from '../lib/toast.js'
   import { showQR } from '../lib/modal.js'
-  import { replacerGenerated } from '../lib/stores.js'
+  import { appState } from '../lib/stores.svelte.js'
   import { pendingWarpEndpoint, pendingProxyEndpoints, replacerCtype } from '../lib/handoff.js'
   import VirtualTable from './VirtualTable.svelte'
   import SegmentedBar from './ui/SegmentedBar.svelte'
@@ -149,7 +149,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ configs: selected, endpoints, name_template: nameTemplate.trim() }),
       })
-      replacerGenerated.set(data.urls || [])
+      appState.replacerGenerated = data.urls || []
       subscription = data.subscription || ''
       genCount = selected.length
       genCountEp = endpoints.length
@@ -163,7 +163,7 @@
   // ─── Generated results ───
   let subscription = $state('')
   let genCountEp = $state(0)
-  const generated = $derived($replacerGenerated)
+  const generated = $derived(appState.replacerGenerated)
 
   function subText() {
     return subscription || btoa(unescape(encodeURIComponent(generated.join('\n'))))

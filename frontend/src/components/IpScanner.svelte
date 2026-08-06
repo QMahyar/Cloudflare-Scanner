@@ -12,7 +12,7 @@
   import { notifyDone, scanRateText } from '../lib/notify.js'
   import { subscribeStatus } from '../lib/sse.js'
   import { mergeCleanResults } from '../lib/results.js'
-  import { cleanData, activeTab, getSetting, setSetting, cleanScanning } from '../lib/stores.js'
+  import { appState, getSetting, setSetting } from '../lib/stores.svelte.js'
   import {
     SCAN_DEPTHS,
     HTTPS_PORTS,
@@ -99,7 +99,7 @@
 
   // Mirror the running state into the shared store so the tab bar can show a
   // pulse while a scan runs in the background on another tab.
-  $effect(() => { cleanScanning.set(status === 'running') })
+  $effect(() => { appState.cleanScanning = (status === 'running') })
   let progressPct = $state(0)
   let progressText = $state('')
   let startTime = 0
@@ -109,7 +109,7 @@
   let fetchTimer = null
   let rangesFileName = $state('')
 
-  const data = $derived($cleanData)
+  const data = $derived(appState.cleanData)
   const phase1Entries = $derived(data?.phase1_entries || (data?.phase === 'phase1' ? data?.entries : []))
   const phase2Entries = $derived(data?.phase2_entries || (data?.phase === 'phase2' ? data?.entries : []))
   const scanDesc = $derived(useConfig ? $_('clean.descTwoPhase') : $_('clean.descOnePhase'))
@@ -222,7 +222,7 @@
     list = 'direct'
     phaseView = 'all'
     lastFetch = 0
-    cleanData.set(null)
+    appState.cleanData = null
 
     let depth = parseInt(scanDepth)
     if (scanDepth === '0') { depth = parseInt(customCount) || 500; if (depth < 1) depth = 500 }
@@ -299,7 +299,7 @@
   async function fetchResultsNow(id) {
     try {
       const d = await apiJSON('/api/clean-results/' + id)
-      cleanData.update((previous) => mergeCleanResults(previous, d))
+      appState.cleanData = mergeCleanResults(appState.cleanData, d)
       if (d.status === 'done' || d.status === 'cancelled') {
         status = d.status
       }
@@ -337,7 +337,7 @@
     selected = new Set()
     list = 'direct'
     phaseView = 'all'
-    cleanData.set(null)
+    appState.cleanData = null
   }
 
   function onSort(field) { sort = toggleSort(sort, field) }
@@ -426,14 +426,14 @@
     if (!cleaned.length) { showToast($_('clean.errNoSelection')); return }
     pendingProxyEndpoints.set(cleaned)
     replacerCtype.set('proxy')
-    activeTab.set('replacer')
+    appState.activeTab = 'replacer'
     showToast($_('clean.pushedToReplacer', { values: { n: cleaned.length } }))
   }
 
   // Enter-to-start is a convenience for the setup inputs ONLY — never the
   // results filters (FilterInput renders type="text" too). On this tab a stray
   // Enter in the colo/latency/out-count filter would call startScan(), which
-  // sets cleanData to null — silently wiping the current results. Match
+  // sets appState.cleanData to null — silently wiping the current results. Match
   // explicit setup ids instead of every text input on the workbench.
   const ENTER_START_IDS = new Set(['vlessURL', 'cleanCustomCount', 'cleanTimeout', 'cleanPhase2Timeout', 'cleanStopAfter'])
   function onKeydown(e) {
