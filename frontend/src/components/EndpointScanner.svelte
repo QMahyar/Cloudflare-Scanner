@@ -46,19 +46,20 @@
   let stopAfter = $state(getSetting('stopAfter', D.stopAfter))
   let notify = $state(getSetting('notifyEndpoint', D.notify))
 
-  $effect(() => {
-    setSetting('useConfigEndpoint', useConfig)
-    setSetting('scanDepth', scanDepth)
-    setSetting('customCount', customCount)
-    setSetting('ipVersion', ipVersion)
-    setSetting('endpointAdv', advOpen)
-    setSetting('noiseToggle', noise)
-    setSetting('endpointTimeout', timeoutMs)
-    setSetting('endpointConcurrency', concurrency)
-    setSetting('endpointAttempts', attempts)
-    setSetting('stopAfter', stopAfter)
-    setSetting('notifyEndpoint', notify)
-  })
+  // Persist each setting in its own effect so changing one field doesn't
+  // rewrite every key — a single combined effect fired 11 settings.update calls
+  // (each cloning the settings object) per keystroke. Idempotent, but wasteful.
+  $effect(() => setSetting('useConfigEndpoint', useConfig))
+  $effect(() => setSetting('scanDepth', scanDepth))
+  $effect(() => setSetting('customCount', customCount))
+  $effect(() => setSetting('ipVersion', ipVersion))
+  $effect(() => setSetting('endpointAdv', advOpen))
+  $effect(() => setSetting('noiseToggle', noise))
+  $effect(() => setSetting('endpointTimeout', timeoutMs))
+  $effect(() => setSetting('endpointConcurrency', concurrency))
+  $effect(() => setSetting('endpointAttempts', attempts))
+  $effect(() => setSetting('stopAfter', stopAfter))
+  $effect(() => setSetting('notifyEndpoint', notify))
 
   // ─── File / paste ───
   // FileList is opaque / only reassigned — no deep reactivity needed.
@@ -135,6 +136,10 @@
     liveCountN = 0
     selected = new Set()
     failInfo = null
+    // Drop stale results from a previous scan immediately. The old behaviour
+    // kept them on screen until the new scan's first non-empty frame arrived,
+    // which misled mid-run (e.g. a new IPv6 scan still showing IPv4 endpoints).
+    endpointRaw.set([])
 
     let count = parseInt(scanDepth)
     if (scanDepth === '0') { count = parseInt(customCount) || 100; if (count < 1) count = 100 }
@@ -211,7 +216,9 @@
     clearTimers()
     status = st
     await fetchResults(id)
-    if (notify) notifyDone($_('notify.title'), $_('notify.endpointBody', { values: { n: ($endpointRaw || []).length } }))
+    // Only celebrate real completions — a user-initiated stop must not toast /
+    // beep / desktop-notify.
+    if (st === 'done' && notify) notifyDone($_('notify.title'), $_('notify.endpointBody', { values: { n: ($endpointRaw || []).length } }))
   }
 
   async function fetchResults(id) {
@@ -294,8 +301,14 @@
     showToast($_('apply.pushed', { values: { ep } }))
   }
 
+  // Enter-to-start is a convenience for the setup inputs ONLY. The results
+  // filters (FilterInput renders type="text" too) must never start a scan —
+  // they apply live on every keystroke and a stray Enter would kick off a
+  // brand-new scan. Match explicit setup ids instead of every text input on
+  // the workbench.
+  const ENTER_START_IDS = new Set(['customCount', 'endpointTimeout', 'stopAfter'])
   function onKeydown(e) {
-    if (e.key === 'Enter' && e.target.matches('input[type=text]') && !startDisabled) {
+    if (e.key === 'Enter' && e.target.matches('input[type=text]') && ENTER_START_IDS.has(e.target.id) && !startDisabled) {
       e.preventDefault(); startScan()
     } else if (e.key === 'Escape' && status === 'running') {
       e.preventDefault(); stopScan()
@@ -374,7 +387,7 @@
           </div>
           {#if scanDepth === '0'}
             <div class="status-slot">
-              <input type="text" bind:value={customCount} placeholder={$_('settings.customPlaceholder')} title={$_('settings.customTitle')} inputmode="numeric" />
+              <input id="customCount" type="text" bind:value={customCount} placeholder={$_('settings.customPlaceholder')} title={$_('settings.customTitle')} inputmode="numeric" />
             </div>
           {/if}
           <label for="ipVersion" title={$_('settings.ipTitle')}>{$_('settings.ipVersion')}</label>
@@ -387,6 +400,9 @@
             <div class="row">
               <div class="col">
                 <Toggle bind:checked={noise} label={$_('settings.noise')} title={$_('settings.noiseTitle')} ariaLabel={$_('settings.noise')} />
+                {#if noise && !useConfig}
+                  <p class="hint-warn noise-hint">{$_('settings.noiseNeedsConfig')}</p>
+                {/if}
               </div>
               <div class="col">
                 <label for="endpointAttempts" title={$_('settings.attemptsTitle')}>{$_('settings.attemptsLabel')}</label>

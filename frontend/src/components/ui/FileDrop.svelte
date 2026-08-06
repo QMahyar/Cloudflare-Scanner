@@ -23,6 +23,10 @@
   function handleChange(e) {
     files = e.currentTarget.files
     onchange?.(e)
+    // Reset the input value so picking the SAME file again still fires change
+    // (browsers skip change when the input still holds the previous selection).
+    // `files` above already captured the FileList, so clearing is safe.
+    e.currentTarget.value = ''
   }
 </script>
 

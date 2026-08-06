@@ -75,6 +75,12 @@ export const cleanData = writable(null)
 export const replacerGenerated = writable([])
 
 const RESULTS_KEY = 'cfscanner_results'
+// localStorage quota is ~5MB. Persist at most this many rows per list so huge
+// scans can't blow the quota (the write is caught, so persistence would just
+// silently stop working). The full set stays in memory; only the restored
+// snapshot is capped.
+const MAX_PERSISTED_ROWS = 10000
+
 export function loadResults() {
 	try {
 		return JSON.parse(localStorage.getItem(RESULTS_KEY) || 'null')
@@ -82,16 +88,42 @@ export function loadResults() {
 		return null
 	}
 }
+
+function capRows(rows) {
+	return Array.isArray(rows) && rows.length > MAX_PERSISTED_ROWS ? rows.slice(0, MAX_PERSISTED_ROWS) : rows
+}
+
+let persistTimer
 function persistResults() {
-	try {
-		localStorage.setItem(
-			RESULTS_KEY,
-			JSON.stringify({
-				endpointRaw: get(endpointRaw) || [],
-				cleanData: get(cleanData) || null,
-			}),
-		)
-	} catch {}
+	// Skip mid-scan frames entirely: results churn every ~600ms while a scan
+	// runs, so writing on every change re-stringifies the whole set (jank) and
+	// can exceed the quota mid-scan. The scanning-flag subscriptions below
+	// persist the settled snapshot once the scan finishes.
+	if (get(endpointScanning) || get(cleanScanning)) return
+	clearTimeout(persistTimer)
+	persistTimer = setTimeout(() => {
+		// Re-check: the write may have been scheduled right as a scan started.
+		if (get(endpointScanning) || get(cleanScanning)) return
+		try {
+			const cd = get(cleanData)
+			const clean = cd
+				? {
+					...cd,
+					entries: capRows(cd.entries),
+					phase1_entries: capRows(cd.phase1_entries),
+					phase2_entries: capRows(cd.phase2_entries),
+					nearby_entries: capRows(cd.nearby_entries),
+				}
+				: null
+			localStorage.setItem(
+				RESULTS_KEY,
+				JSON.stringify({
+					endpointRaw: capRows(get(endpointRaw) || []),
+					cleanData: clean,
+				}),
+			)
+		} catch {}
+	}, 400)
 }
 let persisting = false
 export function beginResultsPersistence() {
@@ -99,6 +131,10 @@ export function beginResultsPersistence() {
 	persisting = true
 	endpointRaw.subscribe(persistResults)
 	cleanData.subscribe(persistResults)
+	// Persist the settled results once a running scan completes (the scanner
+	// components flip these flags off in an $effect when status leaves 'running').
+	endpointScanning.subscribe((running) => { if (!running) persistResults() })
+	cleanScanning.subscribe((running) => { if (!running) persistResults() })
 }
 
 // ─── Live scan-running indicators ───

@@ -63,25 +63,26 @@
   let stopAfter = $state(getSetting('cleanStopAfter', D.stopAfter))
   let notify = $state(getSetting('notifyClean', D.notify))
 
-  $effect(() => {
-    setSetting('useConfigClean', useConfig)
-    setSetting('cleanVlessURL', vlessURL)
-    setSetting('cleanSource', source)
-    setSetting('cleanCustomRanges', customRanges)
-    setSetting('cleanDepth', scanDepth)
-    setSetting('cleanCustomCount', customCount)
-    setSetting('cleanIPVersion', ipVersion)
-    setSetting('cleanAdv', advOpen)
-    setSetting('phase1Probes', phase1Probes)
-    setSetting('phase2Probes', phase2Probes)
-    setSetting('cleanPhase2', phase2Count)
-    setSetting('cleanPorts', ports)
-    setSetting('nearbyScan', nearby)
-    setSetting('cleanTimeout', timeout1)
-    setSetting('cleanPhase2Timeout', timeout2)
-    setSetting('cleanStopAfter', stopAfter)
-    setSetting('notifyClean', notify)
-  })
+  // Persist each setting in its own effect so changing one field doesn't
+  // rewrite every key — a single combined effect fired 17 settings.update calls
+  // (each cloning the settings object) per keystroke. Idempotent, but wasteful.
+  $effect(() => setSetting('useConfigClean', useConfig))
+  $effect(() => setSetting('cleanVlessURL', vlessURL))
+  $effect(() => setSetting('cleanSource', source))
+  $effect(() => setSetting('cleanCustomRanges', customRanges))
+  $effect(() => setSetting('cleanDepth', scanDepth))
+  $effect(() => setSetting('cleanCustomCount', customCount))
+  $effect(() => setSetting('cleanIPVersion', ipVersion))
+  $effect(() => setSetting('cleanAdv', advOpen))
+  $effect(() => setSetting('phase1Probes', phase1Probes))
+  $effect(() => setSetting('phase2Probes', phase2Probes))
+  $effect(() => setSetting('cleanPhase2', phase2Count))
+  $effect(() => setSetting('cleanPorts', ports))
+  $effect(() => setSetting('nearbyScan', nearby))
+  $effect(() => setSetting('cleanTimeout', timeout1))
+  $effect(() => setSetting('cleanPhase2Timeout', timeout2))
+  $effect(() => setSetting('cleanStopAfter', stopAfter))
+  $effect(() => setSetting('notifyClean', notify))
 
   // ─── Results filters ───
   let coloFilter = $state('')
@@ -115,11 +116,17 @@
   const hasResults = $derived((phase1Entries.length || phase2Entries.length || data?.nearby_entries?.length || 0) > 0)
   const startDisabled = $derived(status === 'running' || (useConfig && !vlessURL.trim()) || (source === 'custom' && !customRanges.trim()))
 
+  // Colo/location filter. Prefix or word-prefix match: substring matching let a
+  // single common letter (e.g. "e") match nearly every row, which made the
+  // filter useless as a narrowing tool.
   const matchFilter = (e) => {
     const q = coloFilter.trim().toLowerCase()
     const maxLat = parseInt(maxLatency) || 0
-    return (!q || ((e.colo || '') + ' ' + (e.loc || '')).toLowerCase().includes(q)) &&
-      (!maxLat || parseLatency(e.latency) <= maxLat)
+    const colo = (e.colo || '').toLowerCase()
+    const loc = (e.loc || '').toLowerCase()
+    const locWords = loc.split(/[\s,]+/).filter(Boolean)
+    const matchesColo = !q || colo.startsWith(q) || loc.startsWith(q) || locWords.some((w) => w.startsWith(q))
+    return matchesColo && (!maxLat || parseLatency(e.latency) <= maxLat)
   }
 
   function limitPool(entries) {
@@ -132,6 +139,9 @@
     const validated = new Map(phase2Entries.map((e) => [e.endpoint, e]))
     return [...phase1Entries.filter((e) => !validated.has(e.endpoint)), ...phase2Entries]
   })
+  // Endpoints that passed phase-2 xray validation — used to mark phase-1-only
+  // rows in the "All" view so failed-validation hits are distinguishable.
+  const validatedSet = $derived(new Set(phase2Entries.map((e) => e.endpoint)))
   const directPool = $derived(limitPool(phaseView === 'phase1' ? phase1Entries : phaseView === 'phase2' ? phase2Entries : allDirect))
   const nearbyPool = $derived(limitPool(data?.nearby_entries || []))
   const nearbyAll = $derived(data?.nearby_entries || [])
@@ -277,7 +287,9 @@
         if (done) {
           status = d.status
           scanMs = startTime ? Date.now() - startTime : 0
-          if (notify) notifyDone($_('notify.title'), $_('notify.cleanBody', { values: { n: data?.entries?.length || 0 } }))
+          // Only celebrate real completions — a user-initiated stop must not
+          // toast / beep / desktop-notify.
+          if (d.status === 'done' && notify) notifyDone($_('notify.title'), $_('notify.cleanBody', { values: { n: data?.entries?.length || 0 } }))
         }
       },
       isDone: (d) => d.status === 'done' || d.status === 'cancelled',
@@ -341,15 +353,16 @@
   }
 
   // ─── Result actions ───
+  // Exports always reflect what's on screen: the same filtered pool the table
+  // renders (colo/latency/out-count filters + phase/list view), matching the
+  // EndpointScanner tab's CSV/JSON behavior. Previously these used the raw
+  // phase lists, so a user filtering by colo/latency then exporting got every
+  // hit instead of the visible subset.
   function curEntries() {
-    if (list === 'nearby') return data?.nearby_entries || []
-    return phaseView === 'phase1' ? phase1Entries : phaseView === 'phase2' ? phase2Entries : allDirect
+    return list === 'nearby' ? nearbyPool : directPool
   }
-  async function copyAll() {
-    let entries = curEntries()
-    if (list === 'direct' && jobId) {
-      try { entries = (await apiJSON('/api/clean-results/' + jobId)).entries || entries } catch {}
-    }
+  function copyAll() {
+    const entries = curEntries()
     copyToClipboard(formatEps(entries.map((r) => r.endpoint)))
     showToast($_('copied.clipboard'))
   }
@@ -417,8 +430,14 @@
     showToast($_('clean.pushedToReplacer', { values: { n: cleaned.length } }))
   }
 
+  // Enter-to-start is a convenience for the setup inputs ONLY — never the
+  // results filters (FilterInput renders type="text" too). On this tab a stray
+  // Enter in the colo/latency/out-count filter would call startScan(), which
+  // sets cleanData to null — silently wiping the current results. Match
+  // explicit setup ids instead of every text input on the workbench.
+  const ENTER_START_IDS = new Set(['vlessURL', 'cleanCustomCount', 'cleanTimeout', 'cleanPhase2Timeout', 'cleanStopAfter'])
   function onKeydown(e) {
-    if (e.key === 'Enter' && e.target.matches('input[type=text]') && !startDisabled) {
+    if (e.key === 'Enter' && e.target.matches('input[type=text]') && ENTER_START_IDS.has(e.target.id) && !startDisabled) {
       e.preventDefault(); startScan()
     }
   }
@@ -441,7 +460,7 @@
   <tr data-index={i} {@attach measure}>
     <td class="num">{i + 1}</td>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} {@attach activateKey(() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) })} title={$_('results.tableEndpoint')}>{e.endpoint}</span></td>
+    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} {@attach activateKey(() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) })} title={$_('results.tableEndpoint')}>{e.endpoint}</span>{#if list === 'direct' && phaseView === 'all' && isPhase2 && !validatedSet.has(e.endpoint)}<span class="phase1-only-badge" title={$_('clean.unvalidatedTitle')}>{$_('clean.unvalidated')}</span>{/if}</td>
     <td class="lat-cell {scoreClass(e.score)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{scoreBar(e.score)}%"></span></span><span class="lat-val">{e.score || '—'}</span></td>
     <td class="lat-cell {latClass(e.latency)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{latBar(e.latency)}%"></span></span><span class="lat-val">{e.latency}</span></td>
     <td class="lat-cell {e.score ? lossClass(e.loss) : ''}"><span class="lat-val">{e.score ? fmtLoss(e.loss) : '—'}</span></td>
@@ -516,7 +535,7 @@
           </div>
           {#if scanDepth === '0'}
             <div class="status-slot">
-              <input type="text" bind:value={customCount} placeholder={$_('settings.customPlaceholder')} inputmode="numeric" />
+              <input id="cleanCustomCount" type="text" bind:value={customCount} placeholder={$_('settings.customPlaceholder')} inputmode="numeric" />
             </div>
           {/if}
         </div>
@@ -705,7 +724,7 @@
       {:else if status === 'done' || status === 'cancelled'}
         <div class="empty-state">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></svg>
-          <p>{$_('clean.noResults')}{#if data?.scanned > 0 && data?.phase2_failures > 0} ({data.scanned} {$_('clean.testedAllFailed')}){/if}</p>
+          <p>{$_('clean.noResults')}{#if data?.scanned > 0} ({data.scanned} {$_('clean.testedAllFailed')}){/if}</p>
         </div>
         {#if failReasons.length > 0}
           <div class="fail-panel">
