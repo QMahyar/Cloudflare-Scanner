@@ -459,8 +459,7 @@
 {#snippet row(e, i, measure)}
   <tr data-index={i} {@attach measure}>
     <td class="num">{i + 1}</td>
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <td><span class="tag" role="button" tabindex="0" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} {@attach activateKey(() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) })} title={$_('results.tableEndpoint')}>{e.endpoint}</span>{#if list === 'direct' && phaseView === 'all' && isPhase2 && !validatedSet.has(e.endpoint)}<span class="phase1-only-badge" title={$_('clean.unvalidatedTitle')}>{$_('clean.unvalidated')}</span>{/if}</td>
+    <td><button type="button" class="tag tag-btn" onclick={() => { copyToClipboard(e.endpoint); showToast($_('copied.clipboard')) }} title={$_('results.tableEndpoint')}>{e.endpoint}</button>{#if list === 'direct' && phaseView === 'all' && isPhase2 && !validatedSet.has(e.endpoint)}<span class="phase1-only-badge" title={$_('clean.unvalidatedTitle')}>{$_('clean.unvalidated')}</span>{/if}</td>
     <td class="lat-cell {scoreClass(e.score)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{scoreBar(e.score)}%"></span></span><span class="lat-val">{e.score || '—'}</span></td>
     <td class="lat-cell {latClass(e.latency)}"><span class="lat-meter"><span class="lat-meter-fill" style="width:{latBar(e.latency)}%"></span></span><span class="lat-val">{e.latency}</span></td>
     <td class="lat-cell {e.score ? lossClass(e.loss) : ''}"><span class="lat-val">{e.score ? fmtLoss(e.loss) : '—'}</span></td>
@@ -473,8 +472,7 @@
   </tr>
 {/snippet}
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="workbench" onkeydown={onKeydown}>
+<div class="workbench" role="toolbar" tabindex="-1" aria-label={$_('clean.setupHeader')} onkeydown={onKeydown}>
   <div class="workbench-main clean-main">
     <div class="card card-setup">
       <h2>
@@ -528,11 +526,13 @@
       <div class="setup-grid setup-split">
         <div class="setup-block">
           <p class="setup-block-title">{$_('settings.scanDepth')}</p>
-          <div class="preset-bar">
-            {#each SCAN_DEPTHS as d (d.v)}
-              <button type="button" class={['preset-btn', { active: scanDepth === d.v }]} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
-            {/each}
-          </div>
+          <fieldset class="preset-fieldset">
+            <div class="preset-bar">
+              {#each SCAN_DEPTHS as d (d.v)}
+                <button type="button" class={['preset-btn', { active: scanDepth === d.v }]} onclick={() => (scanDepth = d.v)}>{$_(d.k)}</button>
+              {/each}
+            </div>
+          </fieldset>
           {#if scanDepth === '0'}
             <div class="status-slot">
               <input id="cleanCustomCount" type="text" bind:value={customCount} placeholder={$_('settings.customPlaceholder')} inputmode="numeric" />

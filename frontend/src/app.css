@@ -1542,10 +1542,32 @@ body[dir="rtl"] .toggle input:checked + .slider::before {
 		color var(--dur-micro) var(--ease-out);
 }
 
-.results-table td .tag:hover {
+.results-table td .tag:hover,
+.results-table td .tag-btn:hover {
 	background: var(--color-accent-soft);
 	border-color: var(--color-accent);
 	color: var(--color-accent-hover);
+}
+
+.results-table td .tag-btn {
+	appearance: none;
+	border: var(--rule-thin) solid var(--color-rule);
+	background: var(--color-paper-3);
+	color: var(--color-ink);
+	font: inherit;
+	line-height: inherit;
+	text-align: left;
+}
+
+.results-table td .tag-btn:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 1px;
+}
+
+.preset-fieldset {
+	border: none;
+	padding: 0;
+	margin: 0;
 }
 
 .results-table td.num {
@@ -2098,6 +2120,7 @@ body[dir="rtl"] .toggle input:checked + .slider::before {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	min-width: 0;
 }
 
 .link-tile-name::after {

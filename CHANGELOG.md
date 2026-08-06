@@ -10,6 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Help / resources side panes no longer render as empty titles only — content is always visible (removed broken closed-`<details>` pane pattern).
 - WARP config paste: `wg://` / `wireguard://` query decoding keeps base64 `+` intact (`PathUnescape`) and rejects placeholder keys.
+- **Accessibility**: Endpoint and IP Scanner result-row endpoint tags changed from `<span role="button">` to proper `<button>` elements, eliminating suppressed a11y warnings and providing native keyboard/focus behavior.
+- **Accessibility**: Scan depth preset buttons wrapped in `<fieldset>` + `<legend>` for proper label-control association.
+- **Accessibility**: Workbench keyboard shortcut container (`onkeydown` for Enter-to-start / Escape-to-stop) uses `role="toolbar"` with `tabindex="-1"` instead of a bare `<div>`, satisfying Svelte a11y checks.
+- Link tile names in the resource/help pane no longer break character-by-character — reverted to ellipsis truncation with overflow hidden.
 
 ### Changed
 - Scanner defaults are more aggressive: Endpoint 200ms / 25 concurrency / 1 attempt; Clean Phase-1 100 probes, Phase-2 10 slots, 200ms/500ms timeouts, Phase-2 count **All**.
